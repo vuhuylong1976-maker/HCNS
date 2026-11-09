@@ -1,0 +1,7 @@
+# TAPACO Nhân sự – URL máy chủ (Ứng dụng web Google Apps Script)
+# Dán URL vào MỘT dòng riêng phía dưới (không có dấu # ở đầu), lưu tệp, rồi đưa lên cùng thư mục với index.html.
+# Lấy URL: Apps Script -> Triển khai -> Quản lý bản triển khai -> URL ứng dụng web (đuôi /exec).
+# Đổi máy chủ: sửa URL ở đây và đưa tệp lên lại - mọi máy tự nhận khi mở app, yêu cầu đăng nhập lại.
+# Ví dụ: https://script.google.com/macros/s/AKfycb..../exec
+
+https://script.google.com/macros/s/AKfycbxbwTNHi6zTq1OpEKH6sCLBaGGwboLNwvSbk5G7aq7MqP-j7NJkyzFfsTPCUS9fh44ddA/exec
