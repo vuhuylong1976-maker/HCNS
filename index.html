@@ -1194,6 +1194,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
         <div class="dd" id="dd">
           <a onclick="reloadData()">Tải lại dữ liệu</a>
           <a onclick="chCaiDatTB()">Cài đặt thông báo</a>
+          <a onclick="caiAppDT()">📱 Cài app điện thoại</a>
           <a onclick="openChangePw(false)">Đổi mật khẩu</a>
           <a onclick="openServerCfg(event)">Cấu hình máy chủ</a>
           <a onclick="logout()">Đăng xuất</a>
@@ -1220,7 +1221,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.42';
+  var VERSION = '3.43';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1629,7 +1630,8 @@ var HRCORE = (function () {
     mocLuat: null,                    // null = MOC_LUAT_MD
     luat109Tu2026: false,             // true: kỳ 01–06/2026 áp biểu 5 bậc & miễn thuế toàn bộ tiền làm thêm giờ (Luật 109/2025 Điều 29.2, NĐ 253/2026: "áp dụng từ kỳ tính thuế năm 2026")
     ngayNghiTuan: 'cn',
-    mauPhieu: null, mauBangLuong: null,   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
+    mauPhieu: null, mauBangLuong: null,
+    linkAPK: '',   // v3.43: link tải app Android (.apk) do Quản trị dán (Drive / web công ty)   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
     cheDoBangLuong: 'gop',            // v3.32: 'gop' – 1 bảng lương gồm cả tiền làm thêm giờ; 'tach' – 2 bảng độc lập: lương theo công thời gian / lương tăng ca, thêm giờ
     anCaMienTheoCong: true, anCaMienChia: 22, anCaMienCT: '',   // v3.39: anCaMienCT = công thức mở (trống = theo 2 khóa cũ)
       // v3.32: ăn ca miễn thuế = MIN(mức tối đa, ngày công thực tế × mức tối đa ÷ 22)
@@ -4880,7 +4882,7 @@ var HRCORE = (function () {
         var nvBP = bpQL ? T('NhanVien').filter(function (n) { return n.phongBan === bpQL && n.trangThai !== 'Đã nghỉ việc'; }).map(function (n) { return n.maNV; }) : [];
         var kyDuyet = T('KyLuong').filter(function (k) { return k.trangThai === 'Đã duyệt'; }).map(function (k) { return k.ky; });
         return {
-          cfg: pick(cfg, ['mauPhieu', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
+          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
           nv: T('NhanVien').filter(function (r) { return r.maNV === me; }),
           qt: T('QuaTrinh').filter(function (r) { return r.maNV === me; }),
           ll: T('LenLuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
@@ -10519,7 +10521,7 @@ function setupPWA() {
     const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(mf)); document.head.appendChild(l);
   }
   const a = document.createElement('link'); a.rel = 'apple-touch-icon'; a.href = icon; document.head.appendChild(a);
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => { });
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.TapacoApp) navigator.serviceWorker.register('./sw.js').catch(() => { });
 }
 
 /* ---------------- SHA-256 đồng bộ cho bản dùng thử ---------------- */
@@ -12306,7 +12308,7 @@ function bcXuatUQ(nam) {
   APP.D.nv.forEach(n => { const ctx = thueCtx(nam), uq = C.evaluateTaxAuthorizationEligibility(n, ctx), ck = C.ttThue(n, nam + '-12').cach === 'khautru10' ? C.evaluateTaxCommitmentEligibility(n, ctx) : null, g = l => (hstDs().find(r => r.maNV === n.maNV && r.loai === l && r.nam === nam) || {}).trangThai || '';
     aoa.push([n.maNV, n.hoTen, n.mst || '', TH_NGAN[C.truongHopNV(n)] || '', uq.ten, g('uyquyen'), uq.ds.filter(d => d.ok !== true).map(d => d.ten + ': ' + d.ghi).join(' | '), ck ? ck.ten : '', ck ? g('camket') : '']); });
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 9 }, { wch: 24 }, { wch: 13 }, { wch: 14 }, { wch: 30 }, { wch: 18 }, { wch: 70 }, { wch: 30 }, { wch: 18 }];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'UyQuyen' + nam); XLSX.writeFile(wb, 'UyQuyen_CamKet_TNCN_' + nam + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'UyQuyen' + nam); xlGhi(wb, 'UyQuyen_CamKet_TNCN_' + nam + '.xlsx');
 }
 function bcBieuMau() {
   const c = cfg(), sua = can('config') || can('duyetThue'), bms = C.bieuMauDs(c), qds = C.quyDinhDs(c);
@@ -12524,7 +12526,7 @@ function ttkXuat() {
   const hdM = {}; hdkDs().forEach(h => hdM[h.id] = h);
   const aoa = [['BẢNG THANH TOÁN TIỀN KHOÁN VÀ KHẤU TRỪ THUẾ TNCN – ' + (cfg().congTy || '')], ['Mã', 'Họ tên', 'MST', 'Công trình', 'Hạng mục', 'Đội/tổ', 'Số HĐ', 'Loại', 'Đợt', 'Loại đợt', 'Tháng KL', 'Ngày trả', 'Giá trị NT', 'TN bổ sung', 'Giảm trừ HĐ', 'Tạm ứng', 'Thu hồi TU', 'Phải trả (gross)', 'TN chịu thuế', 'Thuế suất %', 'Thuế', 'Khấu trừ khác', 'Thực nhận', 'Chế độ thuế', 'Trạng thái', 'Công thức']];
   ttkDs().filter(x => hdM[x.hdId] && ttkLoc(x)).forEach(x => { const h = hdM[x.hdId], n = nvKhoan(x.maNV); aoa.push([x.maNV, n.hoTen, n.mst || '', x.congTrinh || '', h.hangMuc || '', h.doiTo || '', h.soHD, h.loaiK, x.dot, LOAI_TT[x.loai], x.kyKL || '', x.ngayTra, num(x.giaTriNT), num(x.thuNhapBS), num(x.giamTruHD), num(x.tamUng), num(x.thuHoiTU), num(x.tienPhaiTra), num(x.tnChiuThue), num(x.thueSuat), num(x.thue), num(x.khauTruKhac), num(x.thucTra), C.CHE_DO_K[x.cheDoThue] || '', x.trangThai, x.congThuc || '']); });
-  const ws = XLSX.utils.aoa_to_sheet(aoa), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ThanhToanKhoan'); XLSX.writeFile(wb, 'ThanhToanKhoan_' + todayS() + '.xlsx');
+  const ws = XLSX.utils.aoa_to_sheet(aoa), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ThanhToanKhoan'); xlGhi(wb, 'ThanhToanKhoan_' + todayS() + '.xlsx');
 }
 /* biểu mẫu khoán BM-01, 02, 04, 05, 06, 07 */
 function bmKhoanHTML(loai, id, nam) {
@@ -12762,7 +12764,7 @@ function khoXuat(htId) {
   const wb = XLSX.utils.book_new(), w1 = XLSX.utils.aoa_to_sheet(a1), w2 = XLSX.utils.aoa_to_sheet(a2);
   w1['!cols'] = [{ wch: 15 }, { wch: 11 }, { wch: 6 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 26 }, { wch: 14 }, { wch: 7 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 7 }, { wch: 18 }, { wch: 14 }]; w2['!cols'] = [{ wch: 28 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
   XLSX.utils.book_append_sheet(wb, w1, 'ChiTietPhieu'); XLSX.utils.book_append_sheet(wb, w2, 'TongHopVatTu');
-  XLSX.writeFile(wb, 'NhapXuatKho_' + String(h.ten || 'nhom').replace(/[^\p{L}\p{N}]+/gu, '_').slice(0, 40) + '_' + (KHO.ky || todayS()) + '.xlsx');
+  xlGhi(wb, 'NhapXuatKho_' + String(h.ten || 'nhom').replace(/[^\p{L}\p{N}]+/gu, '_').slice(0, 40) + '_' + (KHO.ky || todayS()) + '.xlsx');
 }
 async function khoLb(pk, i) {     // xem ảnh của phiếu (trước / sau)
   const p = KHO.xem && KHO.xem.id === pk ? KHO.xem : await run(() => api('chat.khoxem', { id: pk }, { quiet: true })); if (!p || !p.anh.length) return; KHO.xem = p;
@@ -13053,13 +13055,13 @@ function exportNV() {
   const ws = XLSX.utils.aoa_to_sheet([cols.map(c => c[1]), ...rows]);
   ws['!cols'] = cols.map(() => ({ wch: 18 }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'HoSoCBCNV');
-  XLSX.writeFile(wb, 'TAPACO_HoSo_CBCNV_' + todayS() + '.xlsx');
+  xlGhi(wb, 'TAPACO_HoSo_CBCNV_' + todayS() + '.xlsx');
 }
 function nvTemplate() {
   const cols = nvXlsCols();
   const ws = XLSX.utils.aoa_to_sheet([cols.map(c => c[1])]); ws['!cols'] = cols.map(() => ({ wch: 18 }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'HoSoCBCNV');
-  XLSX.writeFile(wb, 'Mau_nhap_ho_so_CBCNV.xlsx');
+  xlGhi(wb, 'Mau_nhap_ho_so_CBCNV.xlsx');
 }
 function normH(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function xlDate(v) {
@@ -13237,7 +13239,7 @@ async function viewTL(id) {
   if (_tlUrl) URL.revokeObjectURL(_tlUrl);
   _tlUrl = URL.createObjectURL(new Blob([u8], { type: r.mime }));
   const body = /^image\//.test(r.mime) && !/hei[cf]/.test(r.mime) ? `<img src="${_tlUrl}" alt="${esc(r.name)}" style="max-width:100%;display:block;margin:0 auto;border:1px solid var(--line)">`
-    : /pdf/.test(r.mime) ? `<iframe src="${_tlUrl}" title="${esc(r.name)}" style="width:100%;height:70vh;border:1px solid var(--line)"></iframe>`
+    : /pdf/.test(r.mime) ? pdfKhung(_tlUrl, r.name, 70)
     : `<div class="empty">Định dạng này không xem trực tiếp được. Bấm "Tải về" để mở bằng ứng dụng trên máy.</div>`;
   modal((d ? (d.ten || d.loai) + ' – ' + nvName(d.maNV) : r.name), body, { size: 'lg', foot: `<span class="muted small" style="margin-right:auto">${esc(r.name)}</span><a class="btn" href="${_tlUrl}" download="${esc(r.name)}">Tải về</a><button class="btn pri" onclick="closeModal()">Đóng</button>` });
 }
@@ -13309,6 +13311,48 @@ function timPhim(e, sel, ip) {
 }
 try { new MutationObserver(() => { if (!TIM.hen) TIM.hen = requestAnimationFrame(() => { TIM.hen = 0; timNVNang(); }); }).observe(document.documentElement, { childList: true, subtree: true }); } catch (e) { }
 addEventListener('scroll', e => { if (TIM.mo && !(e.target && e.target.id === 'timDs')) timDong(); }, true);
+/* v3.43: CHẠY TRONG APP ANDROID (vỏ WebView, window.TapacoApp): tải tệp → Download/TAPACO; in / PDF → hộp thoại in Android */
+if (window.TapacoApp) {
+  document.documentElement.classList.add('app-android');
+  const clickGoc = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { if (this.download && /^(blob:|data:)/.test(this.href || '')) { appLuuTep(this.href, this.download); return; } return clickGoc.call(this); };
+  document.addEventListener('click', e => { const a = e.target && e.target.closest && e.target.closest('a[download]'); if (a && /^(blob:|data:)/.test(a.href || '')) { e.preventDefault(); appLuuTep(a.href, a.download); } }, true);
+  window.print = () => { try { TapacoApp.inAn(document.title || 'TAPACO'); } catch (e) { } };
+}
+function pdfKhung(url, ten, h) {         // v3.43: app Android không hiện PDF trong khung → mở bằng app đọc PDF của điện thoại
+  if (window.TapacoApp) return `<div class="note" style="text-align:center;padding:24px">📄 ${esc(ten || 'Tệp PDF')}<br><button class="btn pri" style="margin-top:10px" onclick="appLuuTep('${url}', '${esc(String(ten || 'tep.pdf').replace(/'/g, ''))}')">Mở PDF trên điện thoại</button><div class="small muted" style="margin-top:6px">Tệp được lưu vào Download/TAPACO rồi mở bằng app đọc PDF.</div></div>`;
+  return `<iframe src="${url}" title="${esc(ten)}" style="width:100%;height:${h}vh;border:1px solid var(--line)"></iframe>`;
+}
+function xlGhi(wb, ten, o) {            // v3.43: ghi Excel — trong app Android lưu qua cầu nối
+  if (window.TapacoApp) { const b64 = XLSX.write(wb, Object.assign({ bookType: 'xlsx', type: 'base64' }, o || {})); const kq = String(TapacoApp.luuTep(ten, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', b64)); if (/^LOI/.test(kq)) throw new Error(kq.slice(5)); return; }
+  return XLSX.writeFile(wb, ten, o);
+}
+async function appLuuTep(href, ten) {
+  try {
+    const b = await (await fetch(href)).blob();
+    const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = no; r.readAsDataURL(b); });
+    const kq = String(TapacoApp.luuTep(String(ten || 'tep').replace(/[\\/:*?"<>|]+/g, '_'), b.type || 'application/octet-stream', b64));
+    if (/^LOI/.test(kq)) toast('Không lưu được tệp trên điện thoại: ' + kq.slice(5), 'err'); else toast('Đã lưu vào ' + kq, 'ok');
+  } catch (e) { toast('Không lưu được tệp: ' + e.message, 'err'); }
+}
+function caiAppDT() {
+  const c = cfg(), link = String(c.linkAPK || '').trim(), laApp = !!window.TapacoApp, ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  modal('📱 Cài app điện thoại', `${laApp ? `<div class="note" style="margin-bottom:10px">Bạn đang dùng app Android, phiên bản ${esc(TapacoApp.phienBan ? TapacoApp.phienBan() : '')}.${link ? ' Khi Công ty phát hành bản mới, tải và cài đè (dữ liệu, đăng nhập giữ nguyên).' : ''}</div>` : ''}
+    <div class="sec">Android – cài tệp .apk</div>
+    ${link ? `<p style="margin-top:0"><a class="btn pri" href="${esc(link)}" target="_blank" rel="noopener">Tải app Android</a></p>` : '<p class="muted" style="margin-top:0">Công ty chưa đăng link tải app. Hỏi Tổ chức – Hành chính để nhận tệp TAPACO-NhanSu-x.xx.apk (qua Zalo / Drive).</p>'}
+    <ol class="small" style="padding-left:18px;line-height:1.6;margin:0 0 10px">
+      <li>Mở tệp <b>.apk</b> vừa tải (thanh thông báo hoặc thư mục Tải xuống).</li>
+      <li>Nếu máy hỏi, bấm <b>Cài đặt</b> → cho phép "Cài ứng dụng không rõ nguồn gốc" với Chrome / Zalo / Files (chỉ lần đầu).</li>
+      <li>Nếu Play Protect cảnh báo "ứng dụng chưa được kiểm tra", bấm <b>Thêm chi tiết → Vẫn cài đặt</b> (app nội bộ Công ty, không phát hành trên CH Play).</li>
+      <li>Mở app <b>TAPACO Nhân sự</b>, đăng nhập như trên web; cho phép <b>Vị trí</b> và <b>Máy ảnh</b> để chấm công.</li>
+    </ol>
+    <div class="sec">iPhone / iPad</div>
+    <ol class="small" style="padding-left:18px;line-height:1.6;margin:0">
+      <li>Mở link app bằng <b>Safari</b>.</li>
+      <li>Bấm nút <b>Chia sẻ</b> (ô vuông có mũi tên) → <b>Thêm vào MH chính</b> → Thêm.</li>
+      <li>Mở biểu tượng TAPACO trên màn hình chính; app chạy toàn màn hình, nhận thông báo đẩy (iOS 16.4+).</li>
+    </ol>${ios ? '<p class="small muted">Apple không cho cài tệp .apk; trên iPhone dùng cách "Thêm vào MH chính".</p>' : ''}`, { foot: '<button class="btn" onclick="closeModal()">Đóng</button>' });
+}
 function nvOptions() { return APP.D.nv.slice().sort((a, b) => a.maNV < b.maNV ? -1 : 1).map(n => [n.maNV, n.maNV + ' – ' + n.hoTen + (n.trangThai === 'Đã nghỉ việc' ? ' (đã nghỉ)' : '')]); }
 function openQTForm(ma, id) {
   const r = id ? APP.D.qt.find(x => x.id === id) : { maNV: ma || '', tuNgay: todayS() };
@@ -13471,7 +13515,7 @@ function mhTemplate() {
   ws['!cols'] = cols.map((c, i) => ({ wch: i === 1 ? 26 : 16 }));
   const ks = mhKhoan(), cur = XLSX.utils.aoa_to_sheet([['Mã NV', 'Họ tên', ...ks.map(x => x[1])], ...nvs.map(n => { const m = mhHienTai(n.maNV); return [n.maNV, n.hoTen, ...ks.map(([k]) => mhGet(m, k) || '')]; })]);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'KhaiBao'); XLSX.utils.book_append_sheet(wb, cur, 'MucDangHuong');
-  XLSX.writeFile(wb, 'Mau_khai_bao_muc_huong.xlsx');
+  xlGhi(wb, 'Mau_khai_bao_muc_huong.xlsx');
 }
 async function mhImport(inp) {
   const f = inp.files[0]; if (!f) return; inp.value = '';
@@ -13830,7 +13874,7 @@ function ccTemplate() {
   const aoa = [['Mã NV', 'Họ tên', ...G.map(c => c[1])], ...nvs.map(n => [n.maNV, n.hoTen, ...G.map(([k]) => !cc[n.maNV] ? '' : k.startsWith('bv:') ? bvGet(cc[n.maNV], k) : cc[n.maNV][k])])];
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = aoa[0].map((_, i) => ({ wch: i === 1 ? 26 : 14 }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ChamCong_' + APP.ky);
-  XLSX.writeFile(wb, 'ChamCong_' + APP.ky + '.xlsx');
+  xlGhi(wb, 'ChamCong_' + APP.ky + '.xlsx');
 }
 async function ccImport(inp) {
   const f = inp.files[0]; if (!f) return;
@@ -14090,7 +14134,7 @@ function dgXuat() {
   dgNVs(ky).forEach(n => { const e = dgEff(n.maNV, ky), t = C.tongHopNgay(e, ky, cfg()); aoa.push([n.maNV, n.hoTen, n.phongBan || '', ...days.map(x => e[x.d] ? C.KY_HIEU[e[x.d]].hien : ''), ...S.map(([k]) => t[k] || '')]); });
   aoa.push([], ['Ký hiệu:', Object.keys(C.KY_HIEU).map(k => C.KY_HIEU[k].hien + ' = ' + C.KY_HIEU[k].ten).join('; ')]);
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 9 }, { wch: 24 }, { wch: 22 }, ...days.map(() => ({ wch: 5 })), ...S.map(() => ({ wch: 8 }))];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ChamCongNgay_' + ky); XLSX.writeFile(wb, 'ChamCongNgay_' + ky + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ChamCongNgay_' + ky); xlGhi(wb, 'ChamCongNgay_' + ky + '.xlsx');
 }
 
 /* ====================== CHẤM CÔNG THÊM GIỜ (v3.25) ======================
@@ -14232,7 +14276,7 @@ function otXuat() {
     aoa.push([n.maNV, n.hoTen, n.phongBan || '', ...days.map(d => o[d.d] || ''), x.t.ot150, x.t.ot200 + x.n.ot200, x.t.ot300 + x.n.ot300, x.thang, x.nam, [x.vuotT ? 'Vượt giới hạn tháng' : '', x.vuotN ? 'Vượt giới hạn năm' : '', x.n.ot200 + x.n.ot300 ? 'Gồm giờ làm lễ/CN của bảng chấm công ngày' : ''].filter(Boolean).join('; ')]); });
   aoa.push([], ['', 'Người lập', '', '', '', '', '', '', 'Kế toán trưởng', '', '', '', '', '', '', 'Giám đốc']);
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 9 }, { wch: 24 }, { wch: 22 }, ...days.map(() => ({ wch: 5 })), { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 10 }, { wch: 10 }, { wch: 30 }];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'LamThemGio_' + ky); XLSX.writeFile(wb, 'BangChamCongLamThemGio_' + ky + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'LamThemGio_' + ky); xlGhi(wb, 'BangChamCongLamThemGio_' + ky + '.xlsx');
 }
 
 /* ====================== CHẤM ĂN CA (v3.32) ======================
@@ -14390,7 +14434,7 @@ function anXuat() {
   aoa.push(['', 'Tổng suất ăn', '', '', ...days.map(d => anNgayTong(d.d, nvs) || ''), nvs.reduce((s, n) => s + anTong(n, ky).sb, 0)]);
   aoa.push([], ['', 'Người lập', '', '', '', '', '', '', '', 'Bếp ăn / Chỉ huy trưởng', '', '', '', '', '', '', '', 'Kế toán']);
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 9 }, { wch: 24 }, { wch: 22 }, { wch: 7 }, ...days.map(() => ({ wch: 4 })), { wch: 8 }, { wch: 14 }, { wch: 14 }];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ChamAn_' + ky); XLSX.writeFile(wb, 'BangChamAnCa_' + ky + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'ChamAn_' + ky); xlGhi(wb, 'BangChamAnCa_' + ky + '.xlsx');
 }
 
 /* ====================== TẠM ỨNG ====================== */
@@ -14640,7 +14684,7 @@ function exportBL() {
   const ws2 = XLSX.utils.aoa_to_sheet([['DANH SÁCH CHUYỂN KHOẢN LƯƠNG ' + kyfmt(ky)], [trangThai], ['STT', 'Mã NV', 'Họ tên', 'Ngân hàng', 'Số tài khoản', 'Số tiền'], ...bl.map((r, i) => [i + 1, r.maNV, r.hoTen, (nvs[r.maNV] || {}).nganHang || '', (nvs[r.maNV] || {}).soTK || '', num(r.thucLinh)])]);
   ws2['!cols'] = [{ wch: 5 }, { wch: 10 }, { wch: 26 }, { wch: 18 }, { wch: 20 }, { wch: 16 }];
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BangLuong'); XLSX.utils.book_append_sheet(wb, ws2, 'ChuyenKhoan');
-  XLSX.writeFile(wb, 'TAPACO_BangLuong_' + ky + (st === 'Đã duyệt' ? '' : '_NHAP') + '.xlsx');
+  xlGhi(wb, 'TAPACO_BangLuong_' + ky + (st === 'Đã duyệt' ? '' : '_NHAP') + '.xlsx');
 }
 function printBL() {
   const ky = APP.ky, k = kyRow(ky) || {}, st = kyStep(ky), c = cfg();
@@ -15020,7 +15064,7 @@ function xemTep(r, tieuDe) {                       // xem bản quét / tệp đ
   if (_xemUrl) URL.revokeObjectURL(_xemUrl);
   _xemUrl = URL.createObjectURL(new Blob([u8], { type: r.mime || 'application/pdf' }));
   const body = /^image\//.test(r.mime || '') && !/hei[cf]/.test(r.mime || '') ? `<img src="${_xemUrl}" alt="${esc(r.name)}" style="max-width:100%;display:block;margin:0 auto;border:1px solid var(--line)">`
-    : /pdf/.test(r.mime || '') ? `<iframe src="${_xemUrl}" title="${esc(r.name)}" style="width:100%;height:70vh;border:1px solid var(--line)"></iframe>`
+    : /pdf/.test(r.mime || '') ? pdfKhung(_xemUrl, r.name, 70)
       : '<div class="empty">Định dạng này không xem trực tiếp được. Bấm "Tải về" để mở bằng ứng dụng trên máy.</div>';
   modal(tieuDe || r.name, body, { size: 'lg', foot: `<span class="muted small" style="margin-right:auto">${esc(r.name)}</span><a class="btn" href="${_xemUrl}" download="${esc(r.name)}">Tải về</a><button class="btn pri" onclick="closeModal()">Đóng</button>` });
 }
@@ -17686,7 +17730,7 @@ function btLight(id, i) {
 async function btOpenFile(fid) {
   const x = await run(() => btFetch(fid)); if (!x) return;
   const body = /^image\//.test(x.mime) ? `<img src="${x.url}" style="max-width:100%;display:block;margin:0 auto">`
-    : /pdf/.test(x.mime) ? `<iframe src="${x.url}" title="${esc(x.name)}" style="width:100%;height:72vh;border:1px solid var(--line)"></iframe>`
+    : /pdf/.test(x.mime) ? pdfKhung(x.url, x.name, 72)
     : `<div class="empty">Định dạng này không xem trực tiếp được. Bấm "Tải về" để mở bằng Word / Excel.</div>`;
   modal(x.name, body, { size: 'lg', foot: `<a class="btn" href="${x.url}" download="${esc(x.name)}">Tải về</a><button class="btn pri" onclick="closeModal()">Đóng</button>` });
 }
@@ -17723,7 +17767,7 @@ function btAckXls(id) {
   if (!window.XLSX) return toast('Chưa tải được thư viện Excel.', 'err');
   const o = APP.D.bt.find(x => x.id === id), s = btAckStat(o);
   const aoa = [['Mã NV', 'Họ tên', 'Phòng ban', 'Trạng thái', 'Thời điểm xác nhận'], ...s.da.map(x => [x.n.maNV, x.n.hoTen, x.n.phongBan, 'Đã xác nhận', x.t]), ...s.chua.map(n => [n.maNV, n.hoTen, n.phongBan, 'Chưa xác nhận', ''])];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'XacNhanDoc'); XLSX.writeFile(wb, 'XacNhanDoc_' + (o.soVanBan || o.id).replace(/[^\w-]/g, '_') + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'XacNhanDoc'); xlGhi(wb, 'XacNhanDoc_' + (o.soVanBan || o.id).replace(/[^\w-]/g, '_') + '.xlsx');
 }
 /* soạn bài */
 function btB64(file) { return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('Không đọc được file.')); r.readAsDataURL(file); }); }
@@ -18061,6 +18105,7 @@ function pushTenMay() {
   return os + ' · ' + tr + (matchMedia('(display-mode: standalone)').matches ? ' (app)' : '');
 }
 async function pushLayToken() {
+  if (window.TapacoApp) throw new Error('App Android chưa nhận được thông báo đẩy khi tắt app. Tin mới vẫn báo khi app đang mở; muốn nhận khi tắt app, mở link app bằng Chrome và bật ở đó.');
   const p = pushCauHinh(); if (!p) throw new Error('Quản trị chưa cấu hình thông báo đẩy.');
   await napFirebase();
   if (!firebase.apps.length) firebase.initializeApp(p.firebase);
@@ -18820,7 +18865,7 @@ function chXuatBC() {
   const aoa = [[x.tieuDe + ' – ngày ' + dfmt(ky)], [], ['Người báo cáo', 'Trạng thái', 'Thời gian nộp', ...x.cauHinh.mau.map(f => f.ten)]];
   (x.nguoi || []).forEach(u => { const t = x.traLoi.find(z => z.ky === ky && z.username === u); aoa.push([chUser(u).hoTen, t ? 'Đã nộp' : 'Chưa nộp', t ? t.thoiGian : '', ...x.cauHinh.mau.map(f => t ? (t.giaTri || {})[f.id] ?? '' : '')]); });
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = aoa[2].map((_, i) => ({ wch: i < 3 ? 20 : 30 }));
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BaoCao'); XLSX.writeFile(wb, 'BaoCao_' + ky + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BaoCao'); xlGhi(wb, 'BaoCao_' + ky + '.xlsx');
 }
 /* ---------- thông tin nhóm (kiểu Zalo) ---------- */
 function chInfo(tab) {
@@ -19029,7 +19074,7 @@ function chLight(htId, fid) {
 async function chOpenFile(fid, dl) {
   const x = await run(() => chFetch(fid)); if (!x) return;
   if (dl) { const a = document.createElement('a'); a.href = x.url; a.download = x.name; document.body.appendChild(a); a.click(); a.remove(); return; }
-  const body = /^image\//.test(x.mime) ? `<img src="${x.url}" style="max-width:100%;display:block;margin:0 auto">` : /pdf/.test(x.mime) ? `<iframe src="${x.url}" title="${esc(x.name)}" style="width:100%;height:72vh;border:1px solid var(--line)"></iframe>` : `<div class="empty">Định dạng này không xem trực tiếp được. Bấm "Tải về" để mở bằng ứng dụng trên máy.</div>`;
+  const body = /^image\//.test(x.mime) ? `<img src="${x.url}" style="max-width:100%;display:block;margin:0 auto">` : /pdf/.test(x.mime) ? pdfKhung(x.url, x.name, 72) : `<div class="empty">Định dạng này không xem trực tiếp được. Bấm "Tải về" để mở bằng ứng dụng trên máy.</div>`;
   modal(x.name, body, { size: 'lg', foot: `<a class="btn" href="${x.url}" download="${esc(x.name)}">Tải về</a><button class="btn pri" onclick="closeModal()">Đóng</button>` });
 }
 /* ---------- Kho tệp: ảnh, tài liệu đã gửi trong các cuộc trò chuyện ---------- */
@@ -19287,7 +19332,7 @@ const bcSum = (l, f) => l.reduce((s, b) => s + (typeof f === 'function' ? f(b) :
 const bcBH = b => num(b.bhxh) + num(b.bhyt) + num(b.bhtn), bcDN = b => num(b.bhxhDN) + num(b.bhytDN) + num(b.bhtnDN) + num(b.kpcdDN), bcKT = b => num(b.boiThuong) + num(b.tamUng) + num(b.khauTruKhac) + num(b.ktCongThuc);
 function bcXuat(spec) {
   if (!window.XLSX || !XLSX.utils) return toast('Chưa tải được thư viện Excel (cần kết nối mạng). Thử lại sau.', 'err');
-  try { XLSX.writeFile(C.sangXLSX(spec, XLSX), spec.ten + '.xlsx'); toast('Đã xuất ' + spec.ten + '.xlsx', 'ok'); } catch (e) { toast('Lỗi xuất Excel: ' + e.message, 'err'); }
+  try { xlGhi(C.sangXLSX(spec, XLSX), spec.ten + '.xlsx'); toast('Đã xuất ' + spec.ten + '.xlsx', 'ok'); } catch (e) { toast('Lỗi xuất Excel: ' + e.message, 'err'); }
 }
 function bcDsChiTiet(ky) {
   const k = kyRow(ky) || {}, ncc = num(k.ngayCongChuan) || nccDefault(ky);
@@ -19414,7 +19459,7 @@ function bcXuatQTT(nam) {
     ['Mã NV', 'Họ tên', 'Bộ phận', 'Trường hợp', 'Cách tính', 'MST', 'Số tháng', 'TN chịu thuế', 'BH NLĐ', 'Giảm trừ năm', 'TN tính thuế', 'Thuế cả năm', 'Đã khấu trừ', 'Hoàn (+) / nộp thêm (−)', 'Ủy quyền QT', 'Gợi ý']];
   ds.forEach(x => aoa.push([x.maNV, x.hoTen, x.phongBan || '', TH_NGAN[x.truongHop] || '', x.cach === 'luytien' ? 'Lũy tiến' : 'Khấu trừ 10%' + (x.camKet === 'co' ? ' (cam kết 08)' : ''), x.mst, x.soKy, x.tnct, x.bh, x.giamTruNam, x.tntt, x.phaiNop, x.daKT, x.chenh, x.uyQuyen === 'co' ? 'Có' : 'Không', x.goiY.join(' | ')]));
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 9 }, { wch: 24 }, { wch: 20 }, { wch: 14 }, { wch: 18 }, { wch: 13 }, { wch: 8 }, ...Array(7).fill({ wch: 14 }), { wch: 10 }, { wch: 80 }];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'QuyetToan' + nam); XLSX.writeFile(wb, 'QuyetToanTNCN_' + nam + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'QuyetToan' + nam); xlGhi(wb, 'QuyetToanTNCN_' + nam + '.xlsx');
 }
 function bcXuatSST() {
   if (!window.XLSX) return toast('Chưa tải được thư viện Excel.', 'err');
@@ -19422,7 +19467,7 @@ function bcXuatSST() {
     ['Mã NV', 'Họ tên', 'Bộ phận', 'Số kỳ', 'TN chịu thuế (1)', 'TN chịu thuế (2)', 'Thuế (1)', 'Thuế (2)', 'Chênh lệch (1)-(2)', 'Đã khấu trừ']];
   r.ds.forEach(x => aoa.push([x.maNV, x.hoTen, x.phongBan || '', x.ky, x.tnctCu, x.tnctMoi, x.cu, x.moi, x.cu - x.moi, x.daKT]));
   const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 9 }, { wch: 24 }, { wch: 22 }, { wch: 7 }, ...Array(6).fill({ wch: 15 })];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'SoSanhThue2026'); XLSX.writeFile(wb, 'SoSanhThueTNCN_2026.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'SoSanhThue2026'); xlGhi(wb, 'SoSanhThueTNCN_2026.xlsx');
 }
 function bcBuoc(ky, ma) {
   const d = bcDsChiTiet(ky).find(x => x.nv.maNV === ma); if (!d) return;
@@ -19529,7 +19574,7 @@ function mkXuat() {
   if (!window.XLSX) return toast('Chưa tải được thư viện Excel.', 'err');
   const ws = XLSX.utils.aoa_to_sheet([['DANH SÁCH TÀI KHOẢN – ' + (cfg().congTy || '')], ['Mật khẩu ban đầu, phải đổi ở lần đăng nhập đầu. Bảo mật, không chia sẻ.'], ['Họ tên', 'Mã NV', 'Tên đăng nhập', 'Mật khẩu ban đầu'], ...(APP.mkDS || [])]);
   ws['!cols'] = [{ wch: 26 }, { wch: 10 }, { wch: 18 }, { wch: 18 }];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'TaiKhoan'); XLSX.writeFile(wb, 'TaiKhoan_' + todayS() + '.xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'TaiKhoan'); xlGhi(wb, 'TaiKhoan_' + todayS() + '.xlsx');
 }
 function mkDatLai(username) {
   const u = (APP.D.users || []).find(x => x.username === username) || {}, nv = nvBy(u.maNV);
@@ -19670,6 +19715,7 @@ const CFG_F = [
   { k: 'thueVangLai', l: 'Khấu trừ HĐ thử việc / dưới 3 tháng / khoán việc (%)', t: 'num', hint: 'Giảm trừ gia cảnh, biểu thuế, ngưỡng khấu trừ: theo bảng "Quy định theo thời kỳ"' },
   { sec: 'Ngày công – làm thêm giờ – nâng bậc' },
   { k: 'cheDoBangLuong', l: 'Chế độ bảng lương', t: 'select', o: [['gop', '1 bảng: lương theo công + lương làm thêm giờ, tăng ca'], ['tach', '2 bảng độc lập: (1) lương theo công thời gian, (2) lương tăng ca, thêm giờ']], blank: false, w: 'w2', hint: 'Tách: Bảng 2 trả riêng tiền làm thêm giờ, thuế TNCN phân bổ; BH, công nợ trừ ở Bảng 1' },
+  { k: 'linkAPK', l: 'Link tải app Android (.apk)', w: 'w2', ph: 'https://drive.google.com/… (tệp TAPACO-NhanSu-x.xx.apk đã chia sẻ cho CBCNV)', hint: 'CBCNV xem ở menu tài khoản → 📱 Cài app điện thoại. Để trống nếu chưa phát hành app.' },
   { k: 'anCaMienCT', l: 'Ăn ca miễn thuế TNCN – công thức (sửa được)', w: 'w2', inp: 'anCaXem()', xem: 'anCaXemHTML', hint: 'Biến: MUC_MIEN (mức tối đa của thời kỳ: 1,2 tr từ 07/2026), NGAY_CONG (ngày công thực tế), SO_BUA, GT (tiền ăn ca của tháng) và mọi biến của công thức lương. Hàm: MIN, MAX, ROUND, IF… Kết quả không vượt MUC_MIEN. Mặc định: ' + C.CT_ANCA_MD },
   { k: 'cachTinhCongChuan', l: 'Cách xác định công chuẩn', t: 'select', o: [['codinh', 'Cố định'], ['truCN', 'Số ngày trong tháng trừ Chủ nhật']], blank: false },
   { k: 'ngayCongChuan', l: 'Công chuẩn cố định (ngày)', t: 'num' }, { k: 'gioCongNgay', l: 'Giờ làm mỗi ngày', t: 'num' },

@@ -1,0 +1,34 @@
+APP ĐIỆN THOẠI TAPACO NHÂN SỰ – PHIÊN BẢN 3.43
+==============================================
+
+ANDROID (tệp TAPACO-NhanSu-3.43.apk)
+- Phát hành: tải tệp .apk lên Google Drive của Công ty, chia sẻ "Bất kỳ ai có đường liên kết"
+  (hoặc gửi qua Zalo nhóm). Dán link vào Cài đặt → "Link tải app Android (.apk)".
+  CBCNV xem hướng dẫn ở menu tài khoản → "📱 Cài app điện thoại".
+- Cài trên máy: mở tệp .apk → Cài đặt. Lần đầu máy hỏi "Cho phép cài ứng dụng không rõ nguồn gốc"
+  với Chrome / Zalo / Files → bật. Play Protect có thể cảnh báo "ứng dụng chưa được kiểm tra"
+  (app nội bộ, không phát hành trên CH Play) → Thêm chi tiết → Vẫn cài đặt.
+- Mở app "TAPACO Nhân sự" → đăng nhập như trên web → cho phép Vị trí, Máy ảnh (chấm công GPS, khuôn mặt).
+- Yêu cầu: Android 7.0 trở lên, có Android System WebView / Chrome cập nhật.
+- Cập nhật: cài đè tệp .apk mới (cùng khóa ký) → giữ nguyên đăng nhập và dữ liệu.
+
+Trong app Android:
+- Dữ liệu, máy chủ: như bản web (cùng máy chủ Apps Script). Giao diện đóng gói sẵn trong app,
+  mỗi lần nâng cấp giao diện cần phát hành tệp .apk mới.
+- Tải Excel / Word / PDF: lưu vào thư mục Download/TAPACO rồi tự mở bằng app phù hợp.
+- In / Lưu PDF: mở hộp thoại in của Android (chọn "Lưu dưới dạng PDF" hoặc máy in).
+- Xem PDF đính kèm: bấm "Mở PDF trên điện thoại".
+- Thông báo đẩy khi tắt app: CHƯA có trong app Android (giới hạn của khung WebView).
+  Ai cần nhận thông báo khi tắt app: mở link web bằng Chrome và bật thông báo ở đó.
+
+IPHONE / IPAD
+- Apple không cho cài tệp .apk và không cho cài app ngoài App Store nếu không có tài khoản
+  Apple Developer. Dùng: mở link app bằng Safari → Chia sẻ → "Thêm vào MH chính".
+  App chạy toàn màn hình, nhận thông báo đẩy (iOS 16.4+).
+
+LƯU Ý
+- Bản app này CHƯA được thử trên điện thoại thật trong quá trình đóng gói. Trước khi phát cho
+  toàn Công ty: cài thử trên 1–2 máy Android (đăng nhập, chấm công GPS + khuôn mặt, tải Excel,
+  in phiếu lương, tải ảnh hồ sơ). Gặp lỗi, ghi lại máy, phiên bản Android, thao tác để sửa.
+- Khóa ký app (tapaco-nhansu.jks + mật khẩu) nằm trong gói NGUỒN, thư mục android/khoa.
+  GIỮ KÍN, sao lưu. Mất khóa thì bản sau không cài đè được, CBCNV phải gỡ app cũ rồi cài lại.

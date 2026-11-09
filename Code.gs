@@ -910,7 +910,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.42';
+  var VERSION = '3.43';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1319,7 +1319,8 @@ var HRCORE = (function () {
     mocLuat: null,                    // null = MOC_LUAT_MD
     luat109Tu2026: false,             // true: kỳ 01–06/2026 áp biểu 5 bậc & miễn thuế toàn bộ tiền làm thêm giờ (Luật 109/2025 Điều 29.2, NĐ 253/2026: "áp dụng từ kỳ tính thuế năm 2026")
     ngayNghiTuan: 'cn',
-    mauPhieu: null, mauBangLuong: null,   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
+    mauPhieu: null, mauBangLuong: null,
+    linkAPK: '',   // v3.43: link tải app Android (.apk) do Quản trị dán (Drive / web công ty)   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
     cheDoBangLuong: 'gop',            // v3.32: 'gop' – 1 bảng lương gồm cả tiền làm thêm giờ; 'tach' – 2 bảng độc lập: lương theo công thời gian / lương tăng ca, thêm giờ
     anCaMienTheoCong: true, anCaMienChia: 22, anCaMienCT: '',   // v3.39: anCaMienCT = công thức mở (trống = theo 2 khóa cũ)
       // v3.32: ăn ca miễn thuế = MIN(mức tối đa, ngày công thực tế × mức tối đa ÷ 22)
@@ -4570,7 +4571,7 @@ var HRCORE = (function () {
         var nvBP = bpQL ? T('NhanVien').filter(function (n) { return n.phongBan === bpQL && n.trangThai !== 'Đã nghỉ việc'; }).map(function (n) { return n.maNV; }) : [];
         var kyDuyet = T('KyLuong').filter(function (k) { return k.trangThai === 'Đã duyệt'; }).map(function (k) { return k.ky; });
         return {
-          cfg: pick(cfg, ['mauPhieu', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
+          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
           nv: T('NhanVien').filter(function (r) { return r.maNV === me; }),
           qt: T('QuaTrinh').filter(function (r) { return r.maNV === me; }),
           ll: T('LenLuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
