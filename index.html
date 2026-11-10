@@ -169,6 +169,20 @@ table.t{border-collapse:collapse;width:100%;font-size:14px}
 .slip .sub{text-align:center;color:#555;margin-bottom:10px}
 .slip table{width:100%;border-collapse:collapse;margin-top:8px}
 .slip table+table{margin-top:0}
+.av-anh{overflow:hidden;padding:0;position:relative} .av-anh img{width:100%;height:100%;object-fit:cover;object-position:center 20%} .av-anh .cccd-c{display:none}
+.nst .ns-i{width:72px} .nst .ns-h{width:76px} .nst .ns-g{min-width:150px} .nst td{vertical-align:middle}
+.at{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px} .at-o{width:120px;flex:none} .at-a{width:120px!important;height:160px!important;aspect-ratio:3/4} .at-a img{width:100%;height:100%;object-fit:cover}
+.at-m{flex:1;min-width:220px} .at-x{width:180px;max-width:100%;border-radius:6px;border:1px solid var(--line);display:block}
+.at-kh{position:absolute;border:2px solid #F97316;box-shadow:0 0 0 9999px rgba(15,23,42,.45);cursor:move;touch-action:none} .at-kz{position:absolute;right:-12px;bottom:-12px;width:24px;height:24px;border-radius:50%;background:#F97316;border:3px solid #fff;cursor:nwse-resize}
+.cat-g{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start} @media (max-width:760px){.cat-g{grid-template-columns:1fr}}
+.cat-k{position:relative;display:inline-block;max-width:100%;user-select:none;touch-action:none;line-height:0;border-radius:8px;overflow:hidden;background:#0F172A}
+.cat-k img{display:block;max-width:100%;max-height:62vh;width:auto;height:auto} .cat-k svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cat-k polygon{fill:rgba(249,115,22,.14);stroke:#F97316;stroke-width:4;vector-effect:non-scaling-stroke}
+.cat-h{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(249,115,22,.85);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.4);cursor:grab;touch-action:none}
+.cat-h.dau{background:#1D4ED8} .cat-x{width:100%;border-radius:8px;border:1px solid var(--line);background:#F8FAFC}
+.mh-ic{min-width:32px;padding:3px 8px;margin-left:2px} .mh-o{cursor:pointer} .mh-o:hover{outline:2px solid var(--orange,#F97316);outline-offset:-2px;background:#FFF7ED}
+.mh-sua{cursor:pointer;color:inherit;text-decoration:none;border-bottom:1px dashed var(--line)} .mh-sua:hover{color:var(--orange-d,#C2410C)} .mh-but{font-size:12px;opacity:.6}
+.mh-td input{border-color:var(--orange,#F97316)!important;box-shadow:0 0 0 3px rgba(249,115,22,.18)}
 .tim-nv{position:relative;width:100%;min-width:0} .tim-an{display:none!important}
 .tim-ip{padding-right:30px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E") no-repeat right 10px center}
 .tim-ds{position:fixed;z-index:3000;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(15,23,42,.18);max-height:260px;overflow:auto;padding:4px}
@@ -593,7 +607,7 @@ input.bv{background:#FFF8F1}
   @page port{size:A4 portrait;margin:15mm 15mm 15mm 20mm}
   .llp{page:port;font:13px/1.45 'Times New Roman',Times,serif;color:#000}
   .llp .llh{display:flex;justify-content:space-between;gap:16px;font-size:12.5px} .llp .llh>div:first-child{max-width:48%}
-  .llp .llt{display:flex;gap:18px;align-items:flex-start;margin:18px 0 6px} .llp .anh{width:30mm;height:40mm;border:1px solid #000;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;flex:none}
+  .llp .llt{display:flex;gap:18px;align-items:flex-start;margin:18px 0 6px} .llp .anh{width:30mm;height:40mm;border:1px solid #000;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;flex:none} .llp .anh.co{border:0} .llp .anh img{width:30mm;height:40mm;object-fit:cover;display:block}
   .llp .llt>div:last-child{flex:1} .llp h2{text-align:center;font-size:20px;margin:6px 0 2px;letter-spacing:.5px} .llp .sub{text-align:center;font-style:italic;font-size:12px;margin-bottom:12px} .llp .ten{font-size:15px;margin-bottom:2px}
   .llp h2,.llp h3,.llp b,.llp th,.llp td{font-family:'Times New Roman',Times,serif} .llp h3{font-size:14px;margin:14px 0 6px} .llp .h4{font-weight:bold;font-style:italic;margin:10px 0 4px}
   .llp table{width:100%;border-collapse:collapse;page-break-inside:auto} .llp tr{page-break-inside:avoid}
@@ -1221,7 +1235,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.43';
+  var VERSION = '3.47';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1348,7 +1362,7 @@ var HRCORE = (function () {
   };
   var FIELDS_LOAI = {
     chamcong: ['ngayCong', 'nghiHuongLuong', 'nghiKhongLuong', 'nghiOm', 'ngayLe', 'ot150', 'ot200', 'ot300', 'noiLamViec', 'ghiChu', 'bienKy', 'chiTietNgay', 'chiTietOT', 'chiTietAn'],
-    tinhluong: ['truyLinh', 'tienKhoan', 'bienKy'],
+    tinhluong: ['truyLinh', 'tienKhoan', 'bienKy', 'chamNS'],
     congno: ['tamUng', 'tienAnThu', 'thuUng', 'khauTruKhac', 'ghiChuCongNo', 'chiTietTamUng'],
     vipham: ['chiTietPhat', 'ghiChuTCHC']
   };
@@ -1543,7 +1557,7 @@ var HRCORE = (function () {
     KhenThuong: ['id', 'maNV', 'loai', 'hinhThuc', 'ngay', 'soTien', 'chiuThue', 'kyLuong', 'noiDung', 'soQD',
       'trangThai', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet', 'ngayDuyet'],
     ChamCong: ['id', 'ky', 'maNV', 'ngayCong', 'nghiHuongLuong', 'nghiKhongLuong', 'nghiOm', 'ot150', 'ot200', 'ot300',
-      'tamUng', 'khauTruKhac', 'truyLinh', 'ghiChu', 'ghiChuCongNo', 'chiTietPhat', 'ghiChuTCHC', 'ngayLe', 'bienKy', 'noiLamViec', 'chiTietNgay', 'chiTietTamUng', 'tienKhoan', 'chiTietOT', 'chiTietAn', 'soBua', 'tienAnThu', 'thuUng', 'anThuTay'],
+      'tamUng', 'khauTruKhac', 'truyLinh', 'ghiChu', 'ghiChuCongNo', 'chiTietPhat', 'ghiChuTCHC', 'ngayLe', 'bienKy', 'noiLamViec', 'chiTietNgay', 'chiTietTamUng', 'tienKhoan', 'chiTietOT', 'chiTietAn', 'soBua', 'tienAnThu', 'thuUng', 'anThuTay', 'chamNS'],
     BangLuong: ['id', 'ky', 'maNV', 'hoTen', 'phongBan', 'chucVu', 'luongChinh', 'ngayCongChuan', 'ngayCongHL',
       'luongThoiGian', 'phuCap', 'phuCapChiTiet', 'chiTiet', 'ktCongThuc', 'tienOT', 'thuong', 'truyLinh', 'viPham', 'giamThuong', 'tongThuNhap', 'luongDongBH',
       'bhxh', 'bhyt', 'bhtn', 'doanPhi', 'tnChiuThue', 'giamTru', 'tnTinhThue', 'thueTNCN', 'boiThuong', 'tamUng',
@@ -1631,6 +1645,7 @@ var HRCORE = (function () {
     luat109Tu2026: false,             // true: kỳ 01–06/2026 áp biểu 5 bậc & miễn thuế toàn bộ tiền làm thêm giờ (Luật 109/2025 Điều 29.2, NĐ 253/2026: "áp dụng từ kỳ tính thuế năm 2026")
     ngayNghiTuan: 'cn',
     mauPhieu: null, mauBangLuong: null,
+    hsns: null,   // v3.47: bảng xác định hệ số năng suất tháng (tiêu chí, tỷ trọng, xếp loại → hệ số, biến kỳ nhận hệ số)
     linkAPK: '',   // v3.43: link tải app Android (.apk) do Quản trị dán (Drive / web công ty)   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
     cheDoBangLuong: 'gop',            // v3.32: 'gop' – 1 bảng lương gồm cả tiền làm thêm giờ; 'tach' – 2 bảng độc lập: lương theo công thời gian / lương tăng ca, thêm giờ
     anCaMienTheoCong: true, anCaMienChia: 22, anCaMienCT: '',   // v3.39: anCaMienCT = công thức mở (trống = theo 2 khóa cũ)
@@ -4066,6 +4081,33 @@ var HRCORE = (function () {
     return ds.map(function (x, i) { var c = layChu(x), d = Array.isArray(c) ? Math.max.apply(null, c.map(function (y) { return diemTim(q, y); })) : diemTim(q, c); return { x: x, d: d, i: i }; })
       .filter(function (o) { return o.d > 0; }).sort(function (a, b) { return b.d - a.d || a.i - b.i; }).slice(0, toiDa || 1e9).map(function (o) { return o.x; });
   }
+  /* v3.47: HỆ SỐ NĂNG SUẤT THÁNG — chấm điểm từng tiêu chí (0–100) × tỷ trọng → điểm → xếp loại → hệ số; ghi vào biến kỳ (mặc định HS_K) để công thức lương dùng.
+     Tiêu chí "chuyên cần" tự tính từ ngày công (sửa tay được). Số mặc định là MẪU – sửa theo quy chế Công ty ở Cài đặt. */
+  var HSNS_MD = {
+    bien: 'HS_K',
+    tieuChi: [{ ma: 'KL', ten: 'Khối lượng công việc', tyTrong: 30 }, { ma: 'CL', ten: 'Chất lượng công việc', tyTrong: 30 }, { ma: 'TD', ten: 'Tiến độ, thời hạn', tyTrong: 20 },
+      { ma: 'KLU', ten: 'Ý thức, kỷ luật', tyTrong: 10 }, { ma: 'CC', ten: 'Chuyên cần', tyTrong: 10, tuDong: 'chuyencan' }],
+    xepLoai: [{ ma: 'A', ten: 'Hoàn thành xuất sắc', tu: 90, hs: 1.2 }, { ma: 'B', ten: 'Hoàn thành tốt', tu: 80, hs: 1.1 }, { ma: 'C', ten: 'Hoàn thành', tu: 65, hs: 1 }, { ma: 'D', ten: 'Chưa hoàn thành', tu: 0, hs: 1 }]
+  };
+  function hsnsCfg(cfg) {
+    var u = (cfg && cfg.hsns) || {}, tc = Array.isArray(u.tieuChi) && u.tieuChi.length ? u.tieuChi : HSNS_MD.tieuChi, xl = Array.isArray(u.xepLoai) && u.xepLoai.length ? u.xepLoai : HSNS_MD.xepLoai;
+    var bk = ((cfg && cfg.bienKy) || []).map(function (v) { return v.ma; }), bien = u.bien !== undefined ? String(u.bien || '') : (bk.indexOf('HS_K') >= 0 ? 'HS_K' : '');
+    return { bien: bien && bk.indexOf(bien) >= 0 ? bien : '', bienMuon: bien,
+      tieuChi: tc.map(function (t, i) { return { ma: String(t.ma || ('TC' + (i + 1))).toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10) || 'TC' + (i + 1), ten: String(t.ten || '').slice(0, 80), tyTrong: Math.max(0, num(t.tyTrong)), tuDong: t.tuDong === 'chuyencan' ? 'chuyencan' : '' }; }),
+      xepLoai: xl.map(function (x) { return { ma: String(x.ma || '').slice(0, 6), ten: String(x.ten || '').slice(0, 60), tu: num(x.tu), hs: num(x.hs) }; }).sort(function (a, b) { return b.tu - a.tu; }) };
+  }
+  function chuyenCan(cc, ncc) { var c = num(ncc) || 26; return Math.max(0, Math.min(100, Math.round((num(cc.ngayCong) + num(cc.nghiHuongLuong) + num(cc.ngayLe)) / c * 1000) / 10)); }
+  function tinhNS(cfg, cc, ncc) {                // → { d: {tiêu chí: điểm}, diem, xl, tenXL, hs, hsTu }
+    var H = hsnsCfg(cfg), ns = parseJSON(cc && cc.chamNS, {}), d = {}, tong = 0, tt = 0, du = true;
+    H.tieuChi.forEach(function (t) {
+      var v = ns.d && ns.d[t.ma] !== undefined && ns.d[t.ma] !== '' ? num(ns.d[t.ma]) : (t.tuDong === 'chuyencan' ? chuyenCan(cc || {}, ncc) : null);
+      if (v === null) { du = false; return; }
+      d[t.ma] = Math.max(0, Math.min(100, v)); tong += d[t.ma] * t.tyTrong; tt += t.tyTrong;
+    });
+    var diem = tt ? Math.round(tong / tt * 10) / 10 : 0, x = H.xepLoai.filter(function (z) { return diem >= z.tu; })[0] || H.xepLoai[H.xepLoai.length - 1] || { ma: '', hs: 1 };
+    var hsTu = du ? x.hs : null, hs = ns.hsTay !== undefined && ns.hsTay !== '' && ns.hsTay !== null ? num(ns.hsTay) : hsTu;
+    return { d: d, du: du, diem: du ? diem : null, xl: du ? x.ma : '', tenXL: du ? x.ten : '', hsTu: hsTu, hs: hs, hsTay: ns.hsTay, ghiChu: ns.ghiChu || '', nguoi: ns.nguoi || '', luc: ns.luc || '' };
+  }
   function tieuDe(ten, phu, ghiChu, nhap) { var r = [[{ v: ten, s: 'title' }], [{ v: phu || '', s: nhap ? 'draft' : 'sub' }]]; r.push(ghiChu ? [{ v: ghiChu, s: 'note' }] : []); return r; }
   /* BẢNG THANH TOÁN TIỀN LƯƠNG THÁNG – theo bộ phận, cộng nhóm SUBTOTAL */
   function xlBangLuongThang(ky, bls, ctl, nvMap, info) {
@@ -5701,6 +5743,26 @@ var HRCORE = (function () {
       T('KyLuong').forEach(function (k) { var kr = kyRow(k.ky, false); if (kyEnd(k.ky) >= hieuLuc && canTinhLai(kr)) { recalc(k.ky, s); tinhLai.push(k.ky); } });
       return tinhLai;
     }
+    function mhSuaHL(s) { return s.role === 'admin' || can(s.role, 'approve'); }      // v3.44: sửa / xóa khai báo đã hiệu lực, sửa mức gốc
+    /* v3.44: sửa MỨC GỐC (trước mốc thay đổi đầu tiên) của từng khoản: ghi vào "mức cũ" của mốc đầu khai khoản đó; chưa có mốc → hồ sơ */
+    H['mh.goc'] = function (req, s) {
+      if (!mhSuaHL(s)) err('Chỉ Quản trị / Giám đốc được sửa mức gốc.');
+      var nv = findNV(req.maNV); if (!nv) err('Không tìm thấy nhân viên.');
+      var gt = mhGiaTri(parseJSON(req.giaTri, {}), getCfg()), ks = Object.keys(gt); if (!ks.length) err('Chưa nhập mức nào.');
+      var ds = mhNguon(nv, T('LenLuong'), T('MucHuong')), som = '9999-12-31', doi = [], pc = parseJSON(nv.phuCap, {});
+      ks.forEach(function (k) {
+        var v = num(gt[k]), dau = ds.filter(function (x) { return k in x.gt; })[0];
+        if (dau && dau.nguon === 'hd') err('Lương HĐ / lương đóng BH lấy theo hợp đồng lao động – sửa ở tab Hợp đồng lao động.');
+        if (dau && dau.nguon === 'mh') { var r = T('MucHuong').filter(function (z) { return z.id === dau.id; })[0], c = parseJSON(r.cu, {}); c[k] = v; r.cu = JSON.stringify(c); D('MucHuong'); }
+        else if (dau && dau.nguon === 'll') { var l = T('LenLuong').filter(function (z) { return z.id === dau.id; })[0]; if (k === 'luongChinh') l.luongCu = v; if (k === 'luongBH') l.luongBHCu = v; D('LenLuong'); }
+        else { if (k.indexOf('pc.') === 0) { if (v) pc[k.slice(3)] = v; else delete pc[k.slice(3)]; nv.phuCap = JSON.stringify(pc); } else nv[k] = v; D('NhanVien'); }
+        doi.push(k + '=' + v);
+      });
+      if (ds.length) som = ds[0].hieuLuc; else som = '0000-01-01';
+      var tinhLai = mhSauThayDoi(nv, '0000-01-01', s);
+      log(s, 'mh.goc', nv.maNV + ' mức gốc: ' + doi.join(', '));
+      return { nv: nv, mh: T('MucHuong').filter(function (z) { return z.maNV === nv.maNV; }), ll: T('LenLuong').filter(function (z) { return z.maNV === nv.maNV; }), tinhLai: tinhLai };
+    };
     function mhLuu(r, s) {
       if (!can(s.role, 'edit_nv') && !can(s.role, 'approve')) err('Không có quyền khai báo mức hưởng.');
       var nv = findNV(r.maNV); if (!nv) err('Không tìm thấy nhân viên ' + (r.maNV || ''));
@@ -5708,7 +5770,7 @@ var HRCORE = (function () {
       var gt = mhGiaTri(parseJSON(r.giaTri, {}), getCfg());
       var rows = T('MucHuong'), o = r.id ? rows.filter(function (x) { return x.id === r.id; })[0] : null;
       if (r.id && !o) err('Không tìm thấy khai báo.');
-      if (o && o.trangThai === 'Hiệu lực' && s.role !== 'admin') err('Khai báo đã có hiệu lực, chỉ Quản trị được sửa. Hãy lập khai báo mới.');
+      if (o && o.trangThai === 'Hiệu lực' && !mhSuaHL(s)) err('Khai báo đã có hiệu lực, chỉ Quản trị / Giám đốc được sửa. Hãy lập khai báo mới.');
       if (o && o.trangThai === 'Từ chối') err('Khai báo đã bị từ chối, hãy lập khai báo mới.');
       if (!o) { o = { id: newId(), nguoiTao: s.username, taoLuc: env.now() }; rows.push(o); }
       else if (o.trangThai === 'Hiệu lực') {
@@ -5758,7 +5820,7 @@ var HRCORE = (function () {
     H['mh.delete'] = function (req, s) {
       var a = T('MucHuong'), o = a.filter(function (x) { return x.id === req.id; })[0];
       if (!o) err('Không tìm thấy khai báo.');
-      if (o.trangThai === 'Hiệu lực' && s.role !== 'admin') err('Chỉ Quản trị được xóa khai báo đã có hiệu lực.');
+      if (o.trangThai === 'Hiệu lực' && !mhSuaHL(s)) err('Chỉ Quản trị / Giám đốc được xóa khai báo đã có hiệu lực.');
       if (o.trangThai !== 'Hiệu lực' && !can(s.role, 'edit_nv') && o.nguoiTao !== s.username) err('Không có quyền xóa.');
       var nv = findNV(o.maNV);
       if (nv && o.trangThai === 'Hiệu lực') mhKhoiPhuc(nv, Object.keys(parseJSON(o.giaTri, {})), parseJSON(o.cu, {}), o.id, o.hieuLuc);
@@ -5952,7 +6014,7 @@ var HRCORE = (function () {
       return { fileId: t.fileId, data: d.data, mime: t.mime, name: t.ten, thumb: 0 };
     }
     H['chat.anh'] = function (req, s) {        // v3.32: tải gộp tối đa 8 ảnh (thu nhỏ) trong 1 lần gọi
-      var ids = (Array.isArray(req.ids) ? req.ids : []).map(String).slice(0, 8), by = {}, ok = {}, out = [], tf = {};
+      var ids = (Array.isArray(req.ids) ? req.ids : []).map(String).slice(0, 12), by = {}, ok = {}, out = [], tf = {};
       T('TepChat').forEach(function (x) { if (ids.indexOf(x.fileId) >= 0) by[x.fileId] = x; });
       ids.forEach(function (id) {
         var t = by[id]; if (!t) { out.push({ fileId: id, loi: 'Tệp không còn (có thể đã thu hồi).' }); return; }
@@ -8265,12 +8327,12 @@ var HRCORE = (function () {
     function btTep(list, anh) {
       return (Array.isArray(list) ? list : parseJSON(list, [])).slice(0, anh ? 20 : 10).map(function (f) {
         if (!f || !f.fileId) err('Tệp đính kèm không hợp lệ.');
-        return anh ? { fileId: String(f.fileId), ten: String(f.ten || '').slice(0, 150), mime: String(f.mime || ''), w: num(f.w), h: num(f.h) }
+        return anh ? { fileId: String(f.fileId), thumbId: String(f.thumbId || ''), ten: String(f.ten || '').slice(0, 150), mime: String(f.mime || ''), w: num(f.w), h: num(f.h) }
           : { fileId: String(f.fileId), ten: String(f.ten || '').slice(0, 150), mime: String(f.mime || ''), kichThuoc: num(f.kichThuoc) };
       });
     }
     function btXoaTep(ids) { ids.forEach(function (id) { try { env.files.del(id); } catch (e) { } }); }
-    function btIds(o) { return parseJSON(o.anh, []).concat(parseJSON(o.dinhKem, [])).map(function (f) { return f.fileId; }); }
+    function btIds(o) { var a = []; parseJSON(o.anh, []).concat(parseJSON(o.dinhKem, [])).forEach(function (f) { a.push(f.fileId); if (f.thumbId) a.push(f.thumbId); }); return a; }
 
     H['bt.upload'] = function (req, s) {
       need(s, 'bantin');
@@ -8280,9 +8342,10 @@ var HRCORE = (function () {
       if (!BT_MIME_ANH.test(f.mime || '') && !MIME_OK.test(f.mime || '')) err('Chỉ nhận ảnh (JPG, PNG, WEBP, GIF), PDF, Word, Excel.');
       var bytes = Math.floor(String(f.data).length * 3 / 4);
       if (bytes > (num(cfg.dungLuongToiDaMB) || 10) * 1048576) err('File vượt ' + (num(cfg.dungLuongToiDaMB) || 10) + ' MB.');
-      var id = env.files.put({ name: 'BT_' + env.today() + '_' + name, mime: f.mime, data: f.data, bantin: true });
+      var id = env.files.put({ name: 'BT_' + env.today() + '_' + name, mime: f.mime, data: f.data, bantin: true }), th = '';
+      if (f.thumb && BT_MIME_ANH.test(f.mime || '') && String(f.thumb).length < 400000) { try { th = env.files.put({ name: 'BT_' + env.today() + '_' + name.replace(/(\.[^.]+)?$/, '_thumb.jpg'), mime: 'image/jpeg', data: f.thumb, bantin: true }); } catch (e) { th = ''; } }   // v3.45: ảnh thu nhỏ
       log(s, 'bt.upload', name);
-      return { fileId: id, ten: name, mime: f.mime, kichThuoc: bytes };
+      return { fileId: id, thumbId: th, ten: name, mime: f.mime, kichThuoc: bytes };
     };
     H['bt.save'] = function (req, s) {
       need(s, 'bantin');
@@ -8328,6 +8391,26 @@ var HRCORE = (function () {
       var o = btLay(s, req.id); o.ghim = req.ghim ? 'Có' : ''; D('BaiViet');
       log(s, 'bt.pin', o.tieuDe + (o.ghim ? ' (ghim)' : ' (bỏ ghim)'));
       return btTra(o);
+    };
+    /* v3.45: tải gộp ảnh bảng tin (tối đa 12 / lần), ưu tiên ảnh thu nhỏ — chỉ ảnh của bài người dùng được xem */
+    H['bt.anh'] = function (req, s) {
+      var ids = (Array.isArray(req.ids) ? req.ids : []).map(String).slice(0, 12), by = {}, out = [];
+      T('BaiViet').forEach(function (x) {
+        if (!btThay(s, x)) return;
+        parseJSON(x.anh, []).concat(parseJSON(x.dinhKem, [])).forEach(function (z) { if (ids.indexOf(z.fileId) >= 0 && !by[z.fileId]) by[z.fileId] = z; });
+      });
+      ids.forEach(function (id) {
+        var f = by[id]; if (!f) { out.push({ fileId: id, loi: 'Không tìm thấy ảnh hoặc bạn không có quyền xem.' }); return; }
+        try {
+          if (req.thumb && /^image\//.test(f.mime || '')) {
+            if (f.thumbId) { var d0 = env.files.get(f.thumbId); if (d0 && d0.data) { out.push({ fileId: id, data: d0.data, mime: 'image/jpeg', name: f.ten, thumb: 1 }); return; } }
+            else if (env.files.thumb) { var d1 = env.files.thumb(id); if (d1 && d1.data) { out.push({ fileId: id, data: d1.data, mime: d1.mime || 'image/png', name: f.ten, thumb: 1 }); return; } }
+          }
+          var d = env.files.get(id); if (!d) throw new Error('Tệp không còn trên máy chủ.');
+          out.push({ fileId: id, data: d.data, mime: f.mime, name: f.ten, thumb: 0 });
+        } catch (e) { out.push({ fileId: id, loi: String(e.message || e) }); }
+      });
+      return { ds: out };
     };
     H['bt.file'] = function (req, s) {
       var fid = String(req.fileId || ''), o = null, f = null;
@@ -8443,12 +8526,18 @@ var HRCORE = (function () {
       if (!laNV && r.nvXem !== undefined) o.nvXem = r.nvXem === 'Không' ? 'Không' : 'Có';
       return o;
     }
+    var ANH_THE = { loai: 'Ảnh thẻ', ten: 'Ảnh thẻ 3×4' };
     H['tl.upload'] = function (req, s) {
       var r = req.row || {}, f = req.file || {}, cfg = getCfg();
       var nv = findNV(r.maNV); if (!nv) err('Không tìm thấy nhân viên.');
       var ql = can(s.role, 'edit_nv'), laNV = !ql;
       if (laNV && r.maNV !== s.maNV) err('Bạn chỉ tải tài liệu cho hồ sơ của mình.');
       var mat = req.cccdMat === 'truoc' || req.cccdMat === 'sau' ? req.cccdMat : '';   // v3.10: ảnh CCCD mặt trước / mặt sau trong lý lịch
+      var laAT = !!req.anhThe;                                                          // v3.47: ảnh thẻ 3×4 (in lý lịch, ảnh đại diện hồ sơ)
+      if (laAT) {
+        if (!/^image\/(jpeg|png|webp)$/.test(f.mime || '')) err('Ảnh thẻ phải là ảnh JPG, PNG hoặc WEBP.');
+        r = { maNV: nv.maNV, loai: ANH_THE.loai, ten: ANH_THE.ten, ghiChu: req.anhThe === 'cccd' ? 'Cắt từ ảnh CCCD mặt trước' : 'Ảnh thẻ 3×4' };
+      }
       if (mat) {
         if (!/^image\/(jpeg|png|webp)$/.test(f.mime || '')) err('Ảnh CCCD phải là ảnh JPG, PNG hoặc WEBP.');
         r = { maNV: nv.maNV, loai: 'Căn cước công dân', ten: CCCD_TEN[mat], soHieu: nv.cccd || '', ngay: parseD(nv.ngayCapCCCD) ? nv.ngayCapCCCD : '', ghiChu: 'Ảnh chụp CCCD (' + CCCD_TEN[mat].slice(7) + ')' };
@@ -8461,17 +8550,17 @@ var HRCORE = (function () {
       var bytes = Math.floor(String(f.data).length * 3 / 4);
       if (bytes > (num(cfg.dungLuongToiDaMB) || 10) * 1048576) err('File vượt ' + (num(cfg.dungLuongToiDaMB) || 10) + ' MB.');
       if (r.lienKet && !/^(qt|ll|kt):/.test(r.lienKet)) err('Liên kết không hợp lệ.');
-      var o = tlMeta(r, cfg, laNV);
+      var o = tlMeta(r, laAT ? Object.assign({}, cfg, { loaiTaiLieu: (cfg.loaiTaiLieu || []).concat([ANH_THE.loai]), loaiNVTuTai: (cfg.loaiNVTuTai || []).concat([ANH_THE.loai]) }) : cfg, laNV);
       o.id = newId(); o.maNV = nv.maNV; o.ten = o.ten || o.loai; o.nvXem = laNV ? 'Có' : (o.nvXem || 'Có');
       o.trangThai = laNV ? 'Chờ xác nhận' : 'Đã xác nhận'; o.nguoiXacNhan = laNV ? '' : (s.hoTen || s.username);
       o.tenFile = name; o.mimeType = f.mime; o.kichThuoc = bytes; o.nguoiTai = s.hoTen || s.username; o.taiLuc = env.now();
       o.fileId = env.files.put({ name: o.maNV + '_' + o.loai + '_' + name, mime: f.mime, data: f.data, maNV: nv.maNV, hoTen: nv.hoTen, duong: [tenThuMucNV(nv), tlNhom(o.loai).thuMuc] });   // Drive: <thư mục hồ sơ>/<mã – họ tên>/<nhóm>/
       T('TaiLieu').push(o);
       var xoa = [];
-      if (mat) {                                   // thay ảnh cũ cùng mặt: chỉ xóa những bản người tải được phép xóa (TCHC: mọi bản; CBCNV: bản của mình đang chờ xác nhận)
+      if (mat || laAT) {                           // thay ảnh cũ cùng mặt: chỉ xóa những bản người tải được phép xóa (TCHC: mọi bản; CBCNV: bản của mình đang chờ xác nhận)
         var a = T('TaiLieu');
         for (var i = a.length - 1; i >= 0; i--) { var x = a[i];
-          if (x === o || x.maNV !== nv.maNV || x.loai !== 'Căn cước công dân' || x.ten !== CCCD_TEN[mat]) continue;
+          if (x === o || x.maNV !== nv.maNV || (mat ? (x.loai !== 'Căn cước công dân' || x.ten !== CCCD_TEN[mat]) : (x.loai !== ANH_THE.loai || x.ten !== ANH_THE.ten))) continue;
           if (!ql && x.trangThai !== 'Chờ xác nhận') continue;
           try { env.files.del(x.fileId); } catch (e) { }
           xoa.push(x.id); a.splice(i, 1);
@@ -8479,7 +8568,7 @@ var HRCORE = (function () {
       }
       D('TaiLieu');
       log(s, 'tl.upload', nv.maNV + ' ' + o.loai + ': ' + name + (mat ? ' (' + o.ten + (xoa.length ? ', thay ' + xoa.length + ' ảnh cũ' : '') + ')' : ''));
-      return mat ? Object.assign({ xoa: xoa }, o) : o;
+      return mat || laAT ? Object.assign({ xoa: xoa }, o) : o;
     };
     H['tl.thumuc'] = function (req, s) {           // v3.17: mở thư mục hồ sơ của CBCNV trên Google Drive (chỉ tài khoản quản lý Drive của Công ty mở được)
       if (!can(s.role, 'tailieu')) err('Bạn không có quyền.');
@@ -9409,7 +9498,7 @@ var HRCORE = (function () {
       if (!fields) err('Kỳ ' + ky + ' đang ở bước "' + (b ? b.ten : k.trangThai) + '", không nhập dữ liệu ở bước này.');
       if (!laNguoiXuLy(s, b.nguoi)) err('Bước "' + b.ten + '" do ' + tenNguoi(b.nguoi) + ' thực hiện.');
       if (num(req.ngayCongChuan) && (b.loai === 'chamcong' || b.loai === 'tinhluong')) k.ngayCongChuan = num(req.ngayCongChuan);
-      var a = T('ChamCong'), n = ghiCC(ky, b, req.rows || []);
+      ccNguoi = s.hoTen || s.username; var a = T('ChamCong'), n = ghiCC(ky, b, req.rows || []);
       D('ChamCong'); D('KyLuong'); k.capNhat = env.now();
       var thieu = [], tinh = canTinhLai(k);
       if (tinh) thieu = recalc(ky, s).thieu;
@@ -9418,6 +9507,7 @@ var HRCORE = (function () {
       var out = kyData(ky); out.thieu = thieu; return out;
     };
     /* v3.32: ghi dữ liệu chấm công / công nợ của bước đang xử lý (dùng chung cho cc.save và ky.move – lưu & chuyển bước trong 1 lần gọi) */
+    var ccNguoi = '';
     function ghiCC(ky, b, rows) {
       var fields = FIELDS_LOAI[b.loai], a = T('ChamCong'), n = 0, theoId = {};
       a.forEach(function (x) { if (x.ky === ky) theoId[x.id] = x; });            // v3.22: tra theo mã, không quét cả bảng cho từng người
@@ -9469,6 +9559,16 @@ var HRCORE = (function () {
             var tu = cleanTamUng(r[c]); o.chiTietTamUng = tu.length ? JSON.stringify(tu) : '';
             o.tamUng = tu.reduce(function (t, x) { return t + x.soTien; }, 0); return;
           }
+          if (c === 'chamNS') {                                                       // v3.47: chấm hệ số năng suất → ghi hệ số vào biến kỳ
+            var cfgN = getCfg(), HN = hsnsCfg(cfgN), vao = parseJSON(r.chamNS, {}), dN = {};
+            HN.tieuChi.forEach(function (t) { var v = vao.d && vao.d[t.ma]; if (v !== undefined && v !== '' && v !== null) { v = num(v); if (v < 0 || v > 100) err('Điểm "' + t.ten + '" của ' + r.maNV + ' phải từ 0 đến 100.'); dN[t.ma] = v; } });
+            var hsT = vao.hsTay === '' || vao.hsTay === null || vao.hsTay === undefined ? '' : num(vao.hsTay);
+            if (hsT !== '' && (hsT < 0 || hsT > 5)) err('Hệ số năng suất của ' + r.maNV + ' không hợp lệ.');
+            o.chamNS = JSON.stringify({ d: dN, hsTay: hsT, ghiChu: String(vao.ghiChu || '').trim().slice(0, 200), nguoi: ccNguoi || '', luc: env.now() });
+            var kq = tinhNS(cfgN, o, kyRow(ky, false) ? (num(kyRow(ky, false).ngayCongChuan) || num(cfgN.ngayCongChuan)) : num(cfgN.ngayCongChuan));
+            if (HN.bien && kq.hs !== null) { var bkN = parseJSON(o.bienKy, {}); bkN[HN.bien] = kq.hs; o.bienKy = JSON.stringify(bkN); }
+            return;
+          }
           if (c === 'bienKy') {
             var cur = parseJSON(o.bienKy, {}), nhan = parseJSON(r.bienKy, {});
             (getCfg().bienKy || []).forEach(function (v) { if (v.buoc === b.loai && nhan[v.ma] !== undefined) cur[v.ma] = nhan[v.ma] === '' ? '' : num(nhan[v.ma]); });
@@ -9506,7 +9606,7 @@ var HRCORE = (function () {
       var b = st[i];
       if (j > i && b && FIELDS_LOAI[b.loai] && Array.isArray(req.rows) && req.rows.length && laNguoiXuLy(s, b.nguoi)) {   // v3.32: lưu & chuyển bước trong 1 lần gọi (trước đây 2 lần, mỗi lần tính lại cả bảng lương)
         if (num(req.ngayCongChuan) && (b.loai === 'chamcong' || b.loai === 'tinhluong')) k.ngayCongChuan = num(req.ngayCongChuan);
-        ghiCC(ky, b, req.rows); D('ChamCong');
+        ccNguoi = s.hoTen || s.username; ghiCC(ky, b, req.rows); D('ChamCong');
       }
       if (to === BUOC_XONG && j > i + 1 && i >= 0 && (s.role === 'giamdoc' || s.role === 'admin')) {
         // Giám đốc phê duyệt thẳng: bỏ qua các bước còn lại
@@ -10380,7 +10480,7 @@ var HRCORE = (function () {
   }
 
   return {
-    VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
+    VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
     BIEN_HT: BIEN_HT, matKhauTheoNV: matKhauTheoNV, tenBien: tenBien, xlMauTamUng: xlMauTamUng, docTamUng: docTamUng, docTien: docTien, docNgay: docNgay, nhanLoaiTU: nhanLoaiTU, dauVaoTinhLuong: dauVaoTinhLuong, astExcel: astExcel, ctExcel: ctExcel, cotXL: cotXL, xlBangTinh: xlBangTinh, xlBangLuongThang: xlBangLuongThang, xlNam: xlNam, xlCaNhan: xlCaNhan, xlChiPhi: xlChiPhi, sangXLSX: sangXLSX, khoanCo: khoanCo, amSangDuong: amSangDuong, lichLeTheoLuat: lichLeTheoLuat, cleanLe: cleanLe, LOAI_LE: LOAI_LE, KY_HIEU: KY_HIEU, DON_KH: DON_KH, ngayTheoDon: ngayTheoDon, cleanNgay: cleanNgay, tongHopNgay: tongHopNgay, NHOM_VP: NHOM_VP, thu: thu, ROLE_QL: ROLE_QL, normRole: normRole, tenDangNhap: tenDangNhap, ROLES_MOTA: ROLES_MOTA, BT_LOAI: BT_LOAI, CAM_XUC: CAM_XUC, memChat: memChat, CT_PHANLOAI: CT_PHANLOAI, CT_VAITRO: CT_VAITRO, CT_MAU: CT_MAU, nlvTrongKy: nlvTrongKy, bienNLV: bienNLV, CT_LUONG_MD: CT_LUONG_MD, BIEN_KY_MD: BIEN_KY_MD, CT_DONGBH_MD: CT_DONGBH_MD, BUOC_XONG: BUOC_XONG, LOAI_BUOC: LOAI_BUOC, FIELDS_LOAI: FIELDS_LOAI,
     buocLuong: buocLuong, viTriBuoc: viTriBuoc, buocTheoLoai: buocTheoLoai, laNguoiXuLy: laNguoiXuLy, kiemTraQTLuong: kiemTraQTLuong,
     CV_HUONG: CV_HUONG, CV_LOAI: CV_LOAI, CV_KHAN: CV_KHAN, CV_TT_DEN: CV_TT_DEN, CV_TT_DI: CV_TT_DI, CV_HET: CV_HET,
@@ -11904,12 +12004,12 @@ function llMuc(ma, o) {
 }
 const LL_SO = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 const llCan = s => s === undefined || s === null ? '' : String(s);
-function llHTML(ma, o) {
+function llHTML(ma, o, anh) {
   const { n, ct, hom, c, S } = llMuc(ma, o); let so = 0;
   const cell = (v, cls) => `<td${cls ? ` class="${cls}"` : ''}>${v && typeof v === 'object' ? `<a href="${esc(v.url)}">${esc(v.x)}</a>` : esc(llCan(v)).replace(/\n/g, '<br><span class="g">').replace(/(<span class="g">[^<]*)$/, '$1</span>')}</td>`;
   let h = `<div class="llp"><div class="llh"><div><b>${esc(ct.toUpperCase())}</b>${c.diaChiCongTy ? `<div>${esc(c.diaChiCongTy)}</div>` : ''}<div>Số: ........./LL-TCHC</div></div>
     <div style="text-align:center"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><div><b><u>Độc lập – Tự do – Hạnh phúc</u></b></div></div></div>
-    <div class="llt"><div class="anh">Ảnh<br>3 × 4</div><div><h2>LÝ LỊCH CÁ NHÂN</h2><div class="sub">(Trích từ hồ sơ nhân sự – in ngày ${dfmt(hom)})</div>
+    <div class="llt">${anh ? `<div class="anh co"><img src="${anh}" alt="Ảnh thẻ"></div>` : '<div class="anh">Ảnh<br>3 × 4</div>'}<div><h2>LÝ LỊCH CÁ NHÂN</h2><div class="sub">(Trích từ hồ sơ nhân sự – in ngày ${dfmt(hom)})</div>
       <div class="ten">Họ và tên: <b>${esc((n.hoTen || '').toUpperCase())}</b></div><div>Mã nhân viên: <b>${esc(n.maNV)}</b> &nbsp; · &nbsp; ${esc(n.chucVu || '')}${n.phongBan ? ' – ' + esc(n.phongBan) : ''}</div></div></div>`;
   S.forEach(s => {
     h += s.con ? `<div class="h4">${esc(s.t)}</div>` : `<h3>${LL_SO[so++]}. ${esc(s.t.toUpperCase())}</h3>`;
@@ -11922,9 +12022,9 @@ function llHTML(ma, o) {
     <div><i>........, ngày ..... tháng ..... năm ........</i><b>NGƯỜI KHAI</b><span>(Ký, ghi rõ họ tên)</span><b class="nk">${esc(n.hoTen || '')}</b></div></div></div>`;
   return h;
 }
-function llIn(ma, o) {
+async function llIn(ma, o) {
   if (!LL_MUC.some(([k]) => o[k])) return toast('Chọn ít nhất 1 mục để in.', 'err');
-  $('print').innerHTML = llHTML(ma, o);
+  $('print').innerHTML = llHTML(ma, o, await llAnh(ma));             // v3.47: ảnh thẻ / ảnh trên CCCD
   setTimeout(() => window.print(), 50);
 }
 async function llWord(ma, o) {
@@ -11934,7 +12034,8 @@ async function llWord(ma, o) {
     const Dx = await napDocx(), { n, ct, hom, S } = llMuc(ma, o), K = []; let so = 0;
     K.push({ t: 'dau', x: ct.toUpperCase(), y: 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập – Tự do – Hạnh phúc' });
     K.push({ t: 'h1', x: 'LÝ LỊCH CÁ NHÂN' }, { t: 'giua', x: '(Trích từ hồ sơ nhân sự – ngày ' + dfmt(hom) + ')' });
-    K.push({ t: 'kv', rows: [['Họ và tên', (n.hoTen || '').toUpperCase(), 'Mã nhân viên', n.maNV], ['Chức vụ', n.chucVu || '', 'Phòng ban', n.phongBan || '']], anh: 1 });
+    const anh = await llAnh(ma);                                    // v3.47
+    K.push({ t: 'kv', rows: [['Họ và tên', (n.hoTen || '').toUpperCase(), 'Mã nhân viên', n.maNV], ['Chức vụ', n.chucVu || '', 'Phòng ban', n.phongBan || '']], anh: 1, anhData: anh ? anh.split(',')[1] : '' });
     S.forEach(s => {
       K.push({ t: s.con ? 'h3' : 'h2', x: s.con ? s.t : LL_SO[so++] + '. ' + s.t.toUpperCase() });
       if (s.ghi) K.push({ t: 'nho', x: s.ghi });
@@ -12929,12 +13030,161 @@ function cccdHTML(ma, self) {
     ${can('edit_nv') && coAnh ? `<div class="bar" style="margin:-2px 0 8px"><button class="btn sm" onclick="cccdAI('${ma}')"><span class="ic16">${AI_IC}</span> AI đọc ảnh, đề xuất điền lý lịch</button><span class="small muted">AI chỉ đề xuất – Anh/Chị soát từng ô cạnh ảnh rồi mới lưu.</span></div>` : ''}
     ${tai ? `<div class="small muted" style="margin:-4px 0 8px">Chụp rõ, đủ 4 góc thẻ. Ảnh được thu nhỏ và lưu riêng tư trên Drive Công ty, xem được ở tab Tài liệu; mỗi lần xem đều ghi nhật ký.${self && !can('edit_nv') ? ' Ảnh bạn tải lên chờ TCHC xác nhận.' : ''}</div>` : ''}`;
 }
+/* ====================== v3.46: TỰ CẮT ẢNH CĂN CƯỚC ======================
+   Tìm khung thẻ trong ảnh (tách nền theo màu viền ảnh + cạnh), lấy 4 góc, nắn phẳng (phối cảnh) về đúng tỷ lệ thẻ 85,6 × 54 mm.
+   Người tải thấy 4 góc gợi ý, kéo chỉnh nếu lệch, xoay 90°, hoặc dùng ảnh gốc. Chạy hoàn toàn trên máy, không gửi ảnh ra ngoài. */
+const CCCD_TL = 85.6 / 53.98, CAT = {};
+function catMoAnh(file) {
+  return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => { throw new Error('Không đọc được ảnh "' + file.name + '" (định dạng HEIC hãy chuyển sang JPG).'); });
+}
+function catNguon(bmp, max) {           // canvas nguồn ≤ max px
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), cv = document.createElement('canvas');
+  cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(bmp, 0, 0, cv.width, cv.height); return cv;
+}
+/* tìm 4 góc thẻ trên ảnh nhỏ (≤ 400px) → tọa độ theo tỷ lệ 0..1 */
+function catTimGoc(cv) {
+  const W = cv.width, H = cv.height, d = cv.getContext('2d').getImageData(0, 0, W, H).data, N = W * H;
+  const L = new Float32Array(N), A = new Float32Array(N), B = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2]; L[i] = 0.299 * r + 0.587 * g + 0.114 * b; A[i] = r - g; B[i] = (r + g) / 2 - b; }
+  // màu nền = trung vị dải viền ảnh
+  const vien = [], bw = Math.max(2, Math.round(Math.min(W, H) * 0.04));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x < bw || y < bw || x >= W - bw || y >= H - bw) vien.push(y * W + x);
+  const tv = arr => { const a = vien.map(i => arr[i]).sort((p, q) => p - q); return a[a.length >> 1]; };
+  const l0 = tv(L), a0 = tv(A), b0 = tv(B);
+  // khác nền (màu) + cạnh (độ sáng)
+  const D = new Float32Array(N); let mx = 1;
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x, gx = L[i + 1] - L[i - 1], gy = L[i + W] - L[i - W];
+    const v = Math.hypot(L[i] - l0, (A[i] - a0) * 1.5, (B[i] - b0) * 1.5) + 0.35 * Math.hypot(gx, gy);
+    D[i] = v; if (v > mx) mx = v;
+  }
+  // ngưỡng Otsu
+  const his = new Float64Array(256); for (let i = 0; i < N; i++) his[Math.min(255, (D[i] / mx * 255) | 0)]++;
+  let sum = 0; for (let t = 0; t < 256; t++) sum += t * his[t];
+  let sB = 0, wB = 0, best = 0, thr = 60;
+  for (let t = 0; t < 256; t++) { wB += his[t]; if (!wB) continue; const wF = N - wB; if (!wF) break; sB += t * his[t]; const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; thr = t; } }
+  let M = new Uint8Array(N); for (let i = 0; i < N; i++) M[i] = D[i] / mx * 255 > thr ? 1 : 0;
+  // đóng lỗ (giãn 2 rồi co 2) để mặt thẻ liền khối
+  const gian = (m, v) => { const o = new Uint8Array(N); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let c = m[y * W + x]; if (c !== v) for (let dy = -1; dy <= 1 && c !== v; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && m[yy * W + xx] === v) { c = v; break; } } o[y * W + x] = c; } return o; };
+  M = gian(gian(M, 1), 1); M = gian(gian(M, 0), 0);
+  // vùng liền lớn nhất (ưu tiên vùng chứa tâm ảnh)
+  const nh = new Int32Array(N).fill(-1), q = new Int32Array(N); let tot = -1, totN = 0;
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!M[s0] || nh[s0] >= 0) continue;
+    let h = 0, t = 0; q[t++] = s0; nh[s0] = s0; let n = 0, tam = false;
+    while (h < t) { const i = q[h++]; n++; const x = i % W, y = (i / W) | 0; if (Math.abs(x - W / 2) < W * 0.1 && Math.abs(y - H / 2) < H * 0.1) tam = true;
+      for (const j of [i - 1, i + 1, i - W, i + W]) { if (j < 0 || j >= N || (j === i - 1 && x === 0) || (j === i + 1 && x === W - 1)) continue; if (M[j] && nh[j] < 0) { nh[j] = s0; q[t++] = j; } } }
+    const diem = n * (tam ? 1.6 : 1); if (diem > totN) { totN = diem; tot = s0; }
+  }
+  if (tot < 0) return null;
+  const pts = []; for (let i = 0; i < N; i++) if (nh[i] === tot) { const x = i % W, y = (i / W) | 0; if (!M[i - 1] || !M[i + 1] || !M[i - W] || !M[i + W] || x === 0 || y === 0 || x === W - 1 || y === H - 1) pts.push([x, y]); }
+  const dt = pts.length ? [...nh].filter(v => v === tot).length / N : 0;
+  if (dt < 0.1 || dt > 0.97 || pts.length < 20) return null;
+  // bao lồi
+  pts.sort((p, r) => p[0] - r[0] || p[1] - r[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = []; for (const p of pts) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop(); hi.push(p); }
+  const hull = lo.slice(0, -1).concat(hi.slice(0, -1));
+  const dtich = P => { let s = 0; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; s += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s) / 2; };
+  const aH = dtich(hull);
+  // cách 1: 4 điểm cực (thẻ nghiêng ít); cách 2: hình chữ nhật xoay nhỏ nhất bao quanh (thẻ nghiêng nhiều)
+  const cuc = f => hull.reduce((m, p) => f(p) > f(m) ? p : m, hull[0]);
+  const q1 = [cuc(p => -p[0] - p[1]), cuc(p => p[0] - p[1]), cuc(p => p[0] + p[1]), cuc(p => -p[0] + p[1])];
+  let obb = null, aMin = Infinity;
+  for (let i = 0; i < hull.length; i++) {
+    const a = hull[i], b = hull[(i + 1) % hull.length], g = Math.atan2(b[1] - a[1], b[0] - a[0]), c = Math.cos(g), s = Math.sin(g);
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of hull) { const u = p[0] * c + p[1] * s, v = -p[0] * s + p[1] * c; x0 = Math.min(x0, u); x1 = Math.max(x1, u); y0 = Math.min(y0, v); y1 = Math.max(y1, v); }
+    const ar = (x1 - x0) * (y1 - y0); if (ar < aMin) { aMin = ar; obb = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([u, v]) => [u * c - v * s, u * s + v * c]); }
+  }
+  let g4 = new Set(q1.map(String)).size === 4 && dtich(q1) >= 0.9 * aH ? q1 : obb;
+  return catXep(g4.map(([x, y]) => ({ x: Math.min(1, Math.max(0, x / (W - 1))), y: Math.min(1, Math.max(0, y / (H - 1))) })), W / H);
+}
+/* xếp 4 góc theo chiều kim đồng hồ bắt đầu góc trên-trái, cạnh trên là cạnh dài (thẻ nằm ngang) */
+function catXep(p, tl) {
+  const cx = p.reduce((s, a) => s + a.x, 0) / 4, cy = p.reduce((s, a) => s + a.y, 0) / 4;
+  p = p.slice().sort((a, b) => Math.atan2((a.y - cy), (a.x - cx) * tl) - Math.atan2((b.y - cy), (b.x - cx) * tl));
+  let k = 0; p.forEach((a, i) => { if (a.x + a.y < p[k].x + p[k].y) k = i; }); p = p.slice(k).concat(p.slice(0, k));
+  const dd = (a, b) => Math.hypot((a.x - b.x) * tl, a.y - b.y);
+  if (dd(p[0], p[1]) < dd(p[1], p[2]) * 0.95) p = [p[3], p[0], p[1], p[2]];
+  return p;
+}
+/* nắn phẳng: ảnh nguồn + 4 góc (0..1) → canvas w × h */
+function catNan(src, p, w, h) {
+  const S = p.map(a => [a.x * (src.width - 1), a.y * (src.height - 1)]), D = [[0, 0], [w, 0], [w, h], [0, h]];
+  const M = [], v = [];
+  for (let i = 0; i < 4; i++) { const [x, y] = D[i], [u, z] = S[i]; M.push([x, y, 1, 0, 0, 0, -x * u, -y * u]); v.push(u); M.push([0, 0, 0, x, y, 1, -x * z, -y * z]); v.push(z); }
+  for (let c = 0; c < 8; c++) { let r = c; for (let i = c + 1; i < 8; i++) if (Math.abs(M[i][c]) > Math.abs(M[r][c])) r = i; [M[c], M[r]] = [M[r], M[c]]; [v[c], v[r]] = [v[r], v[c]];
+    for (let i = 0; i < 8; i++) if (i !== c) { const f = M[i][c] / M[c][c]; for (let j = c; j < 8; j++) M[i][j] -= f * M[c][j]; v[i] -= f * v[c]; } }
+  const h8 = v.map((x, i) => x / M[i][i]);
+  const sd = src.getContext('2d').getImageData(0, 0, src.width, src.height).data, SW = src.width, SH = src.height;
+  const out = document.createElement('canvas'); out.width = w; out.height = h; const g = out.getContext('2d'), od = g.createImageData(w, h), o = od.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const den = h8[6] * x + h8[7] * y + 1, u = (h8[0] * x + h8[1] * y + h8[2]) / den, z = (h8[3] * x + h8[4] * y + h8[5]) / den;
+    const x0 = Math.max(0, Math.min(SW - 2, Math.floor(u))), y0 = Math.max(0, Math.min(SH - 2, Math.floor(z))), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, z - y0));
+    const i0 = (y0 * SW + x0) * 4, i1 = i0 + 4, i2 = i0 + SW * 4, i3 = i2 + 4, k = (y * w + x) * 4;
+    for (let c = 0; c < 3; c++) o[k + c] = (sd[i0 + c] * (1 - fx) + sd[i1 + c] * fx) * (1 - fy) + (sd[i2 + c] * (1 - fx) + sd[i3 + c] * fx) * fy;
+    o[k + 3] = 255;
+  }
+  g.putImageData(od, 0, 0); return out;
+}
+async function cccdCatAnh(file, mat) {
+  const bmp = await catMoAnh(file), src = catNguon(bmp, 2200), nho = catNguon(bmp, 400); try { bmp.close && bmp.close(); } catch (e) { }
+  const tim = catTimGoc(nho);
+  CAT.src = src; CAT.tim = !!tim; CAT.p = tim || [{ x: .06, y: .12 }, { x: .94, y: .12 }, { x: .94, y: .88 }, { x: .06, y: .88 }];
+  return new Promise(xong => {
+    CAT.xong = xong;
+    const xem = document.createElement('canvas'), k = Math.min(1, 900 / Math.max(src.width, src.height)); xem.width = src.width * k; xem.height = src.height * k; xem.getContext('2d').drawImage(src, 0, 0, xem.width, xem.height);
+    modal('Căn chỉnh ảnh căn cước – ' + (mat === 'truoc' ? 'mặt trước' : 'mặt sau'), `<div class="cat-g">
+        <div><div class="cat-k" id="catK"><img src="${xem.toDataURL('image/jpeg', 0.85)}" alt="Ảnh gốc" draggable="false"><svg id="catSvg" viewBox="0 0 1000 1000" preserveAspectRatio="none"><polygon id="catPg"/></svg>${[0, 1, 2, 3].map(i => `<span class="cat-h" data-i="${i}" aria-label="Góc ${i + 1}"></span>`).join('')}</div>
+          <div class="small muted" style="margin-top:6px">${CAT.tim ? 'App đã tự nhận khung thẻ.' : '<b>Chưa nhận được khung thẻ</b> — kéo 4 chấm cam vào 4 góc thẻ.'} Kéo các chấm để chỉnh cho khớp 4 góc thẻ.</div></div>
+        <div><div class="sec" style="margin-top:0">Ảnh sau khi cắt</div><canvas id="catXem" class="cat-x"></canvas>
+          <div class="bar" style="margin-top:8px"><button class="btn sm" onclick="catXoay()">⟳ Xoay 90°</button><button class="btn sm" onclick="catTuDong()">Tự nhận lại</button></div>
+          <div class="small muted" style="margin-top:6px">Ảnh được nắn thẳng về đúng tỷ lệ thẻ (85,6 × 54 mm), 1280 × 807 px — rõ chữ cho OCR. Xử lý trên máy, không gửi ra ngoài.</div></div></div>`, {
+      size: 'lg', okText: 'Cắt và tải lên',
+      foot: `<button class="btn" onclick="catKetThuc('goc')">Dùng ảnh gốc</button><span style="flex:1"></span><button class="btn" onclick="catKetThuc(null)">Hủy</button><button class="btn pri" id="mdOk" onclick="catKetThuc('cat')">Cắt và tải lên</button>`,
+      onClose: () => { if (CAT.xong) { const f = CAT.xong; CAT.xong = null; f(null); } }
+    });
+    CAT.file = file; setTimeout(catGan, 30);
+  });
+}
+function catVe() {
+  const k = $('catK'); if (!k) return;
+  $('catPg').setAttribute('points', CAT.p.map(a => (a.x * 1000) + ',' + (a.y * 1000)).join(' '));
+  k.querySelectorAll('.cat-h').forEach(h => { const a = CAT.p[+h.dataset.i]; h.style.left = (a.x * 100) + '%'; h.style.top = (a.y * 100) + '%'; h.classList.toggle('dau', h.dataset.i === '0'); });
+}
+function catXemTruoc() { const c = $('catXem'); if (!c) return; const r = catNan(CAT.src, CAT.p, 320, Math.round(320 / CCCD_TL)); c.width = r.width; c.height = r.height; c.getContext('2d').drawImage(r, 0, 0); }
+function catGan() {
+  const k = $('catK'); if (!k) return; catVe(); catXemTruoc();
+  k.querySelectorAll('.cat-h').forEach(h => {
+    h.addEventListener('pointerdown', e => {
+      e.preventDefault(); h.setPointerCapture(e.pointerId); const i = +h.dataset.i;
+      const mv = ev => { const r = k.getBoundingClientRect(); CAT.p[i] = { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) }; catVe(); };
+      const up = () => { h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); catXemTruoc(); };
+      h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+    });
+  });
+}
+function catXoay() { CAT.p = [CAT.p[3], CAT.p[0], CAT.p[1], CAT.p[2]]; catVe(); catXemTruoc(); }
+function catTuDong() { const t = catTimGoc(catNguon(CAT.src, 400)); if (!t) return toast('Không tự nhận được khung thẻ — hãy kéo 4 góc bằng tay.', 'err'); CAT.p = t; catVe(); catXemTruoc(); }
+async function catKetThuc(cach) {
+  const f = CAT.xong; CAT.xong = null;
+  if (!cach) { closeModal(); return f && f(null); }
+  try {
+    let kq;
+    if (cach === 'goc') kq = await btNen(CAT.file);
+    else { const r = catNan(CAT.src, CAT.p, 1280, Math.round(1280 / CCCD_TL)); kq = { data: r.toDataURL('image/jpeg', 0.9).split(',')[1], mime: 'image/jpeg', name: 'cccd.jpg', w: r.width, h: r.height }; }
+    closeModal(); f && f(kq);
+  } catch (e) { CAT.xong = f; toast(e.message, 'err'); }
+}
 async function cccdTai(ma, mat, inp) {
   const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
   if (!/^image\//.test(f.type)) return toast('Chọn file ảnh (JPG, PNG).', 'err');
   try {
+    const a = await cccdCatAnh(f, mat); if (!a) return;          // v3.46: tự nhận khung thẻ, cắt thẳng vừa khung (soát / chỉnh 4 góc)
     toast('Đang tải ảnh CCCD…');
-    const a = await btNen(f);
     const r = await api('tl.upload', { row: { maNV: ma }, file: { name: 'CCCD_' + (mat === 'truoc' ? 'mat-truoc' : 'mat-sau') + '.jpg', mime: a.mime, data: a.data }, cccdMat: mat });
     APP.D.tl = (APP.D.tl || []).filter(x => !(r.xoa || []).includes(x.id)); delete r.xoa; APP.D.tl.push(r);
     CCCD_ANH[r.id] = 'data:' + a.mime + ';base64,' + a.data; persist(); render();
@@ -12975,6 +13225,88 @@ async function cccdAI(ma) {
   document.querySelectorAll('#ov .cai-v').forEach(i => i.addEventListener('input', () => { const c = document.querySelector(`#ov .cai-c[data-k="${i.dataset.k}"]`); if (c && i.value.trim()) c.checked = true; }));
   cccdHydrate();
 }
+/* ====================== v3.47: ẢNH THẺ 3×4 ======================
+   Lưu như tài liệu hồ sơ (loại "Ảnh thẻ"). Nguồn: CBCNV / TCHC tải ảnh thẻ, hoặc cắt từ ảnh CCCD mặt trước (khung chân dung bên trái thẻ).
+   Dùng làm ảnh đại diện hồ sơ và chèn vào Lý lịch cá nhân (in / PDF / Word); chưa có ảnh thẻ → lý lịch tự cắt từ ảnh CCCD mặt trước. */
+const AT_KHUNG = { x: 0.03, y: 0.29, w: 0.25 };          // vị trí ảnh chân dung trên thẻ CCCD đã nắn thẳng (tỷ lệ 85,6 × 54)
+function anhTheBan(ma) { return tlOf(ma).filter(d => d.loai === 'Ảnh thẻ').sort((a, b) => (a.taiLuc || '') < (b.taiLuc || '') ? 1 : -1)[0]; }
+const atXem = (d, self) => d && (can('tailieu') || (self && d.nvXem !== 'Không'));
+function atAvatar(ma, self, n) {
+  const d = anhTheBan(ma);
+  return atXem(d, self) ? `<div class="av av-anh"><img data-cccd="${d.id}" alt="${esc(n.hoTen)}"${CCCD_ANH[d.id] ? ` src="${CCCD_ANH[d.id]}"` : ''}><span class="cccd-c"></span></div>` : `<div class="av">${initials(n.hoTen)}</div>`;
+}
+function anhTheHTML(ma, self) {
+  const tai = can('edit_nv') || (self && (cfg().loaiNVTuTai || []).includes('Căn cước công dân'));
+  const d = anhTheBan(ma), cc = cccdBan(ma, 'truoc'), xemCC = cc && (can('tailieu') || (self && cc.nvXem !== 'Không'));
+  return `<div class="sec">Ảnh thẻ (3×4)</div><div class="at">
+    <div class="at-o">${d ? (atXem(d, self) ? `<button type="button" class="cccd-a at-a" onclick="viewTL('${d.id}')" title="Xem ảnh lớn"><img data-cccd="${d.id}" alt="Ảnh thẻ"${CCCD_ANH[d.id] ? ` src="${CCCD_ANH[d.id]}"` : ''}><span class="cccd-c">Đang tải ảnh…</span></button>` : '<div class="cccd-a at-a trong">Đã có ảnh</div>')
+      : `<div class="cccd-a at-a trong">Chưa có ảnh thẻ${xemCC ? '<br><span class="small">Lý lịch sẽ lấy ảnh trên CCCD</span>' : ''}</div>`}</div>
+    <div class="at-m">${d ? `<div class="small muted">${esc(d.ghiChu || '')} · ${esc(d.nguoiTai || '')} · ${esc((d.taiLuc || '').slice(0, 10))}${d.trangThai !== 'Đã xác nhận' ? ' · <span class="pill warn">Chờ TCHC xác nhận</span>' : ''}</div>` : ''}
+      ${tai ? `<div class="bar" style="margin-top:6px"><label class="btn sm"><input type="file" accept="image/*" class="hide" onchange="atTai('${ma}',this)">📷 ${d ? 'Thay ảnh thẻ' : 'Tải ảnh thẻ'}</label>${xemCC ? `<button class="btn sm" onclick="atTuCCCD('${ma}')">Lấy từ ảnh CCCD</button>` : ''}</div>
+        <div class="small muted" style="margin-top:4px">Ảnh chân dung nền sáng, rõ mặt; app cho kéo khung 3×4 để cắt vừa. Dùng làm ảnh hồ sơ và in Lý lịch cá nhân.</div>` : ''}</div></div>`;
+}
+async function atNguonTL(id) {         // ảnh tài liệu → dataURL (dùng bộ đệm ảnh CCCD)
+  if (CCCD_ANH[id]) return CCCD_ANH[id];
+  const r = await api('tl.get', { id }, { quiet: true }); return CCCD_ANH[id] = 'data:' + r.mime + ';base64,' + r.data;
+}
+const atAnhCV = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => { const cv = document.createElement('canvas'); cv.width = i.naturalWidth; cv.height = i.naturalHeight; cv.getContext('2d').drawImage(i, 0, 0); ok(cv); }; i.onerror = () => no(new Error('Không đọc được ảnh.')); i.src = src; });
+function atCatCV(cv, r, w = 600) {     // r: {x,y,w} tỷ lệ theo ảnh, khung 3:4
+  const pw = r.w * cv.width, ph = pw * 4 / 3, o = document.createElement('canvas'); o.width = w; o.height = Math.round(w * 4 / 3);
+  const g = o.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, o.width, o.height); g.drawImage(cv, r.x * cv.width, r.y * cv.height, pw, ph, 0, 0, o.width, o.height); return o;
+}
+async function atTai(ma, inp) {
+  const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
+  try { const cv = catNguon(await catMoAnh(f), 1600), k = cv.width / cv.height, w = k > 0.75 ? 0.75 / k * 0.9 : 0.9; atKhung(ma, cv, { x: (1 - w) / 2, y: 0.05, w }, 'tai'); } catch (e) { toast(e.message, 'err'); }
+}
+async function atTuCCCD(ma) {
+  const d = cccdBan(ma, 'truoc'); if (!d) return toast('Chưa có ảnh CCCD mặt trước.', 'err');
+  try { const cv = await atAnhCV(await run(() => atNguonTL(d.id))); atKhung(ma, cv, Object.assign({}, AT_KHUNG), 'cccd'); } catch (e) { toast(e.message, 'err'); }
+}
+/* khung cắt 3:4: kéo để di chuyển, kéo góc dưới-phải để đổi cỡ */
+const ATK = {};
+function atKhung(ma, cv, r, nguon) {
+  Object.assign(ATK, { ma, cv, r, nguon });
+  const xem = document.createElement('canvas'), k = Math.min(1, 900 / Math.max(cv.width, cv.height)); xem.width = cv.width * k; xem.height = cv.height * k; xem.getContext('2d').drawImage(cv, 0, 0, xem.width, xem.height);
+  modal('Cắt ảnh thẻ 3×4 – ' + esc(nvName(ma)), `<div class="cat-g"><div><div class="cat-k" id="atK"><img src="${xem.toDataURL('image/jpeg', 0.88)}" alt="" draggable="false"><div class="at-kh" id="atKh"><span class="at-kz"></span></div></div>
+      <div class="small muted" style="margin-top:6px">${nguon === 'cccd' ? 'Khung đặt sẵn ở ảnh chân dung trên thẻ CCCD. ' : ''}Kéo khung để di chuyển, kéo góc dưới-phải để phóng to / thu nhỏ (giữ tỷ lệ 3×4).</div></div>
+    <div><div class="sec" style="margin-top:0">Ảnh thẻ</div><canvas id="atXem" class="at-x"></canvas><div class="small muted" style="margin-top:6px">Lưu 600 × 800 px, dùng làm ảnh hồ sơ và in Lý lịch cá nhân. Xử lý trên máy.</div></div></div>`, {
+    size: 'lg', okText: 'Lưu ảnh thẻ', onOk: async () => {
+      const o = atCatCV(ATK.cv, ATK.r), data = o.toDataURL('image/jpeg', 0.9).split(',')[1];
+      const r = await api('tl.upload', { row: { maNV: ma }, file: { name: 'AnhThe_3x4.jpg', mime: 'image/jpeg', data }, anhThe: nguon === 'cccd' ? 'cccd' : 1 });
+      APP.D.tl = (APP.D.tl || []).filter(x => !(r.xoa || []).includes(x.id)); delete r.xoa; APP.D.tl.push(r);
+      CCCD_ANH[r.id] = 'data:image/jpeg;base64,' + data; persist(); render();
+      toast(r.trangThai === 'Đã xác nhận' ? 'Đã lưu ảnh thẻ.' : 'Đã tải ảnh thẻ, chờ TCHC xác nhận.', 'ok');
+    } });
+  setTimeout(atGan, 30);
+}
+function atVe() {
+  const kh = $('atKh'); if (!kh) return; const k = $('atK'), W = k.clientWidth, H = k.clientHeight, r = ATK.r;
+  kh.style.left = (r.x * 100) + '%'; kh.style.top = (r.y * 100) + '%'; kh.style.width = (r.w * 100) + '%'; kh.style.height = (r.w * W * 4 / 3 / H * 100) + '%';
+}
+function atXemTruoc() { const c = $('atXem'); if (!c) return; const o = atCatCV(ATK.cv, ATK.r, 240); c.width = o.width; c.height = o.height; c.getContext('2d').drawImage(o, 0, 0); }
+function atGioiHan() { const k = $('atK'), W = k.clientWidth, H = k.clientHeight, r = ATK.r; r.w = Math.max(0.05, Math.min(r.w, 1, H / (W * 4 / 3))); const h = r.w * W * 4 / 3 / H; r.x = Math.max(0, Math.min(1 - r.w, r.x)); r.y = Math.max(0, Math.min(1 - h, r.y)); }
+function atGan() {
+  const k = $('atK'), kh = $('atKh'); if (!kh) return;
+  const img = k.querySelector('img'), xong = () => { atGioiHan(); atVe(); atXemTruoc(); };
+  if (img.complete) xong(); else img.onload = xong;
+  kh.addEventListener('pointerdown', e => {
+    e.preventDefault(); kh.setPointerCapture(e.pointerId);
+    const co = e.target.classList.contains('at-kz'), b = k.getBoundingClientRect(), r0 = Object.assign({}, ATK.r), x0 = e.clientX, y0 = e.clientY;
+    const mv = ev => { const dx = (ev.clientX - x0) / b.width, dy = (ev.clientY - y0) / b.height;
+      if (co) ATK.r.w = r0.w + Math.max(dx, dy * b.height * 3 / 4 / b.width); else { ATK.r.x = r0.x + dx; ATK.r.y = r0.y + dy; }
+      atGioiHan(); atVe(); };
+    const up = () => { kh.removeEventListener('pointermove', mv); kh.removeEventListener('pointerup', up); kh.removeEventListener('pointercancel', up); atXemTruoc(); };
+    kh.addEventListener('pointermove', mv); kh.addEventListener('pointerup', up); kh.addEventListener('pointercancel', up);
+  });
+}
+/* ảnh cho Lý lịch: ảnh thẻ → nếu chưa có: cắt từ ảnh CCCD mặt trước */
+async function llAnh(ma) {
+  try {
+    const d = anhTheBan(ma); if (d) return await atNguonTL(d.id);
+    const c = cccdBan(ma, 'truoc'); if (!c) return null;
+    return atCatCV(await atAnhCV(await atNguonTL(c.id)), AT_KHUNG, 360).toDataURL('image/jpeg', 0.9);
+  } catch (e) { return null; }
+}
 async function cccdHydrate() {
   for (const im of document.querySelectorAll('img[data-cccd]:not([src])')) {
     const id = im.dataset.cccd; if (CCCD_ANH[id] === 0) continue; CCCD_ANH[id] = 0;
@@ -12997,6 +13329,7 @@ function profileHTML(ma, self) {
   let body = '';
   if (t === 'info') body = `
     <div class="sec">Thông tin cá nhân</div>${kv([['Giới tính', esc(n.gioiTinh)], ['Ngày sinh', dfmt(n.ngaySinh)], ['Số CCCD', esc(n.cccd)], ['Ngày cấp', dfmt(n.ngayCapCCCD)], ['Nơi cấp', esc(n.noiCapCCCD)], ['Điện thoại', esc(n.dienThoai)], ['Email', esc(n.email)], ['Địa chỉ', esc(n.diaChi)], ['Quê quán', esc(n.queQuan)], ['Trình độ', esc(n.trinhDo)], ['Chuyên ngành', esc(n.chuyenNganh)]])}
+    ${anhTheHTML(ma, self)}
     ${cccdHTML(ma, self)}
     ${hsDinhKemHTML(ma, self)}
     <div class="sec">Công việc & hợp đồng</div>${kv([['Công ty', esc(ctvTen(ctNV(n))) + (n.congTy ? '' : ' <span class="muted small">(mặc định)</span>')], ['Phòng ban', esc(n.phongBan)], ['Chức vụ', esc(n.chucVu)], ['Đơn vị / công trường', esc(n.donVi)], ['Nơi làm việc', esc(nlvTen(n.noiLamViec))], ['Ngày vào làm', dfmt(n.ngayVao)], ['Thâm niên', thamNien(n)], ['Loại HĐ', esc(n.loaiHD)], ['Số HĐ', esc(n.soHD)], ['Ngày ký', dfmt(n.ngayKyHD)], ['Hết hạn', dfmt(n.ngayHetHanHD)], ['Trạng thái', pill(n.trangThai)], ...(n.ngayNghi ? [['Chấm dứt HĐ từ ngày', dfmt(n.ngayNghi) + (n.ngayNghi > todayS() ? ' <span class="pill warn">sắp tới</span>' : '')]] : [])])}
@@ -13007,7 +13340,7 @@ function profileHTML(ma, self) {
   else if (t === 'qt') body = timelineHTML(ma);
   else if (t === 'luong') { const m = mhHienTai(ma), mhR = (APP.D.mh || []).filter(r => r.maNV === ma && (!self || r.trangThai === 'Hiệu lực')).sort((a, b) => a.hieuLuc < b.hieuLuc ? 1 : -1); body = `
     <div class="hd" style="margin-bottom:6px"><h2 style="font-size:16px">Mức đang hưởng</h2>${!self && mhCanKhai() ? `<button class="btn pri sm" onclick="openMHForm('${ma}')">+ Khai báo thay đổi mức hưởng</button>` : ''}</div>
-    ${kv([['Ngạch / bậc', esc([n.ngach, n.bac].filter(Boolean).join(' – bậc '))], ['Ngày hưởng bậc hiện tại', dfmt(n.ngayHuongBac)], ['Lương thời gian (thỏa thuận)', money0(m.luongChinh) + ' đ'], ['Lương cơ bản (đóng BH)', m.luongBH ? money0(m.luongBH) + ' đ' : '—'], ...(c.phuCap || []).filter(p => num(m.phuCap[p.ma])).map(p => [esc(p.ten), money0(m.phuCap[p.ma]) + ' đ']), ['Số người phụ thuộc', m.soNPT], ['Ăn ca', m.anCa ? money0(m.anCa) + ' đ/ngày (mức riêng)' : 'Theo nơi làm việc' + (n.noiLamViec ? ' (' + esc(n.noiLamViec) + ')' : '')], ['Hạn nâng bậc tiếp theo', dfmt(han)]])}
+    ${kv([['Ngạch / bậc', esc([n.ngach, n.bac].filter(Boolean).join(' – bậc '))], ['Ngày hưởng bậc hiện tại', dfmt(n.ngayHuongBac)], ['Lương thời gian (thỏa thuận)', mhSuaO(ma, 'luongChinh', money0(m.luongChinh) + ' đ', self)], ['Lương cơ bản (đóng BH)', mhSuaO(ma, 'luongBH', m.luongBH ? money0(m.luongBH) + ' đ' : '—', self)], ...(c.phuCap || []).filter(p => num(m.phuCap[p.ma])).map(p => [esc(p.ten), mhSuaO(ma, 'pc.' + p.ma, money0(m.phuCap[p.ma]) + ' đ', self)]), ['Số người phụ thuộc', mhSuaO(ma, 'soNPT', m.soNPT, self)], ['Ăn ca', mhSuaO(ma, 'anCa', m.anCa ? money0(m.anCa) + ' đ/ngày (mức riêng)' : 'Theo nơi làm việc' + (n.noiLamViec ? ' (' + esc(n.noiLamViec) + ')' : ''), self)], ['Hạn nâng bậc tiếp theo', dfmt(han)]])}
     <div class="sec">Diễn biến mức hưởng</div>${mhMatrix(ma) || '<div class="muted small">Chưa có thay đổi nào so với mức khai lúc lập hồ sơ.</div>'}
     ${mhR.length ? `<div class="sec">Các khai báo</div>${mhTable(mhR, { self })}` : ''}
     <div class="sec">Lịch sử điều chỉnh lương</div>
@@ -13025,7 +13358,7 @@ function profileHTML(ma, self) {
     </div>`;
   return `<div class="card">
     ${self ? '' : `<a href="#" class="small" onclick="event.preventDefault();go('nv')">← Danh sách CBCNV</a>`}
-    <div class="prof" style="margin-top:8px"><div class="av">${initials(n.hoTen)}</div><div class="m"><h2>${esc(n.hoTen)}</h2><div class="muted">${esc(n.maNV)} · ${esc(n.chucVu || '')} · ${esc(n.phongBan || '')}</div><div style="margin-top:4px">${pill(n.trangThai)} <span class="pill">${esc(n.loaiHD || '')}</span> <span class="pill info">Thâm niên ${thamNien(n)}</span></div></div>${acts}</div>
+    <div class="prof" style="margin-top:8px">${atAvatar(ma, self, n)}<div class="m"><h2>${esc(n.hoTen)}</h2><div class="muted">${esc(n.maNV)} · ${esc(n.chucVu || '')} · ${esc(n.phongBan || '')}</div><div style="margin-top:4px">${pill(n.trangThai)} <span class="pill">${esc(n.loaiHD || '')}</span> <span class="pill info">Thâm niên ${thamNien(n)}</span></div></div>${acts}</div>
   </div>
   <div class="card">${tabs(self ? 'me' : 'nvd', tl)}${body}</div>`;
 }
@@ -13447,11 +13780,13 @@ const mhFmt = (k, v) => k === 'soNPT' ? String(num(v)) : money0(v);
 function mhHienTai(ma, ngay) { const n = nvBy(ma); return n ? C.mucHuong(n, APP.D.ll, APP.D.mh || [], ngay || todayS()) : null; }
 const mhGet = (m, k) => k.startsWith('pc.') ? num(m.phuCap[k.slice(3)]) : num(m[k]);
 function mhCanKhai() { return can('edit_nv') || can('approve'); }
+const mhSuaO = (ma, k, txt, self) => self || !mhCanKhai() ? txt : `<a class="mh-sua" onclick="openMHForm('${ma}',null,'${k}')" title="Bấm để khai báo mức mới cho khoản này">${txt} <span class="mh-but">✎</span></a>`;
+function mhSuaHL() { return APP.user.role === 'admin' || can('approve'); }   // v3.44: sửa / xóa khai báo đã hiệu lực, mức gốc
 function mhNoiDung(r) {
   const gt = C.parseJSON(r.giaTri, {}), cu = C.parseJSON(r.cu, {});
   return Object.keys(gt).map(k => `<div class="small">${esc(mhTen(k))}: ${k in cu ? `<span class="muted">${mhFmt(k, cu[k])}</span> → ` : ''}<b>${mhFmt(k, gt[k])}</b></div>`).join('');
 }
-function openMHForm(ma, id) {
+function openMHForm(ma, id, tieuDiem, ngayHL) {
   const r = id ? (APP.D.mh || []).find(x => x.id === id) : null;
   if (r) ma = r.maNV;
   const gt = r ? C.parseJSON(r.giaTri, {}) : {};
@@ -13459,23 +13794,26 @@ function openMHForm(ma, id) {
   const ve = () => { const m = ma && mhHienTai(ma, (($('mh_hl') || {}).value) || todayS()); ks.forEach(([k, , t]) => { const el = $(fid(k)); if (el) el.placeholder = m ? 'đang hưởng: ' + mhFmt(k, mhGet(m, k)) : ''; }); };
   const body = `<div class="fg">
       <label class="f req w2"><span>CBCNV</span><select id="mh_nv" ${r ? 'disabled' : ''}>${!ma ? '<option value=""></option>' : ''}${nvOptions().map(([v, l]) => `<option value="${esc(v)}"${v === ma ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
-      <label class="f req"><span>Ngày hiệu lực</span><input id="mh_hl" type="date" value="${esc(r ? r.hieuLuc : todayS().slice(0, 8) + '01')}"></label>
+      <label class="f req"><span>Ngày hiệu lực</span><input id="mh_hl" type="date" value="${esc(r ? r.hieuLuc : ngayHL || todayS().slice(0, 8) + '01')}"></label>
       <label class="f"><span>Số quyết định / phụ lục HĐ</span><input id="mh_qd" value="${esc(r ? r.soQD : '')}"></label>
       <label class="f wf"><span>Lý do</span><input id="mh_ld" value="${esc(r ? r.lyDo : '')}" placeholder="VD: điều chỉnh theo phụ lục HĐ, bổ sung người phụ thuộc, giao nhiệm vụ…"></label></div>
     <div class="sec">Các mức thay đổi từ ngày hiệu lực</div>
     <p class="small muted" style="margin-top:0">Chỉ nhập khoản thay đổi; ô để trống giữ nguyên mức đang hưởng. Nhập 0 để thôi hưởng khoản đó.${can('approve') ? '' : ' Thay đổi lương thời gian / lương cơ bản cần Giám đốc duyệt; các khoản khác có hiệu lực ngay.'}</p>
     <div class="fg">${ks.map(([k, l, t]) => `<label class="f"><span>${esc(l)}</span><input id="${fid(k)}" class="num" inputmode="${t === 'num' ? 'decimal' : 'numeric'}" value="${k in gt ? (t === 'money' ? money(gt[k]) : gt[k]) : ''}"${t === 'money' ? ' oninput="fmtMoneyInput(this)"' : ''}></label>`).join('')}</div>`;
-  modal(r ? 'Sửa khai báo mức hưởng' : 'Khai báo thay đổi mức hưởng', body, {
-    size: 'lg', okText: 'Lưu khai báo', onOk: async () => {
+  const xoaDuoc = r && ((r.trangThai !== 'Hiệu lực' && mhCanKhai()) || mhSuaHL());
+  modal(r ? 'Sửa khai báo mức hưởng' : 'Khai báo thay đổi mức hưởng', body + (r ? `<p class="small muted" style="margin:10px 0 0">Xóa trắng một ô để bỏ khoản đó khỏi khai báo (khoản trở về mức trước mốc này). ${r.trangThai === 'Hiệu lực' ? 'Lưu xong, các kỳ lương chưa duyệt từ ' + dfmt(r.hieuLuc) + ' được tính lại.' : ''}</p>` : ''), {
+    size: 'lg', okText: 'Lưu khai báo',
+    foot: xoaDuoc ? `<button class="btn bad" onclick="closeModal();delMH('${r.id}')">Xóa khai báo</button><span style="flex:1"></span><button class="btn" onclick="closeModal()">Hủy</button><button class="btn pri" id="mdOk" onclick="modalOk()">Lưu khai báo</button>` : null,
+    onOk: async () => {
       const maNV = $('mh_nv').value; if (!maNV) throw new Error('Chọn CBCNV.');
       const g = {}; ks.forEach(([k]) => { const v = $(fid(k)).value.trim(); if (v !== '') g[k] = num(v); });
-      if (!Object.keys(g).length) throw new Error('Nhập ít nhất một mức thay đổi.');
+      if (!Object.keys(g).length) throw new Error(r ? 'Khai báo không còn khoản nào — bấm "Xóa khai báo" nếu muốn bỏ cả mốc này.' : 'Nhập ít nhất một mức thay đổi.');
       const res = await api('mh.save', { row: { id: r ? r.id : '', maNV, hieuLuc: $('mh_hl').value, soQD: $('mh_qd').value, lyDo: $('mh_ld').value, giaTri: g } });
       if (res.row) upsertLocal(APP.D.mh = APP.D.mh || [], res.row, 'id'); render(); refreshNen();
       toast(res.row.trangThai === 'Chờ duyệt' ? 'Đã gửi khai báo, chờ Giám đốc duyệt.' : 'Đã ghi nhận mức hưởng mới.' + (res.tinhLai.length ? ' Đã tính lại kỳ ' + res.tinhLai.map(kyfmt).join(', ') + '.' : ''), 'ok');
     }
   });
-  setTimeout(() => { ve(); const h = $('mh_hl'); if (h) h.addEventListener('change', ve); const sl = $('mh_nv'); if (sl) sl.addEventListener('change', () => { ma = sl.value; ve(); }); }, 40);
+  setTimeout(() => { ve(); if (tieuDiem) { const e = $(fid(tieuDiem)); if (e) { e.focus(); e.select(); e.closest('label').classList.add('mh-td'); } } const h = $('mh_hl'); if (h) h.addEventListener('change', ve); const sl = $('mh_nv'); if (sl) sl.addEventListener('change', () => { ma = sl.value; ve(); }); }, 40);
 }
 function decideMH(id, ok) {
   const r = (APP.D.mh || []).find(x => x.id === id);
@@ -13494,18 +13832,49 @@ function mhTable(rows, opt = {}) {
     { l: 'Căn cứ', wrap: 1, f: r => esc([r.soQD && 'QĐ ' + r.soQD, r.lyDo].filter(Boolean).join(' — ')) },
     ...(opt.self ? [] : [{ l: 'Trạng thái', f: r => pill(r.trangThai) + `<div class="muted small">${esc(r.nguoiTao || '')}${r.nguoiDuyet && r.nguoiDuyet !== r.nguoiTao ? ' · duyệt: ' + esc(r.nguoiDuyet) : ''}</div>` },
       { l: '', f: r => (r.trangThai === 'Chờ duyệt' && can('approve') ? `<button class="btn ok sm" onclick="decideMH('${r.id}',true)">Duyệt</button> <button class="btn sm" onclick="decideMH('${r.id}',false)">Từ chối</button> ` : '')
-        + ((r.trangThai === 'Chờ duyệt' && mhCanKhai()) || (r.trangThai === 'Hiệu lực' && APP.user.role === 'admin') ? `<button class="btn sm" onclick="openMHForm(null,'${r.id}')">Sửa</button> ` : '')
-        + ((r.trangThai !== 'Hiệu lực' && mhCanKhai()) || APP.user.role === 'admin' ? `<button class="btn bad sm" onclick="delMH('${r.id}')">Xóa</button>` : '') }])
+        + ((r.trangThai === 'Chờ duyệt' && mhCanKhai()) || (r.trangThai === 'Hiệu lực' && mhSuaHL()) ? `<button class="btn sm" onclick="openMHForm(null,'${r.id}')">Sửa</button> ` : '')
+        + ((r.trangThai !== 'Hiệu lực' && mhCanKhai()) || mhSuaHL() ? `<button class="btn bad sm" onclick="delMH('${r.id}')">Xóa</button>` : '') }])
   ], rows, { empty: opt.empty || 'Chưa có khai báo mức hưởng.' });
 }
-function mhMatrix(ma) {   // bảng diễn biến: mỗi mốc 1 dòng, mỗi khoản 1 cột (mức có hiệu lực từ mốc đó)
+function mhMatrix(ma) {   // bảng diễn biến: mỗi mốc 1 dòng, mỗi khoản 1 cột (mức có hiệu lực từ mốc đó). v3.44: bấm ô để sửa
   const n = nvBy(ma), ds = C.mhNguon(n, APP.D.ll, APP.D.mh || []);
   const moc = [...new Set(ds.map(x => x.hieuLuc))].sort();
   const ks = mhKhoan().filter(([k]) => ds.some(x => k in x.gt) || mhGet(mhHienTai(ma), k));
   if (!moc.length) return '';
-  const dau = C.addDays(moc[0], -1);
-  const rows = [{ d: dau, lab: 'Trước ' + dfmt(moc[0]) }, ...moc.map(d => ({ d, lab: 'Từ ' + dfmt(d) }))].map(o => ({ lab: o.lab, m: mhHienTai(ma, o.d), doi: new Set(ds.filter(x => x.hieuLuc === o.d).flatMap(x => Object.keys(x.gt))) }));
-  return `<div class="tw"><table class="t mhm"><thead><tr><th>Mốc</th>${ks.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr><td><b>${r.lab}</b></td>${ks.map(([k]) => `<td class="n${r.doi.has(k) ? ' chg' : ''}">${mhGet(r.m, k) || k === 'soNPT' ? mhFmt(k, mhGet(r.m, k)) : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="small muted">Ô tô màu là khoản thay đổi tại mốc đó. Kỳ lương dùng mức có hiệu lực vào ngày cuối tháng.</p>`;
+  const sua = mhSuaHL(), dau = C.addDays(moc[0], -1);
+  const rows = [{ d: dau, lab: 'Trước ' + dfmt(moc[0]), goc: 1 }, ...moc.map(d => ({ d, lab: 'Từ ' + dfmt(d) }))].map(o => ({ ...o, m: mhHienTai(ma, o.d), sk: o.goc ? [] : ds.filter(x => x.hieuLuc === o.d), doi: new Set(ds.filter(x => x.hieuLuc === o.d).flatMap(x => Object.keys(x.gt))) }));
+  const nguonTen = { mh: 'Khai báo', ll: 'Đề xuất lương', hd: 'HĐLĐ' };
+  const o = (r, k) => `<td class="n${r.doi.has(k) ? ' chg' : ''}${sua ? ' mh-o' : ''}"${sua ? ` onclick="mhOClick('${ma}','${r.goc ? '' : r.d}','${k}')" title="Bấm để sửa"` : ''}>${mhGet(r.m, k) || k === 'soNPT' ? mhFmt(k, mhGet(r.m, k)) : '<span class="muted">—</span>'}</td>`;
+  const tac = r => r.goc ? (sua ? `<button class="btn sm mh-ic" onclick="mhGocForm('${ma}')" title="Sửa mức gốc">✎</button>` : '')
+    : r.sk.map(x => x.nguon === 'mh' ? (sua ? `<button class="btn sm mh-ic" onclick="openMHForm(null,'${x.id}')" title="Sửa khai báo mốc này">✎</button><button class="btn bad sm mh-ic" onclick="delMH('${x.id}')" title="Xóa khai báo mốc này">✕</button>` : '')
+      : `<span class="pill">${nguonTen[x.nguon]}</span>`).join(' ');
+  return `<div class="tw"><table class="t mhm"><thead><tr><th>Mốc</th>${ks.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}${sua ? '<th></th>' : ''}</tr></thead><tbody>${rows.map(r => `<tr><td><b>${r.lab}</b>${r.goc ? '<div class="muted small">mức gốc</div>' : r.sk.length ? `<div class="muted small">${[...new Set(r.sk.map(x => nguonTen[x.nguon]))].join(', ')}</div>` : ''}</td>${ks.map(([k]) => o(r, k)).join('')}${sua ? `<td style="white-space:nowrap">${tac(r)}</td>` : ''}</tr>`).join('')}</tbody></table></div><p class="small muted">Ô tô màu là khoản thay đổi tại mốc đó. Kỳ lương dùng mức có hiệu lực vào ngày cuối tháng.${sua ? ' <b>Bấm vào ô</b> để sửa khoản đó; nút ✎ / ✕ cuối dòng để sửa hoặc xóa cả mốc.' : ''}</p>`;
+}
+/* v3.44: bấm 1 ô của bảng diễn biến */
+function mhOClick(ma, d, k) {
+  if (!d) return mhGocForm(ma, k);
+  const n = nvBy(ma), sk = C.mhNguon(n, APP.D.ll, APP.D.mh || []).filter(x => x.hieuLuc === d);
+  const x = sk.find(y => k in y.gt) || null;
+  if (x && x.nguon === 'hd') return confirmBox(`${esc(mhTen(k))} từ ${dfmt(d)} lấy theo <b>hợp đồng lao động</b>. Mở tab Hợp đồng lao động để sửa?`, () => { APP.tab.nvd = 'hd'; render(); });
+  if (x && x.nguon === 'll') return confirmBox(`${esc(mhTen(k))} từ ${dfmt(d)} theo <b>đề xuất lương đã duyệt</b>. Muốn đổi, lập khai báo mới cùng ngày hiệu lực?`, () => openMHForm(ma, null, k, d));
+  const mh = (x && x.nguon === 'mh' ? x : sk.find(y => y.nguon === 'mh'));
+  return mh ? openMHForm(null, mh.id, k) : openMHForm(ma, null, k, d);
+}
+/* v3.44: sửa mức gốc (trước mốc thay đổi đầu tiên) */
+function mhGocForm(ma, tieuDiem) {
+  const n = nvBy(ma), ds = C.mhNguon(n, APP.D.ll, APP.D.mh || []), moc = ds.length ? ds[0].hieuLuc : todayS();
+  const m = mhHienTai(ma, C.addDays(moc, -1)), ks = mhKhoan(), fid = k => 'mg_' + k.replace('.', '__');
+  const hd = k => ds.filter(x => k in x.gt)[0];
+  modal('Sửa mức gốc – ' + esc(n.hoTen), `<p class="small muted" style="margin-top:0">Mức hưởng <b>trước ${dfmt(moc)}</b> (trước mốc thay đổi đầu tiên). Chỉ sửa ô cần đổi. Các kỳ lương chưa duyệt được tính lại; kỳ đã duyệt giữ nguyên.</p>
+    <div class="fg">${ks.map(([k, l, t]) => { const h = hd(k), khoa = h && h.nguon === 'hd'; return `<label class="f"><span>${esc(l)}</span><input id="${fid(k)}" class="num" inputmode="${t === 'num' ? 'decimal' : 'numeric'}" value="${t === 'money' ? money(mhGet(m, k)) : mhGet(m, k)}" data-goc="${mhGet(m, k)}"${t === 'money' ? ' oninput="fmtMoneyInput(this)"' : ''}${khoa ? ' disabled title="Theo hợp đồng lao động"' : ''}>${khoa ? '<small class="muted">theo HĐLĐ – sửa ở tab Hợp đồng</small>' : ''}</label>`; }).join('')}</div>`, {
+    size: 'lg', okText: 'Lưu mức gốc', onOk: async () => {
+      const g = {}; ks.forEach(([k]) => { const e = $(fid(k)); if (e && !e.disabled && num(e.value) !== num(e.dataset.goc)) g[k] = num(e.value); });
+      if (!Object.keys(g).length) throw new Error('Chưa thay đổi mức nào.');
+      const r = await api('mh.goc', { maNV: ma, giaTri: g });
+      upsertLocal(APP.D.nv, r.nv, 'maNV'); APP.D.mh = (APP.D.mh || []).filter(x => x.maNV !== ma).concat(r.mh || []); APP.D.ll = (APP.D.ll || []).filter(x => x.maNV !== ma).concat(r.ll || []);
+      persist(); render(); refreshNen(); toast('Đã sửa mức gốc.' + (r.tinhLai && r.tinhLai.length ? ' Đã tính lại kỳ ' + r.tinhLai.map(kyfmt).join(', ') + '.' : ''), 'ok');
+    } });
+  if (tieuDiem) setTimeout(() => { const e = $(fid(tieuDiem)); if (e && !e.disabled) { e.focus(); e.select(); e.closest('label').classList.add('mh-td'); } }, 60);
 }
 const MH_XLS = () => [['maNV', 'Mã NV'], ['hoTen', 'Họ tên'], ['hieuLuc', 'Hiệu lực từ ngày'], ...mhKhoan().map(([k, l]) => [k, l]), ['soQD', 'Số QĐ'], ['lyDo', 'Lý do']];
 function mhTemplate() {
@@ -13710,11 +14079,12 @@ function vLuong() {
   else if (t === 'cc') body = ccGrid(ky, cur, 'cong');
   else if (t === 'no') body = ccGrid(ky, cur, 'no');          // v3.42: tách tab Công nợ
   else if (t === 'vp') body = vpTab(ky, cur);
+  else if (t === 'ns') body = nsTab(ky, cur);          // v3.47: hệ số năng suất
   else if (t === 'bl') body = blTable(ky, bl, cur);
   else if (t === 'th') body = blSummary(ky, bl);
   else body = pdTab(ky);
   const nvp = APP.D.cc.filter(x => x.ky === ky && C.parseJSON(x.chiTietPhat, []).length).length, ntu = APP.D.cc.filter(x => x.ky === ky && num(x.tamUng)).length;
-  return head + `<div class="card">${tabs('luong', [['ngay', 'Chấm công theo ngày'], ['ot', 'Chấm công thêm giờ'], ['an', 'Chấm ăn ca'], ['cc', 'Tổng hợp công'], ['tu', 'Tạm ứng' + (ntu ? ' (' + ntu + ')' : '')], ['no', 'Công nợ'], ['vp', 'Vi phạm – khấu trừ' + (nvp ? ' (' + nvp + ')' : '')], ['bl', 'Bảng lương (' + bl.length + ')'], ['th', 'Tổng hợp chi phí'], ['ls', 'Lịch sử phê duyệt']])}${body}</div>`;
+  return head + `<div class="card">${tabs('luong', [['ngay', 'Chấm công theo ngày'], ['ot', 'Chấm công thêm giờ'], ['an', 'Chấm ăn ca'], ['cc', 'Tổng hợp công'], ['tu', 'Tạm ứng' + (ntu ? ' (' + ntu + ')' : '')], ['no', 'Công nợ'], ['vp', 'Vi phạm – khấu trừ' + (nvp ? ' (' + nvp + ')' : '')], ['ns', 'Hệ số năng suất'], ['bl', 'Bảng lương (' + bl.length + ')'], ['th', 'Tổng hợp chi phí'], ['ls', 'Lịch sử phê duyệt']])}${body}</div>`;
 }
 function moveKy(to) {
   const cur = kyCur(APP.ky);
@@ -13858,6 +14228,77 @@ async function ccSave(silent) {
   if (!res) return null;
   applyKyData(res); if (!silent) render();
   return res;
+}
+/* ====================== v3.47: BẢNG XÁC ĐỊNH HỆ SỐ NĂNG SUẤT THÁNG ======================
+   Chấm điểm 0–100 từng tiêu chí → điểm bình quân theo tỷ trọng → xếp loại → hệ số (sửa tay được) → ghi vào biến kỳ (mặc định HS_K) → công thức lương dùng.
+   Nhập ở bước "Tính lương" (người làm bước đó). Tiêu chí, tỷ trọng, thang xếp loại: Cài đặt → Hệ số năng suất. */
+function nsDs(ky) { return APP.D.nv.filter(n => C.dangLamTrongKy(n, ky)).sort((a, b) => (a.phongBan || '').localeCompare(b.phongBan || '') || (a.maNV < b.maNV ? -1 : 1)); }
+function nsTab(ky, cur) {
+  const H = C.hsnsCfg(cfg()), ncc = nccDefault(ky), cc = {}; APP.D.cc.filter(x => x.ky === ky).forEach(x => cc[x.maNV] = x);
+  const sua = cur && cur.loai === 'tinhluong' && isOwner(cur), nvs = nsDs(ky), tt = H.tieuChi.reduce((s, t) => s + t.tyTrong, 0);
+  const o = (n, t) => { const r = cc[n.maNV] || {}, ns = C.parseJSON(r.chamNS, {}), v = ns.d && ns.d[t.ma] !== undefined ? ns.d[t.ma] : '', tu = t.tuDong === 'chuyencan' ? C.chuyenCan(r, ncc) : '';
+    return `<td class="n">${sua ? `<input class="num ns-i" data-nv="${n.maNV}" data-tc="${t.ma}" inputmode="decimal" value="${v === '' ? '' : String(v).replace('.', ',')}" placeholder="${tu === '' ? '' : String(tu).replace('.', ',')}" oninput="nsDong('${n.maNV}')">` : (v !== '' ? String(v).replace('.', ',') : tu !== '' ? `<span class="muted">${String(tu).replace('.', ',')}</span>` : '—')}</td>`; };
+  const kq = n => C.tinhNS(cfg(), cc[n.maNV] || {}, ncc);
+  const dong = n => { const k = kq(n), r = cc[n.maNV] || {}, ns = C.parseJSON(r.chamNS, {});
+    return `<tr data-nv="${n.maNV}"><td><b>${esc(n.hoTen)}</b><div class="muted small">${esc(n.maNV)} · ${esc(n.chucVu || '')}</div></td><td class="n">${String(num(r.ngayCong)).replace('.', ',')}</td>${H.tieuChi.map(t => o(n, t)).join('')}
+      <td class="n ns-d"><b>${k.diem === null ? '—' : String(k.diem).replace('.', ',')}</b></td><td class="ns-x">${k.xl ? `<span class="pill">${esc(k.xl)}</span>` : '<span class="muted small">chưa đủ điểm</span>'}</td>
+      <td class="n">${sua ? `<input class="num ns-h" data-nv="${n.maNV}" inputmode="decimal" value="${ns.hsTay === '' || ns.hsTay === undefined ? '' : String(ns.hsTay).replace('.', ',')}" placeholder="${k.hsTu === null ? '' : String(k.hsTu).replace('.', ',')}" oninput="nsDong('${n.maNV}')" title="Để trống = theo xếp loại">` : `<b>${k.hs === null ? '—' : String(k.hs).replace('.', ',')}</b>`}</td>
+      <td>${sua ? `<input class="ns-g" data-nv="${n.maNV}" value="${esc(ns.ghiChu || '')}" placeholder="Ghi chú">` : esc(ns.ghiChu || '')}</td></tr>`; };
+  const daCham = nvs.filter(n => kq(n).diem !== null).length;
+  return `<div class="note" style="margin-bottom:10px">Chấm điểm <b>0–100</b> từng tiêu chí → điểm bình quân theo tỷ trọng → xếp loại → <b>hệ số năng suất</b>${H.bien ? ` (ghi vào biến <b>${esc(H.bien)}</b> của công thức lương; bảng lương tự tính lại)` : ' — <b>chưa chọn biến nhận hệ số</b> ở Cài đặt → Hệ số năng suất, nên hệ số chưa vào bảng lương'}.
+      Thang: ${H.xepLoai.map(x => `<b>${esc(x.ma)}</b> ≥ ${x.tu} → ${String(x.hs).replace('.', ',')}`).join(' · ')}. Chuyên cần tự tính = (công + phép + lễ) ÷ công chuẩn ${ncc}; gõ để sửa. ${tt !== 100 ? `<span style="color:var(--bad,#B91C1C)">Tổng tỷ trọng ${tt}% (≠ 100%) – điểm vẫn tính bình quân theo tỷ trọng.</span>` : ''}</div>
+    <div class="bar" style="margin-bottom:8px"><span class="small muted">Đã chấm ${daCham}/${nvs.length} người</span><span style="flex:1"></span>
+      ${sua ? `<button class="btn" onclick="nsDien100()">Điền 100 điểm cho ô trống</button><button class="btn pri" onclick="nsLuu()">Lưu bảng hệ số</button>` : `<span class="small muted">${cur ? 'Nhập ở bước "Tính lương" (người làm bước đó).' : ''}</span>`}
+      <button class="btn" onclick="nsXuat('${ky}')">Xuất Excel</button><button class="btn" onclick="nsIn('${ky}')">In bảng</button></div>
+    <div class="tw"><table class="t nst"><thead><tr><th>CBCNV</th><th class="n">Ngày công</th>${H.tieuChi.map(t => `<th class="n">${esc(t.ten)}<div class="muted small">${t.tyTrong}%</div></th>`).join('')}<th class="n">Điểm</th><th>Xếp loại</th><th class="n">Hệ số</th><th>Ghi chú</th></tr></thead>
+    <tbody>${nvs.map(dong).join('')}</tbody></table></div>`;
+}
+function nsDoc(ma) {     // đọc 1 dòng đang nhập
+  const d = {}; document.querySelectorAll(`.ns-i[data-nv="${ma}"]`).forEach(i => { if (i.value.trim() !== '') d[i.dataset.tc] = num(i.value.replace(',', '.')); });
+  const h = document.querySelector(`.ns-h[data-nv="${ma}"]`), g = document.querySelector(`.ns-g[data-nv="${ma}"]`);
+  return { d, hsTay: h && h.value.trim() !== '' ? num(h.value.replace(',', '.')) : '', ghiChu: g ? g.value : '' };
+}
+function nsDong(ma) {
+  const ky = APP.ky, r = Object.assign({}, APP.D.cc.find(x => x.ky === ky && x.maNV === ma) || {}, { chamNS: JSON.stringify(nsDoc(ma)) }), k = C.tinhNS(cfg(), r, nccDefault(ky));
+  const tr = document.querySelector(`.nst tr[data-nv="${ma}"]`); if (!tr) return;
+  tr.querySelector('.ns-d').innerHTML = `<b>${k.diem === null ? '—' : String(k.diem).replace('.', ',')}</b>`;
+  tr.querySelector('.ns-x').innerHTML = k.xl ? `<span class="pill">${esc(k.xl)}</span>` : '<span class="muted small">chưa đủ điểm</span>';
+  const h = tr.querySelector('.ns-h'); if (h) h.placeholder = k.hsTu === null ? '' : String(k.hsTu).replace('.', ',');
+}
+function nsDien100() { document.querySelectorAll('.ns-i').forEach(i => { if (i.value.trim() === '' && !i.placeholder) i.value = '100'; }); [...new Set([...document.querySelectorAll('.ns-i')].map(i => i.dataset.nv))].forEach(nsDong); }
+async function nsLuu() {
+  const ky = APP.ky, ma = [...new Set([...document.querySelectorAll('.ns-i')].map(i => i.dataset.nv))];
+  const rows = ma.map(m => ({ maNV: m, chamNS: nsDoc(m) })).filter(r => Object.keys(r.chamNS.d).length || r.chamNS.hsTay !== '' || r.chamNS.ghiChu);
+  const r = await run(() => api('cc.save', { ky, rows }), 'Đã lưu bảng hệ số năng suất (' + rows.length + ' người).'); if (r) applyKyData(r);
+}
+function nsBang(ky) {
+  const H = C.hsnsCfg(cfg()), ncc = nccDefault(ky), cc = {}; APP.D.cc.filter(x => x.ky === ky).forEach(x => cc[x.maNV] = x);
+  return nsDs(ky).map((n, i) => { const r = cc[n.maNV] || {}, k = C.tinhNS(cfg(), r, ncc); return { i: i + 1, n, cong: num(r.ngayCong), k, d: H.tieuChi.map(t => k.d[t.ma] === undefined ? '' : k.d[t.ma]) }; });
+}
+function nsXuat(ky) {
+  if (!window.XLSX) return toast('Chưa tải được thư viện Excel (cần kết nối mạng).', 'err');
+  const H = C.hsnsCfg(cfg()), c = cfg(), ds = nsBang(ky), nT = H.tieuChi.length, L = i => XLSX.utils.encode_col(i), cTT = 6, cD = cTT + nT;
+  const aoa = [[c.congTy || ''], [], ['BẢNG XÁC ĐỊNH HỆ SỐ NĂNG SUẤT THÁNG ' + kyfmt(ky)], [],
+    ['STT', 'Mã NV', 'Họ và tên', 'Chức vụ', 'Bộ phận', 'Ngày công', ...H.tieuChi.map(t => t.ten), 'Điểm', 'Xếp loại', 'Hệ số năng suất', 'Ghi chú'],
+    ['', '', 'Tỷ trọng (%)', '', '', '', ...H.tieuChi.map(t => t.tyTrong), '', '', '', '']];
+  const rTT = aoa.length, r0 = rTT + 1, tt = `${L(cTT)}$${rTT}:${L(cD - 1)}$${rTT}`;
+  ds.forEach((x, j) => { const r = r0 + j; aoa.push([x.i, x.n.maNV, x.n.hoTen, x.n.chucVu || '', x.n.phongBan || '', x.cong, ...x.d, x.k.diem === null ? '' : { f: `ROUND(SUMPRODUCT(${L(cTT)}${r}:${L(cD - 1)}${r},${tt})/SUM(${tt}),1)`, v: x.k.diem }, x.k.xl, x.k.hs === null ? '' : x.k.hs, x.k.ghiChu]); });
+  aoa.push([], ['Thang xếp loại: ' + H.xepLoai.map(x => x.ma + (x.ten ? ' (' + x.ten + ')' : '') + ' ≥ ' + x.tu + ' điểm → hệ số ' + x.hs).join('; ')], []);
+  const ky4 = []; ky4[1] = 'NGƯỜI LẬP'; ky4[4] = 'TRƯỞNG BỘ PHẬN'; ky4[cTT + 1] = 'KẾ TOÁN TRƯỞNG'; ky4[cD + 1] = 'GIÁM ĐỐC'; aoa.push([...ky4].map(v => v || ''));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 5 }, { wch: 9 }, { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 9 }, ...H.tieuChi.map(() => ({ wch: 13 })), { wch: 8 }, { wch: 9 }, { wch: 10 }, { wch: 24 }];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'HeSoNangSuat_' + ky.slice(5) + '_' + ky.slice(0, 4));
+  xlGhi(wb, 'BangHeSoNangSuat_' + ky + '.xlsx'); toast('Đã xuất bảng hệ số năng suất.', 'ok');
+}
+function nsIn(ky) {
+  const H = C.hsnsCfg(cfg()), c = cfg(), ds = nsBang(ky), f = v => v === '' || v === null ? '' : String(v).replace('.', ',');
+  $('print').innerHTML = `<div class="blp"><div class="sh"><div><b>${esc(c.congTy || '')}</b><div>${esc(c.diaChiCongTy || '')}</div></div><div></div></div>
+    <h3>BẢNG XÁC ĐỊNH HỆ SỐ NĂNG SUẤT THÁNG ${kyfmt(ky)}</h3>
+    <table><thead><tr><th>STT</th><th>Họ và tên</th><th>Chức vụ</th><th>Ngày công</th>${H.tieuChi.map(t => `<th>${esc(t.ten)}<br>(${t.tyTrong}%)</th>`).join('')}<th>Điểm</th><th>Xếp loại</th><th>Hệ số</th><th>Ghi chú</th></tr></thead>
+    <tbody>${ds.map(x => `<tr><td>${x.i}</td><td style="text-align:left">${esc(x.n.hoTen)}</td><td style="text-align:left">${esc(x.n.chucVu || '')}</td><td>${f(x.cong)}</td>${x.d.map(v => `<td>${f(v)}</td>`).join('')}<td><b>${f(x.k.diem)}</b></td><td>${esc(x.k.xl)}</td><td><b>${f(x.k.hs)}</b></td><td style="text-align:left">${esc(x.k.ghiChu)}</td></tr>`).join('')}</tbody></table>
+    <div class="chu" style="font-size:11px">Thang xếp loại: ${H.xepLoai.map(x => esc(x.ma) + (x.ten ? ' (' + esc(x.ten) + ')' : '') + ' ≥ ' + x.tu + ' điểm → hệ số ' + f(x.hs)).join('; ')}.</div>
+    <div class="sg" style="grid-template-columns:repeat(4,1fr)">${['Người lập', 'Trưởng bộ phận', 'Kế toán trưởng', 'Giám đốc'].map(t => `<div><b>${t}</b><span>(Ký, ghi rõ họ tên)</span><i></i><b></b></div>`).join('')}</div></div>`;
+  setTimeout(() => window.print(), 50);
 }
 async function calcPayroll() {
   const s = await ccSave(true); if (!s) return;
@@ -16036,6 +16477,14 @@ async function khoiSangDocx(D, K, tieuDe) {
     else if (k.t === 'ngat') kids.push(new Paragraph({ children: [new PageBreak()] }));
     else if (k.t === 'ky') kids.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: KV, rows: [new TableRow({ children: k.x.map(t => new TableCell({ borders: KV, width: { size: Math.floor(100 / k.x.length), type: WidthType.PERCENTAGE },
       children: [P(t, { alignment: AlignmentType.CENTER, spacing: { before: 360 } }, { bold: true }), P('(Ký, ghi rõ họ tên)', { alignment: AlignmentType.CENTER, spacing: { after: 1200 } }, { italics: true, size: 20 })] })) })] }));
+    else if (k.t === 'kv' && k.anhData) {        // v3.47: thông tin đầu lý lịch + ảnh thẻ 3×4 bên phải
+      const WA = 1900, WL = RONG - WA, NB = { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } };
+      const dong = k.rows.flatMap(r => r.length > 2 ? [[r[0], r[1]], [r[2], r[3]]] : [[r[0], r[1]]]).map(([a, b]) => new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: a + ': ', size: 22 }), new TextRun({ text: String(b || ''), size: 22, bold: true })] }));
+      kids.push(new Table({ width: { size: RONG, type: WidthType.DXA }, columnWidths: [WL, WA], borders: { top: NB.top, bottom: NB.bottom, left: NB.left, right: NB.right, insideHorizontal: NB.top, insideVertical: NB.top }, rows: [new TableRow({ children: [
+        new TableCell({ width: { size: WL, type: WidthType.DXA }, borders: NB, verticalAlign: VerticalAlign.CENTER, children: dong }),
+        new TableCell({ width: { size: WA, type: WidthType.DXA }, borders: NB, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new ImageRun({ type: 'jpg', data: Uint8Array.from(atob(k.anhData), c => c.charCodeAt(0)), transformation: { width: 90, height: 120 } })] })] })] })] }));
+      kids.push(new Paragraph({ children: [], spacing: { after: 60 } }));
+    }
     else if (k.t === 'kv') {                     // v3.36: bảng thông tin dạng nhãn – giá trị (1 hoặc 2 cặp / dòng)
       const W = [20, 30, 20, 30].map(x => Math.round(x / 100 * RONG)), SH = { type: ShadingType.CLEAR, color: 'auto', fill: 'F2F2F2' };
       const o = (t, w, sh, span) => new TableCell(Object.assign({ width: { size: w, type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [P(t, {}, { size: 21 })] }, sh ? { shading: SH } : {}, span ? { columnSpan: span } : {}));
@@ -17706,18 +18155,47 @@ function btGoto(id) {
   const el = $('bp_' + id); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
 }
 /* tải ảnh bài viết (qua máy chủ, có kiểm quyền) */
-function btFetch(fid) {
-  if (BT_IMG[fid]) return Promise.resolve(BT_IMG[fid]);
-  if (BT_WAIT[fid]) return BT_WAIT[fid];
-  return BT_WAIT[fid] = api('bt.file', { fileId: fid }).then(r => {
-    const bin = atob(r.data), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-    return BT_IMG[fid] = { url: URL.createObjectURL(new Blob([u8], { type: r.mime })), mime: r.mime, name: r.name };
-  }).finally(() => { delete BT_WAIT[fid]; });
+/* v3.45: TẢI ẢNH BẢNG TIN NHANH — ảnh thu nhỏ (gộp 12 ảnh / lần gọi), chỉ tải khi cuộn tới, lưu trên máy (Cache Storage) để mở lại không tải lại;
+   bài 1 ảnh: hiện ảnh thu nhỏ trước rồi thay bằng ảnh nét; xem phóng to: ảnh gốc */
+const BTQ = { ds: [], t: null };
+function btQ(fid) { return new Promise((ok, no) => { BTQ.ds.push({ fid, ok, no }); if (!BTQ.t) BTQ.t = setTimeout(btQGui, 30); }); }
+function btQGui() {
+  BTQ.t = null; const all = BTQ.ds.splice(0);
+  for (let i = 0; i < all.length; i += 12) {
+    const g = all.slice(i, i + 12);
+    api('bt.anh', { ids: g.map(x => x.fid), thumb: 1 }, { quiet: true }).then(r => {
+      g.forEach(x => { const d = (r.ds || []).find(y => y.fileId === x.fid); if (d && d.data) x.ok(d); else x.no(new Error((d && d.loi) || 'Không tải được ảnh.')); });
+    }).catch(() => g.forEach(x => api('bt.file', { fileId: x.fid }, { quiet: true }).then(x.ok, x.no)));   // máy chủ cũ chưa có bt.anh
+  }
+}
+function btFetch(fid, thumb) {
+  const key = fid + (thumb ? '#t' : '');
+  if (BT_IMG[key]) return Promise.resolve(BT_IMG[key]);
+  if (thumb && BT_IMG[fid]) return Promise.resolve(BT_IMG[fid]);
+  if (BT_WAIT[key]) return BT_WAIT[key];
+  return BT_WAIT[key] = (async () => {
+    const c = await chKhoLay('bt:' + key) || (thumb ? await chKhoLay('bt:' + fid) : null);
+    if (c) return BT_IMG[key] = { url: URL.createObjectURL(c.blob), mime: c.blob.type, name: c.name, thumb: !!thumb };
+    const r = thumb ? await btQ(fid) : await api('bt.file', { fileId: fid }, { quiet: true });
+    const blob = chB64Blob(r.data, r.mime), x = { url: URL.createObjectURL(blob), mime: r.mime, name: r.name, thumb: !!(thumb && r.thumb) };
+    if (/^image\//.test(r.mime || '')) chKhoCat('bt:' + (x.thumb ? key : fid), blob, r.name);
+    if (!x.thumb) BT_IMG[fid] = x;
+    return BT_IMG[key] = x;
+  })().finally(() => { delete BT_WAIT[key]; });
+}
+let btIO = null;
+function btNap(img) {
+  const fid = img.dataset.fid, lon = !!img.closest('.lb'), mot = !!img.closest('.bp-g.n1');
+  const dat = x => document.querySelectorAll(`img[data-fid="${CSS.escape(fid)}"]`).forEach(i => { const net = !!i.closest('.lb') || !!i.closest('.bp-g.n1'); if (!i.getAttribute('src') || (net && !x.thumb)) i.src = x.url; });
+  const loi = () => { img.alt = 'Không tải được ảnh'; img.classList.add('err'); };
+  if (lon) { const t = BT_IMG[fid + '#t']; if (t && !img.getAttribute('src')) img.src = t.url; return btFetch(fid, false).then(dat).catch(loi); }
+  btFetch(fid, true).then(x => { dat(x); if (mot && x.thumb) btFetch(fid, false).then(dat).catch(() => { }); }).catch(loi);
 }
 function btHydrate() {
-  document.querySelectorAll('img[data-fid]:not([src])').forEach(img => {
-    const fid = img.dataset.fid;
-    btFetch(fid).then(x => { document.querySelectorAll(`img[data-fid="${CSS.escape(fid)}"]`).forEach(i => { i.src = x.url; }); }).catch(() => { img.alt = 'Không tải được ảnh'; img.classList.add('err'); });
+  if (!btIO && 'IntersectionObserver' in window) btIO = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { btIO.unobserve(e.target); btNap(e.target); } }), { rootMargin: '800px 0px' });
+  document.querySelectorAll('img[data-fid]:not([src]):not([data-q])').forEach(img => {
+    img.dataset.q = 1; img.decoding = 'async';
+    if (img.closest('.lb') || img.closest('#btPop') || !btIO) btNap(img); else btIO.observe(img);
   });
 }
 function btLight(id, i) {
@@ -17779,7 +18257,11 @@ async function btNen(file) {   // thu nhỏ ảnh ≤ 1600px, JPEG 85%
   const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(bmp, 0, 0, w, h);
-  return { data: cv.toDataURL('image/jpeg', 0.85).split(',')[1], mime: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg', w, h };
+  // v3.45: ảnh thu nhỏ 640px cho bảng tin (≈ 40–60 KB) — hiện nhanh trong danh sách
+  const k2 = Math.min(1, 640 / Math.max(w, h)), tw = Math.round(w * k2), th = Math.round(h * k2), ct = document.createElement('canvas'); ct.width = tw; ct.height = th;
+  const g2 = ct.getContext('2d'); g2.fillStyle = '#fff'; g2.fillRect(0, 0, tw, th); g2.drawImage(cv, 0, 0, tw, th);
+  try { bmp.close && bmp.close(); } catch (e) { }
+  return { data: cv.toDataURL('image/jpeg', 0.85).split(',')[1], thumb: ct.toDataURL('image/jpeg', 0.72).split(',')[1], mime: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg', w, h };
 }
 function btForm(id) {
   const o = id ? APP.D.bt.find(x => x.id === id) : null, c = cfg();
@@ -17827,8 +18309,10 @@ async function btAddFiles(inp, kind) {
       let f;
       if (kind === 'anh') { f = await btNen(file); }
       else { if (file.size > (cfg().dungLuongToiDaMB || 10) * 1048576) throw new Error('"' + file.name + '" vượt ' + (cfg().dungLuongToiDaMB || 10) + ' MB.'); f = { data: await btB64(file), mime: file.type || 'application/octet-stream', name: file.name }; }
-      const r = await api('bt.upload', { file: { name: f.name, mime: f.mime, data: f.data } });
-      if (kind === 'anh') { r.w = f.w; r.h = f.h; r.url = 'data:' + f.mime + ';base64,' + f.data; E.anh.push(r); } else E.dinhKem.push(r);
+      const r = await api('bt.upload', { file: { name: f.name, mime: f.mime, data: f.data, thumb: f.thumb || '' } });
+      if (kind === 'anh') { r.w = f.w; r.h = f.h; r.url = 'data:' + f.mime + ';base64,' + (f.thumb || f.data); E.anh.push(r);
+        if (f.thumb) { const tb = chB64Blob(f.thumb, 'image/jpeg'); BT_IMG[r.fileId + '#t'] = { url: URL.createObjectURL(tb), mime: 'image/jpeg', name: f.name, thumb: true }; chKhoCat('bt:' + r.fileId + '#t', tb, f.name); } }
+      else E.dinhKem.push(r);
     } catch (e) { toast(e.message, 'err'); }
     E.dang--; if ($('bt_anh')) btUpView();
   }
@@ -19028,10 +19512,10 @@ const CHQ = { ds: [], t: null };
 function chThumbQ(fid) { return new Promise((ok, no) => { CHQ.ds.push({ fid, ok, no }); if (!CHQ.t) CHQ.t = setTimeout(chThumbGui, 30); }); }
 function chThumbGui() {
   CHQ.t = null; const all = CHQ.ds.splice(0);
-  for (let i = 0; i < all.length; i += 6) {
-    const g = all.slice(i, i + 6);
+  for (let i = 0; i < all.length; i += 10) {
+    const g = all.slice(i, i + 10);
     api('chat.anh', { ids: g.map(x => x.fid), thumb: 1 }, { quiet: true }).then(r => {
-      g.forEach(x => { const d = (r.ds || []).find(y => y.fileId === x.fid); if (d && d.data) x.ok(d); else x.no(new Error((d && d.loi) || 'Không tải được ảnh.')); });
+      g.forEach(x => { const d = (r.ds || []).find(y => y.fileId === x.fid); if (d && d.data) x.ok(d); else if (!d) api('chat.file', { fileId: x.fid, thumb: 1 }, { quiet: true }).then(x.ok, x.no); else x.no(new Error(d.loi || 'Không tải được ảnh.')); });
     }).catch(() => g.forEach(x => api('chat.file', { fileId: x.fid, thumb: 1 }, { quiet: true }).then(x.ok, x.no)));   // máy chủ cũ chưa có chat.anh
   }
 }
@@ -19061,7 +19545,7 @@ function chHydrate() {
   if (!chIO && 'IntersectionObserver' in window) chIO = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { chIO.unobserve(e.target); chNap(e.target); } }), { rootMargin: '600px 0px' });
   document.querySelectorAll('img[data-cfid]:not([data-q])').forEach(img => {
     if (img.src && !img.closest('.lb')) return;
-    img.dataset.q = 1;
+    img.dataset.q = 1; img.decoding = 'async';
     if (img.closest('.lb') || !chIO) chNap(img); else chIO.observe(img);
   });
 }
@@ -19770,7 +20254,31 @@ function vCfg() {
     <div class="sec">Thang bảng lương</div>
     <div class="tw"><table class="t grid-in" id="tlTbl"><thead><tr><th>Ngạch / nhóm</th><th>Bậc</th><th>Mức lương (đ)</th><th></th></tr></thead><tbody>${tlRows}</tbody></table></div>
     <button class="btn sm" style="margin-top:8px" onclick="addTlRow()">+ Thêm bậc</button>
-    <div style="margin-top:16px"><button class="btn pri" onclick="saveCfg()">Lưu cài đặt</button></div></div>${mauCardHTML()}`;
+    <div style="margin-top:16px"><button class="btn pri" onclick="saveCfg()">Lưu cài đặt</button></div></div>${mauCardHTML()}${nsCfgHTML()}`;
+}
+/* v3.47: CÀI ĐẶT HỆ SỐ NĂNG SUẤT */
+const NSC = { d: null };
+function nsCfgHTML() {
+  if (!can('config')) return '';
+  const H = NSC.d || (NSC.d = JSON.parse(JSON.stringify(C.hsnsCfg(cfg())))), bk = cfg().bienKy || [];
+  const tt = H.tieuChi.reduce((s, t) => s + num(t.tyTrong), 0);
+  return `<div class="card" id="nsCfg"><div class="hd"><h2>Hệ số năng suất tháng</h2><span class="muted small">Dùng cho tab "Hệ số năng suất" ở Chấm công & Tính lương. Số đặt sẵn là <b>mẫu</b> – sửa theo quy chế lương, thưởng của Công ty.</span></div>
+    <div class="fg"><label class="f w2"><span>Ghi hệ số vào biến của công thức lương</span><select id="nsBien" onchange="NSC.d.bien=this.value">${['', ...bk.map(v => v.ma)].map(m => `<option value="${esc(m)}"${m === H.bien ? ' selected' : ''}>${m ? esc(m + ' – ' + ((bk.find(v => v.ma === m) || {}).ten || '')) : '(không ghi – chỉ lập bảng)'}</option>`).join('')}</select><small class="muted">Biến kỳ khai ở Công thức lương (mẫu TAPACO: HS_K – hệ số K nhân vào lương).</small></label></div>
+    <div class="mau-g" style="margin-top:10px">
+      <div><div class="sec">Tiêu chí chấm (điểm 0–100)</div><table class="t"><thead><tr><th>Tiêu chí</th><th class="n">Tỷ trọng %</th><th>Tự tính</th><th></th></tr></thead><tbody>
+        ${H.tieuChi.map((t, i) => `<tr><td><input value="${esc(t.ten)}" oninput="NSC.d.tieuChi[${i}].ten=this.value"></td><td class="n"><input class="num" style="width:70px" value="${t.tyTrong}" oninput="NSC.d.tieuChi[${i}].tyTrong=num(this.value)"></td>
+          <td><label class="ck small"><input type="checkbox"${t.tuDong ? ' checked' : ''} onchange="NSC.d.tieuChi[${i}].tuDong=this.checked?'chuyencan':''"> chuyên cần theo công</label></td><td><button class="btn bad sm" onclick="NSC.d.tieuChi.splice(${i},1);nsCfgVe()" ${H.tieuChi.length > 1 ? '' : 'disabled'}>✕</button></td></tr>`).join('')}</tbody></table>
+        <div class="bar" style="margin-top:6px"><button class="btn sm" onclick="NSC.d.tieuChi.push({ma:'TC'+(NSC.d.tieuChi.length+1),ten:'Tiêu chí mới',tyTrong:0,tuDong:''});nsCfgVe()">+ Thêm tiêu chí</button><span class="small ${tt === 100 ? 'muted' : ''}" style="align-self:center${tt === 100 ? '' : ';color:var(--bad,#B91C1C)'}">Tổng tỷ trọng: ${tt}%</span></div></div>
+      <div><div class="sec">Xếp loại → hệ số</div><table class="t"><thead><tr><th>Loại</th><th>Tên</th><th class="n">Từ điểm</th><th class="n">Hệ số</th><th></th></tr></thead><tbody>
+        ${H.xepLoai.map((x, i) => `<tr><td><input style="width:56px" value="${esc(x.ma)}" oninput="NSC.d.xepLoai[${i}].ma=this.value"></td><td><input value="${esc(x.ten)}" oninput="NSC.d.xepLoai[${i}].ten=this.value"></td><td class="n"><input class="num" style="width:70px" value="${x.tu}" oninput="NSC.d.xepLoai[${i}].tu=num(this.value)"></td><td class="n"><input class="num" style="width:70px" value="${String(x.hs).replace('.', ',')}" oninput="NSC.d.xepLoai[${i}].hs=num(this.value.replace(',','.'))"></td><td><button class="btn bad sm" onclick="NSC.d.xepLoai.splice(${i},1);nsCfgVe()" ${H.xepLoai.length > 1 ? '' : 'disabled'}>✕</button></td></tr>`).join('')}</tbody></table>
+        <div class="bar" style="margin-top:6px"><button class="btn sm" onclick="NSC.d.xepLoai.push({ma:'',ten:'',tu:0,hs:1});nsCfgVe()">+ Thêm mức</button></div></div></div>
+    <div class="bar" style="margin-top:12px"><button class="btn" onclick="NSC.d=JSON.parse(JSON.stringify(C.hsnsCfg({bienKy:cfg().bienKy})));nsCfgVe()">Về mẫu mặc định</button><span style="flex:1"></span><button class="btn pri" onclick="nsCfgLuu()">Lưu cài đặt hệ số năng suất</button></div></div>`;
+}
+function nsCfgVe() { const el = $('nsCfg'); if (el) el.outerHTML = nsCfgHTML(); }
+async function nsCfgLuu() {
+  const H = NSC.d; if (!H.tieuChi.some(t => num(t.tyTrong) > 0)) return toast('Cần ít nhất 1 tiêu chí có tỷ trọng > 0.', 'err');
+  const v = { bien: H.bien, tieuChi: H.tieuChi.map(({ ma, ten, tyTrong, tuDong }) => ({ ma, ten, tyTrong, tuDong })), xepLoai: H.xepLoai.map(({ ma, ten, tu, hs }) => ({ ma, ten, tu, hs })) };
+  const r = await run(() => api('cfg.save', { cfg: { hsns: v } }), 'Đã lưu cài đặt hệ số năng suất.'); if (r) { APP.D.cfg = Object.assign(APP.D.cfg, { hsns: r.hsns }); NSC.d = null; persist(); nsCfgVe(); }
 }
 /* v3.41: MẪU PHIẾU LƯƠNG & BẢNG LƯƠNG — kéo thả sắp xếp, ẩn / hiện, đổi tên; xem thử; lưu vào cfg.mauPhieu / cfg.mauBangLuong */
 const MAU = { p: null, b: null, keo: null };
