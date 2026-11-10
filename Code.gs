@@ -920,7 +920,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.47';
+  var VERSION = '3.48';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -3701,11 +3701,18 @@ var HRCORE = (function () {
       .map(function (x) { return { k: x[0], ten: x[1], an: !!x[3] }; }),
     ky: ['Người lao động', 'Kế toán tiền lương']
   };
+  /* v3.48: thêm cột biến tính lương (ẩn sẵn ở cả In và Excel – tích để hiện): lương đóng BH, BHXH / BHYT / BHTN, ăn ca nhận / miễn thuế, thu nhập không chịu thuế,
+     chịu thuế, giảm trừ gia cảnh, tính thuế, truy lĩnh, tổng nợ, BH công ty đóng…; cùng mọi khoản của Công thức lương (ct:MÃ) và biến kỳ (bk:MÃ). */
+  var BL_THEM = { luongDongBH: 1, bhxh: 1, bhyt: 1, bhtn: 1, anCaNhan: 1, anCaMien: 1, tnKhongThue: 1, tnChiuThue: 1, giamTru: 1, tnTinhThue: 1, truyLinh: 1, tongNo: 1, otThue: 1, dnBH: 1, kpcdDN: 1, otThucLinh: 1 };
   var MAU_BL_MD = {
     cot: [['stt', 'STT', 1], ['maNV', 'Mã NV', 0, 1], ['hoTen', 'Họ và tên', 1], ['chucVu', 'Chức vụ'], ['phongBan', 'Bộ phận', 0, 1], ['ngayCongHL', 'Công'], ['ngayCongChuan', 'Công chuẩn', 0, 1], ['luongChinh', 'Lương chính', 0, 1],
-      ['luongThoiGian', 'Lương TG'], ['phuCap', 'Phụ cấp'], ['tienOT', 'OT'], ['thuong', 'Thưởng'], ['giamThuong', 'Giảm trừ QC'], ['tongThuNhap', 'Tổng TN'],
-      ['bhNLD', 'BH NLĐ'], ['doanPhi', 'Đoàn phí', 0, 1], ['thueTNCN', 'Thuế'], ['boiThuong', 'Bồi thường'], ['tamUng', 'Tạm ứng'], ['tienAnThu', 'Ăn ca'], ['thuUng', 'Thu ứng'], ['khauTruKhac', 'KT khác'], ['tongKhauTru', 'Tổng khấu trừ', 0, 1],
-      ['thucLinh', 'Thực lĩnh', 1], ['nganHang', 'Ngân hàng', 0, 1], ['soTK', 'Số tài khoản', 0, 1], ['kyNhan', 'Ký nhận']].map(function (x) { return { k: x[0], ten: x[1], khoa: !!x[2], an: !!x[3] }; }),
+      ['luongDongBH', 'Lương đóng BH', 0, 1, 1],
+      ['luongThoiGian', 'Lương TG'], ['phuCap', 'Phụ cấp'], ['tienOT', 'OT'], ['thuong', 'Thưởng'], ['truyLinh', 'Truy lĩnh', 0, 1, 1], ['anCaNhan', 'Tiền ăn ca (nhận)', 0, 1, 1], ['giamThuong', 'Giảm trừ QC'], ['tongThuNhap', 'Tổng TN'],
+      ['tnKhongThue', 'TN không chịu thuế', 0, 1, 1], ['anCaMien', 'Ăn ca miễn thuế', 0, 1, 1], ['tnChiuThue', 'TN chịu thuế', 0, 1, 1], ['giamTru', 'Giảm trừ gia cảnh', 0, 1, 1], ['tnTinhThue', 'TN tính thuế', 0, 1, 1],
+      ['bhNLD', 'BH NLĐ'], ['bhxh', 'BHXH (NLĐ)', 0, 1, 1], ['bhyt', 'BHYT (NLĐ)', 0, 1, 1], ['bhtn', 'BHTN (NLĐ)', 0, 1, 1], ['doanPhi', 'Đoàn phí', 0, 1], ['thueTNCN', 'Thuế'], ['otThue', 'Thuế phân bổ tăng ca', 0, 1, 1],
+      ['boiThuong', 'Bồi thường'], ['tamUng', 'Tạm ứng'], ['tienAnThu', 'Ăn ca'], ['thuUng', 'Thu ứng'], ['khauTruKhac', 'KT khác'], ['tongNo', 'Tổng nợ (công nợ)', 0, 1, 1], ['tongKhauTru', 'Tổng khấu trừ', 0, 1],
+      ['thucLinh', 'Thực lĩnh', 1], ['otThucLinh', 'Thực lĩnh tăng ca', 0, 1, 1], ['dnBH', 'BH công ty đóng', 0, 1, 1], ['kpcdDN', 'KPCĐ công ty đóng', 0, 1, 1],
+      ['nganHang', 'Ngân hàng', 0, 1], ['soTK', 'Số tài khoản', 0, 1], ['kyNhan', 'Ký nhận']].map(function (x) { return { k: x[0], ten: x[1], khoa: !!x[2], an: !!x[3], anX: !!x[4] }; }),
     ky: []        // trống = theo người duyệt của quy trình (in) / Người lập biểu – Kế toán trưởng – Giám đốc (Excel)
   };
   function mauDs(md, dl) {                 // gộp danh sách người dùng với mặc định: giữ thứ tự người dùng, thêm mục mới, bỏ mục lạ, khóa luôn hiện
@@ -3713,7 +3720,7 @@ var HRCORE = (function () {
     var out = [], co = {};
     (Array.isArray(dl) ? dl : []).forEach(function (u) { var d = u && by[u.k]; if (!d || co[u.k]) return; co[u.k] = 1;
       out.push({ k: d.k, ten: String(u.ten || '').trim().slice(0, 80) || d.ten, khoa: !!d.khoa, an: d.khoa ? false : !!u.an, anX: d.khoa ? false : !!u.anX, goc: d.ten }); });
-    md.forEach(function (d, i) { if (co[d.k]) return; var x = { k: d.k, ten: d.ten, khoa: !!d.khoa, an: !!d.an, anX: false, goc: d.ten };
+    md.forEach(function (d, i) { if (co[d.k]) return; var x = { k: d.k, ten: d.ten, khoa: !!d.khoa, an: !!d.an, anX: !!d.anX, goc: d.ten };
       var ks = out.map(function (o) { return o.k; }), j = -1, t, q;
       for (t = i - 1; t >= 0 && j < 0; t--) { q = ks.indexOf(md[t].k); if (q >= 0) j = q + 1; }
       for (t = i + 1; t < md.length && j < 0; t++) { q = ks.indexOf(md[t].k); if (q >= 0) j = q; }
@@ -3725,7 +3732,30 @@ var HRCORE = (function () {
     var u = (cfg && cfg.mauPhieu) || {}, t = function (k) { return String(u[k] || '').trim().slice(0, 80) || MAU_PHIEU_MD[k]; };
     return { tieuDe: t('tieuDe'), tieuDe1: t('tieuDe1'), tieuDe2: t('tieuDe2'), khoi: mauDs(MAU_PHIEU_MD.khoi, u.khoi), the: mauDs(MAU_PHIEU_MD.the, u.the), ky: mauKy(u.ky, MAU_PHIEU_MD.ky) };
   }
-  function mauBL(cfg) { var u = (cfg && cfg.mauBangLuong) || {}; return { cot: mauDs(MAU_BL_MD.cot, u.cot), ky: mauKy(u.ky, MAU_BL_MD.ky) }; }
+  function mauBLMd(cfg) {                 // cột mặc định + khoản công thức lương + biến kỳ (đặt trước "Ngân hàng")
+    var them = [], co = {};
+    ((cfg && cfg.congThucLuong) || []).forEach(function (c) { if (c.ma && !co['ct:' + c.ma]) { co['ct:' + c.ma] = 1; them.push({ k: 'ct:' + c.ma, ten: (c.ten || c.ma) + ' (CT)', an: true, anX: true }); } });
+    ((cfg && cfg.bienKy) || []).forEach(function (v) { if (v.ma && !co['bk:' + v.ma]) { co['bk:' + v.ma] = 1; them.push({ k: 'bk:' + v.ma, ten: (v.ten || v.ma).replace(/\s*\(.*\)$/, '') + ' [' + v.ma + ']', an: true, anX: true }); } });
+    var md = MAU_BL_MD.cot.slice(), i = md.map(function (x) { return x.k; }).indexOf('nganHang');
+    return md.slice(0, i).concat(them, md.slice(i));
+  }
+  function mauBL(cfg) { var u = (cfg && cfg.mauBangLuong) || {}; return { cot: mauDs(mauBLMd(cfg), u.cot), ky: mauKy(u.ky, MAU_BL_MD.ky) }; }
+  function blTepCT(b) { var m = {}; (parseJSON(b.chiTiet, []) || []).forEach(function (x) { if (x && x.ma) m[x.ma] = (m[x.ma] || 0) + num(x.gt); }); return m; }
+  /* v3.48: giá trị 1 cột bảng lương (in, Excel) — o: { tach, cc: dòng chấm công (biến kỳ) } */
+  function blGiaTri(b, k, o) {
+    o = o || {}; var t = !!o.tach;
+    if (k === 'bhNLD') return num(b.bhxh) + num(b.bhyt) + num(b.bhtn);
+    if (k === 'tongThuNhap') return num(b.tongThuNhap) - (t ? (num(b.otThucLinh) + num(b.otThue) || num(b.tienOT)) : 0);
+    if (k === 'thueTNCN') return num(b.thueTNCN) - (t ? num(b.otThue) : 0);
+    if (k === 'thucLinh') return num(b.thucLinh) - (t ? (num(b.otThucLinh) + num(b.otThue) ? num(b.otThucLinh) : num(b.tienOT)) : 0);
+    if (k === 'tongKhauTru') return blGiaTri(b, 'tongThuNhap', o) - blGiaTri(b, 'thucLinh', o);
+    if (k === 'anCaNhan') return num(blTepCT(b).ANCA);
+    if (k === 'tnKhongThue') return Math.max(0, num(b.tongThuNhap) - num(b.tnChiuThue));
+    if (k === 'dnBH') return num(b.bhxhDN) + num(b.bhytDN) + num(b.bhtnDN);
+    if (k.indexOf('ct:') === 0) return num(blTepCT(b)[k.slice(3)]);
+    if (k.indexOf('bk:') === 0) return num(parseJSON(o.cc && o.cc.bienKy, {})[k.slice(3)]);
+    return num(b[k]);
+  }
   function mauGon(m, loai) {              // lưu gọn: chỉ k, ten (nếu đổi), an
     var g = function (ds) { return ds.map(function (x) { var o = { k: x.k }; if (x.ten !== x.goc) o.ten = x.ten; if (x.an) o.an = true; if (x.anX) o.anX = true; return o; }); };
     return loai === 'phieu' ? { tieuDe: m.tieuDe, tieuDe1: m.tieuDe1, tieuDe2: m.tieuDe2, khoi: g(m.khoi), the: g(m.the), ky: m.ky } : { cot: g(m.cot), ky: m.ky };
@@ -3820,6 +3850,13 @@ var HRCORE = (function () {
     var dauKT = ded[0].key, cuoiKT = ded[ded.length - 1].key;
     cols.push({ key: 'tkt', mk: 'tongKhauTru', ten: 'Tổng khấu trừ', z: XL_TIEN, cong: 1, f: function (r, A, b) { return { f: 'SUM(' + A(dauKT, r) + ':' + A(cuoiKT, r) + ')', v: tongV(b) - tlV(b) }; } });
     cols.push({ key: 'cn', mk: 'thucLinh', ten: 'CÒN NHẬN', z: XL_TIEN, cong: 1, s: 'net', f: function (r, A, b) { return { f: A('tong', r) + '-' + A('tkt', r), v: tlV(b) }; } });
+    // v3.48: cột biến tính lương người dùng chọn hiện trong Excel (giá trị đã tính, không công thức) – đặt trước "Ký nhận" theo thứ tự mẫu
+    var ccM = (info && info.cc) || {};
+    mau.cot.forEach(function (x) {
+      if (x.anX || !(BL_THEM[x.k] || /^(ct|bk):/.test(x.k))) return;
+      var laBK = x.k.indexOf('bk:') === 0;
+      cols.push({ ten: x.ten, mk: x.k, z: laBK ? '0.00' : XL_TIEN, cong: laBK ? 0 : 1, gt: function (b) { return blGiaTri(b, x.k, { tach: tach, cc: ccM[b.maNV] }); } });
+    });
     cols.push({ ten: 'Ký nhận', mk: 'kyNhan' });
     cols.forEach(function (c) { var m = c.mk && mi[c.mk]; if (!m) return; if (m.anX && !m.khoa && c.mk !== 'tongKhauTru') c.an = 1; if (m.ten !== m.goc && c.mk !== 'bhNLD' && !/^kt\d/.test(c.key || '')) c.ten = m.ten; });
     var rows = tieuDe((tach ? 'BẢNG 1 – THANH TOÁN TIỀN LƯƠNG THEO CÔNG THỜI GIAN THÁNG ' : 'BẢNG THANH TOÁN TIỀN LƯƠNG THÁNG ') + ky.slice(5) + '/' + ky.slice(0, 4), (info.congTy || '') + (info.trangThai ? ' · ' + info.trangThai : ''), 'Đơn vị tính: đồng. Cột Tổng thu nhập, Tổng khấu trừ, Còn nhận và các dòng cộng là công thức.', info.nhap);
@@ -9783,7 +9820,7 @@ var HRCORE = (function () {
       need(s, 'config');
       if (req.cfg) delete req.cfg.phanQuyen;
       if (req.cfg && req.cfg.mauPhieu != null) req.cfg.mauPhieu = mauGon(mauPhieu({ mauPhieu: req.cfg.mauPhieu }), 'phieu');          // v3.41
-      if (req.cfg && req.cfg.mauBangLuong != null) req.cfg.mauBangLuong = mauGon(mauBL({ mauBangLuong: req.cfg.mauBangLuong }), 'bl');
+      if (req.cfg && req.cfg.mauBangLuong != null) req.cfg.mauBangLuong = mauGon(mauBL(Object.assign({}, getCfg(), req.cfg, { mauBangLuong: req.cfg.mauBangLuong })), 'bl');   // v3.48: giữ cột khoản CT / biến kỳ
       if (req.cfg && req.cfg.anCaMienCT != null) {                       // v3.39: công thức ăn ca miễn thuế
         req.cfg.anCaMienCT = String(req.cfg.anCaMienCT).trim().slice(0, 500);
         if (req.cfg.anCaMienCT) { var lAC = kiemCTAnCa(Object.assign({}, getCfg(), req.cfg), req.cfg.anCaMienCT); if (lAC.length) err(lAC.join(' ')); }
@@ -10165,7 +10202,7 @@ var HRCORE = (function () {
   }
 
   return {
-    VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
+    VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, blGiaTri: blGiaTri, BL_THEM: BL_THEM, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
     BIEN_HT: BIEN_HT, matKhauTheoNV: matKhauTheoNV, tenBien: tenBien, xlMauTamUng: xlMauTamUng, docTamUng: docTamUng, docTien: docTien, docNgay: docNgay, nhanLoaiTU: nhanLoaiTU, dauVaoTinhLuong: dauVaoTinhLuong, astExcel: astExcel, ctExcel: ctExcel, cotXL: cotXL, xlBangTinh: xlBangTinh, xlBangLuongThang: xlBangLuongThang, xlNam: xlNam, xlCaNhan: xlCaNhan, xlChiPhi: xlChiPhi, sangXLSX: sangXLSX, khoanCo: khoanCo, amSangDuong: amSangDuong, lichLeTheoLuat: lichLeTheoLuat, cleanLe: cleanLe, LOAI_LE: LOAI_LE, KY_HIEU: KY_HIEU, DON_KH: DON_KH, ngayTheoDon: ngayTheoDon, cleanNgay: cleanNgay, tongHopNgay: tongHopNgay, NHOM_VP: NHOM_VP, thu: thu, ROLE_QL: ROLE_QL, normRole: normRole, tenDangNhap: tenDangNhap, ROLES_MOTA: ROLES_MOTA, BT_LOAI: BT_LOAI, CAM_XUC: CAM_XUC, memChat: memChat, CT_PHANLOAI: CT_PHANLOAI, CT_VAITRO: CT_VAITRO, CT_MAU: CT_MAU, nlvTrongKy: nlvTrongKy, bienNLV: bienNLV, CT_LUONG_MD: CT_LUONG_MD, BIEN_KY_MD: BIEN_KY_MD, CT_DONGBH_MD: CT_DONGBH_MD, BUOC_XONG: BUOC_XONG, LOAI_BUOC: LOAI_BUOC, FIELDS_LOAI: FIELDS_LOAI,
     buocLuong: buocLuong, viTriBuoc: viTriBuoc, buocTheoLoai: buocTheoLoai, laNguoiXuLy: laNguoiXuLy, kiemTraQTLuong: kiemTraQTLuong,
     CV_HUONG: CV_HUONG, CV_LOAI: CV_LOAI, CV_KHAN: CV_KHAN, CV_TT_DEN: CV_TT_DEN, CV_TT_DI: CV_TT_DI, CV_HET: CV_HET,

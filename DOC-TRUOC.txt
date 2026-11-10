@@ -1,0 +1,723 @@
+TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.48 (11/2026)
+===========================================================================
+
+1_UngDung/              Giao diện app (PWA): index.html, sw.js, manifest.webmanifest, icon-192.png, icon-512.png, webapp.txt
+                        -> Dán URL ứng dụng web Apps Script vào webapp.txt, rồi đưa cả 6 tệp lên GitHub Pages
+                           hoặc Netlify (bắt buộc https). App tự đọc webapp.txt để kết nối máy chủ.
+                        -> Mở index.html bằng Chrome trên máy tính để DÙNG THỬ ngay với dữ liệu mẫu
+                           (tài khoản quantm / landt / hant / huongpt / kttruong / thanglv / anhvd / admin, mật khẩu 123456).
+0_CongCu/               GanURL_MayChu.bat – gắn URL trong webapp.txt vào index.html (khi mở app từ ổ đĩa)
+2_MayChu_AppsScript/    Code.gs: dán vào Tiện ích mở rộng -> Apps Script của Google Sheet, chạy setup, caiDatLuuTru.
+3_FileMau/              00_Ke_hoach_trien_khai.xlsx  – checklist triển khai, khảo sát điểm chấm công, theo dõi cài app
+                        01_Mau_nhap_ho_so_CBCNV.xlsx – mẫu nhập hồ sơ CBCNV (Hồ sơ CBCNV -> Nhập Excel)
+                        Vi_du_02..04                 – ví dụ mẫu mức hưởng, chấm công kỳ, tạm ứng (dữ liệu giả lập).
+                                                       Mẫu thật tải trong app, có sẵn danh sách CBCNV của Công ty.
+4_HuongDan/             1_Huong_dan_cai_dat (Word + PDF)  – cho Quản trị, TCHC, người triển khai
+                        2_Huong_dan_su_dung (Word + PDF)  – cho toàn thể CBCNV và từng chức danh
+                        3_Bien_ban_kiem_tra_cham_cong_dien_thoai (Word + PDF)
+                        4_HUONG-DAN-KY-THUAT.md, 5_PROMPT-TAO-LAI-APP.md – tài liệu kỹ thuật chi tiết
+
+THỨ TỰ LÀM
+  1. Đọc "1_Huong_dan_cai_dat" mục 2–4: cài máy chủ, đưa app lên mạng.
+  2. Mục 5: cài đặt, phòng ban, nhập hồ sơ (file mẫu 01), cấp tài khoản.
+  3. Mục 6–7: khai báo điểm chấm công GPS (file 00, sheet "Điểm chấm công"), cấu hình thông báo đẩy Firebase.
+  4. Mục 9: chạy thử 1 tuần, rồi phát "2_Huong_dan_su_dung" cho CBCNV.
+  5. Cuối mỗi kỳ: TCHC / Kế toán vào Chấm công GPS -> tab "Kiểm tra AI" để quét sai phạm vi,
+     sai người, sai thời gian; nhắc bộ phận giải trình cờ đỏ trước khi lấy công (HD sử dụng – Phần G).
+
+MỚI TRONG 3.48 – THÊM CỘT BIẾN TÍNH LƯƠNG VÀO BẢNG LƯƠNG
+  Cài đặt → Mẫu bảng lương: thêm cột TN chịu thuế, giảm trừ gia cảnh, TN tính thuế, ăn ca nhận / miễn thuế, BHXH – BHYT – BHTN, tổng nợ, BH công ty đóng, mọi khoản Công thức lương và biến kỳ; ô lọc cột.
+  App Android: 5_AppDienThoai/TAPACO-NhanSu-3.48.apk.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.47 – ẢNH THẺ 3×4, BẢNG HỆ SỐ NĂNG SUẤT THÁNG
+  Hồ sơ: ảnh thẻ (tải ảnh hoặc cắt từ ảnh CCCD), làm ảnh hồ sơ và chèn vào Lý lịch (chưa có → tự lấy ảnh trên CCCD).
+  Chấm công & Tính lương: tab "Hệ số năng suất" – chấm điểm tiêu chí → xếp loại → hệ số → vào công thức lương (HS_K); xuất Excel, in.
+  Cài đặt: tiêu chí, tỷ trọng, thang xếp loại (số mẫu – sửa theo quy chế).
+  App Android: 5_AppDienThoai/TAPACO-NhanSu-3.47.apk.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới (bắt buộc: thêm cột chamNS, ảnh thẻ).
+
+MỚI TRONG 3.46 – TỰ CẮT, NẮN THẲNG ẢNH CĂN CƯỚC
+  Tải ảnh CCCD: app tự nhận khung thẻ, cắt và nắn thẳng vừa khung (1280 × 807); kéo 4 góc để chỉnh, xoay, hoặc dùng ảnh gốc.
+  App Android: 5_AppDienThoai/TAPACO-NhanSu-3.46.apk.
+  CẬP NHẬT: thay index.html, sw.js (Code.gs không đổi so với 3.45, dán lại cũng được).
+
+MỚI TRONG 3.45 – TẢI ẢNH NHANH (BẢNG TIN, TIN NHẮN)
+  Bảng tin: ảnh thu nhỏ, gộp 12 ảnh / lần gọi, tải khi cuộn tới, lưu trên máy; máy chủ đệm ảnh thu nhỏ 6 giờ.
+  App Android: 5_AppDienThoai/TAPACO-NhanSu-3.45.apk.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới (bắt buộc để có phần máy chủ).
+
+MỚI TRONG 3.44 – SỬA / XÓA MỨC HƯỞNG NGAY TRONG HỒ SƠ
+  Tab Lương & mức hưởng: bấm vào mức đang hưởng hoặc ô bất kỳ của bảng Diễn biến để sửa; sửa mức gốc; ✎ / ✕ sửa, xóa từng mốc.
+  App Android: 5_AppDienThoai/TAPACO-NhanSu-3.44.apk (cài đè bản cũ).
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.43 – APP ĐIỆN THOẠI
+  Thư mục 5_AppDienThoai: tệp cài Android TAPACO-NhanSu-3.43.apk + hướng dẫn cài.
+  Menu tài khoản → "📱 Cài app điện thoại" (link tải do Quản trị dán ở Cài đặt; hướng dẫn iPhone).
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới; phát hành .apk.
+
+MỚI TRONG 3.42 – GÕ TÌM CBCNV, TÌM CÔNG VĂN, TAB CÔNG NỢ RIÊNG
+  Mọi ô chọn CBCNV thành ô gõ tìm gần đúng (không dấu, sai chính tả nhẹ, viết tắt).
+  Công văn đến – đi: ô tìm theo số, đơn vị gửi / nhận, trích yếu, nội dung; khớp nhất lên đầu.
+  Chấm công: tách "Tổng hợp công" và "Công nợ" (sau Tạm ứng).
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.41 – MẪU PHIẾU LƯƠNG & BẢNG LƯƠNG KÉO THẢ
+  Cài đặt → "Mẫu phiếu lương & bảng lương": kéo thả thứ tự khối phiếu, thẻ thông tin, cột bảng lương; ẩn / hiện; đổi tên; tiêu đề; chữ ký.
+  Bảng lương chọn riêng cột khi In / PDF và Excel (Excel ẩn cột, công thức vẫn đúng). Có Xem thử, Về mặc định.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.40 – PHIẾU LƯƠNG TÁCH 2 PHIẾU
+  Chế độ "2 bảng độc lập": phiếu lương gồm Phiếu 1 – lương theo công thời gian và Phiếu 2 – làm thêm giờ, tăng ca.
+  Còn nhận 2 phiếu cộng lại = thực lĩnh cả tháng. In / PDF: mỗi phiếu 1 trang.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.39 – ĂN CA MIỄN THUẾ TNCN LÀ CÔNG THỨC MỞ
+  Cài đặt → "Ăn ca miễn thuế TNCN – công thức": sửa được, mặc định MIN(MUC_MIEN, NGAY_CONG * MUC_MIEN / 22).
+  Có xem thử 22 / 15 / 5 công; kết quả không vượt mức tối đa của thời kỳ.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.38 – BẢNG PHÂN QUYỀN TÍCH CHỌN THÊM LƯƠNG, NGHỈ PHÉP, THEO CHỨC DANH
+  Tài khoản → Bảng phân quyền: mỗi bước lương, mỗi cấp duyệt nghỉ phép là một dòng tích chọn (lưu vào Quy trình & phê duyệt).
+  Theo chức danh: Xem nhân sự bộ phận mình, Sửa bảng phân quyền tích chọn được; hồ sơ – phiếu lương của chính mình luôn có.
+  Mặc định giữ như trước.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.37 – ĐỌC CHỮ (OCR) TÀI LIỆU HỒ SƠ
+  Tải ảnh chụp / bản scan PDF vào hồ sơ → app đọc chữ, lưu văn bản thành tệp .txt riêng cạnh tệp gốc,
+  đề xuất điền lý lịch (CCCD, ngày sinh, địa chỉ, MST, trình độ, chuyên ngành, số hiệu, ngày cấp, hạn…) để TCHC soát rồi lưu.
+  BẬT ĐỌC CHỮ TRÊN MÁY CHỦ (khuyến nghị): Apps Script → Dịch vụ (Services) + → Drive API → Thêm;
+  dán Code.gs mới → Triển khai → Quản lý bản triển khai → Phiên bản mới; cấp quyền khi được hỏi.
+  Chưa bật thì app đọc ngay trên máy (lần đầu tải bộ đọc tiếng Việt ~10 MB). Không gửi dữ liệu cho AI bên ngoài.
+
+MỚI TRONG 3.36 – LÝ LỊCH ĐẦY ĐỦ, XUẤT PDF / WORD
+  "In lý lịch" có thêm: Bảo hiểm (tham gia, tỷ lệ, quá trình đóng tại Công ty), Thuế TNCN (MST, cách tính, NPT, hồ sơ thuế),
+  Hưu trí, Hồ sơ kèm theo (danh sách + link mở trong app). Xuất: "In / Lưu PDF" hoặc "Tải Word (.docx)".
+  Thông tin lương, số tài khoản chỉ in khi chọn.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.35 – IN LÝ LỊCH CÁ NHÂN
+  Hồ sơ CBCNV / Hồ sơ của tôi → nút "In lý lịch" (A4 dọc, lưu được PDF): I. Thông tin chung, II. Quá trình công tác,
+  III. Lịch sử HĐLĐ, IV. Khen thưởng – kỷ luật (tùy chọn). Thông tin lương, MST – tài khoản chỉ in khi chọn.
+  Có ô ảnh 3×4, lời cam đoan, chỗ ký Người khai và Xác nhận của Công ty.
+  CẬP NHẬT: thay index.html, sw.js; dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.34
+  Bước Công nợ: cột Ăn ca tự lấy từ bảng chấm ăn ca và SỬA ĐƯỢC (ô sửa tay nền cam; xóa trống để quay về số theo bảng).
+  Người không có bảng chấm ăn nhập tay. Tổng nợ = Tạm ứng + Ăn ca + Thu ứng + Thu khấu trừ khác, trừ hết vào lương kỳ này.
+  CẬP NHẬT: dán Code.gs mới → Triển khai → Phiên bản mới.
+
+MỚI TRONG 3.33 – LỊCH SỬ HỢP ĐỒNG LAO ĐỘNG
+  1. Hồ sơ CBCNV → tab "Hợp đồng lao động": mỗi lần ký / đổi HĐ thêm 1 dòng (không ghi đè): số HĐ, loại HĐ, từ – đến ngày,
+     lương HĐ, lương đóng BH, hình thức trả (lương + BH / BH nơi khác – về hưu / lương khoán), file HĐ. Nhập sai: "Hủy dòng".
+  2. Bảng lương tháng nào lấy HĐ hiệu lực tháng đó; đổi HĐ giữa tháng chia theo ngày công từng giai đoạn
+     (BH theo HĐ cuối tháng, thuế gộp cả tháng). Phiếu lương ghi HĐ / giai đoạn áp dụng.
+  3. BH: thử việc, khoán – thời vụ, CTV không trích; BH nơi khác / về hưu không trích; HĐ còn lại trích theo lương đóng BH.
+     Thuế: HĐ từ 3 tháng – lũy tiến có giảm trừ; dưới 3 tháng / thử việc / khoán / CTV – khấu trừ tỷ lệ cố định.
+  4. Cảnh báo HĐ sắp hết hạn (mặc định 30 ngày) ở danh sách CBCNV, Tổng quan; thông báo đẩy cho TCHC mỗi sáng.
+  5. Cài đặt → Quy định theo thời kỳ: thêm tỷ lệ BH NLĐ / DN và tỷ lệ khấu trừ cố định theo từng mốc "Từ kỳ".
+  CBCNV đang làm: mở tab "Hợp đồng lao động" → "Tạo dòng HĐ đầu tiên từ hồ sơ hiện tại" (chưa tạo thì vẫn tính như cũ).
+  CẬP NHẬT: dán Code.gs mới → Triển khai → Quản lý bản triển khai → Phiên bản mới.
+
+MỚI TRONG 3.32
+  1. Bảng chấm công thêm giờ: cột Thứ 7, Chủ nhật tô màu đậm riêng.
+  2. Tab mới "Chấm ăn ca": ghi số bữa ăn mỗi ngày 0, 1, 2, 3. Số bữa tính phụ cấp ăn ca theo bữa và tiền ăn thu (trừ lương).
+     Quản trị khai "Phụ cấp ăn ca/bữa" và "Giá thu/bữa" ở Cài đặt → Nơi làm việc (chưa khai thì ăn ca vẫn tính theo ngày).
+  3. Bước Kiểm tra công nợ chỉ hiện cột tiền: Tạm ứng · Ăn ca · Thu ứng · Thu khấu trừ khác · Tổng nợ (= cộng 4 khoản).
+  4. Ăn ca miễn thuế TNCN = MIN(1,2 triệu; ngày công thực tế × 1,2 triệu ÷ 22).
+  5. Cài đặt → "Chế độ bảng lương": 1 bảng (gộp) hoặc 2 bảng độc lập (lương theo công thời gian / lương tăng ca, thêm giờ).
+  6. Chuyển bước duyệt nhanh hơn: lưu + chuyển + tính lương trong 1 lần gọi; Google Sheet chỉ ghi dòng thay đổi.
+  7. Tin nhắn: gửi ảnh 1 lần gọi, ghi Drive không chặn người khác; khung chat dùng ảnh thu nhỏ, tải gộp, lưu trên máy.
+  CẬP NHẬT: dán Code.gs mới vào Apps Script → Triển khai → Quản lý bản triển khai → Phiên bản mới (giữ nguyên URL).
+  Kỳ đang lập bấm "Tính lương" lại để áp quy tắc ăn ca miễn thuế và số phân bổ 2 bảng.
+
+MỚI TRONG 3.31 – SỬA LỖI TIỀN LÀM THÊM GIỜ
+  1. Lỗi: mẫu công thức TAPACO chỉ tính tiền làm thêm giờ cho người THỬ VIỆC; CBCNV HĐLĐ chính thức có giờ tăng ca nhưng
+     "Lương làm thêm giờ" = 0.
+  2. Đã sửa: chính thức tính theo hệ số ở Cài đặt (ngày thường ×1,5, nghỉ tuần ×2, lễ Tết ×3); thử việc giữ cách cũ.
+     Cấu hình đang dùng được tự cập nhật (trừ khi công thức OT_QD đã sửa tay).
+  3. VIỆC CẦN LÀM: kỳ đang lập bấm "Tính lương" lại. Kỳ đã phê duyệt không tự đổi – Quản trị mở khóa tính lại,
+     hoặc nhập truy lĩnh tiền làm thêm giờ ở kỳ sau.
+
+MỚI TRONG 3.30 – PHIẾU NHẬP / XUẤT KHO VẬT TƯ TRONG TIN NHẮN
+  1. Trong nhóm chat bấm "+" -> "Phiếu nhập / xuất kho": ngày, kho, nhà cung cấp / đơn vị nhận, hạng mục, số chứng từ,
+     bảng vật tư (tên, quy cách, ĐVT, số lượng, đơn giá), nút CHỤP ẢNH (camera điện thoại) hoặc TẢI ẢNH LÊN (tối đa 12 ảnh).
+  2. Số phiếu tự cấp PN-/PX-yyyymm-nnn; phiếu hiện thành thẻ trong nhóm; xem, phóng ảnh, In / PDF có chỗ ký và ảnh kèm.
+  3. Thông tin nhóm -> tab "Kho vật tư": lọc tháng, nhập / xuất; tổng hợp nhập – xuất theo vật tư; Xuất Excel.
+  4. Phiếu sai: người lập hoặc trưởng / phó nhóm "Hủy phiếu" kèm lý do (giữ lịch sử), lập phiếu mới.
+
+MỚI TRONG 3.29 – NHÂN SỰ HƯỞNG LƯƠNG HƯU
+  1. Hồ sơ thuế – BH -> "Người đã nghỉ hưu": tình trạng hưu trí (đang hưởng / đủ tuổi chưa hưởng / trợ cấp khác / chưa xác minh),
+     ngày hưởng, số QĐ, đơn vị chi trả, lương hưu, thẻ BHYT, phương án trả thêm BH (A cộng thêm / B đã gồm). Kế toán xác minh
+     ở tab "Tối ưu thuế TNCN" (cần quyết định hưởng lương hưu trong hồ sơ hưu trí 10 mục: NhanSu/mã/HoSoHuuTri/năm).
+  2. BH theo từng kỳ: chỉ miễn BHXH, BHYT, BHTN khi thực tế đang hưởng lương hưu; đủ tuổi chưa hưởng, nhận BHXH 1 lần,
+     kỳ trước ngày bắt đầu hưởng -> tính như HĐLĐ đóng BH.
+  3. Tiền trả thêm tương đương BH (Điều 168.3 BLLĐ) = căn cứ × 21,5% (tỷ lệ, trần theo thời kỳ) – dòng/cột riêng, chịu thuế TNCN;
+     phương án B tách lương theo công việc, không cộng 21,5% lần hai; chưa rõ phương án -> cảnh báo, chưa tính.
+  4. Lương hưu BHXH miễn thuế, không cộng vào thu nhập TAPACO; thuế lũy tiến chi tiết từng bậc; ủy quyền quyết toán riêng cho
+     người hưu; phân tích tối ưu thuế (A, B, nộp thừa / nộp thêm, hướng xử lý); cột ghi chú pháp lý hưu trí trên bảng lương.
+  5. LƯU Ý: Giám đốc KHÔNG khóa được bảng lương khi còn người khai "đang hưởng lương hưu" chưa được Kế toán xác minh.
+     Người đã chọn "trường hợp 4" trước đây: vào Hồ sơ thuế – BH khai tình trạng, phương án A/B, tải QĐ, xác minh.
+  6. Báo cáo kiểm thử: 4_HuongDan/BAO-CAO-KIEM-THU-v3.29 (.md, .xlsx) – 22 ca, đủ 8 tình huống bắt buộc.
+
+MỚI TRONG 3.28 – HỢP ĐỒNG KHOÁN VIỆC THEO THÁNG (CONTRACT-02)
+  1. Menu "Khoán việc & thanh toán": hợp đồng khoán K1–K4, đánh giá bản chất (BM-01, 11 câu hỏi) -> khoán độc lập / dấu hiệu QHLĐ /
+     thuộc QHLĐ / kinh doanh / chưa đủ dữ liệu; cảnh báo BHXH; hồ sơ 9 thư mục trên Drive TAPACO/PAYROLL/NAM_yyyy/HOP_DONG_KHOAN/.
+  2. Đợt thanh toán: tạm ứng, nghiệm thu, quyết toán; thuế 10% theo NGÀY THỰC TRẢ (2 tr trước 01/7/2026, 5 tr từ 01/7/2026);
+     không thuế 2 lần khi thu hồi tạm ứng; HĐ NET tính ngược gross; cảnh báo chia nhỏ, vượt ngưỡng chưa xử lý thuế, thiếu MST.
+  3. 6 bước duyệt: Ban chỉ huy -> KT-KH -> Kế toán -> Phụ trách KT -> Giám đốc -> Kế toán thanh toán (Đã chi), có lịch sử.
+  4. Quyền lợi thuế người nhận khoán: dự báo năm A/B/C/D, cam kết ELIGIBLE/INELIGIBLE/PENDING/LEGAL_REVIEW/EXPIRED/REVOKED,
+     số có thể hoàn, hướng dẫn tự quyết toán; biểu mẫu BM-01..08 (In/PDF, Word), bảng thanh toán xuất Excel.
+  5. LƯU Ý: từ 3.28 bảng lương cũng chỉ tạm không khấu trừ 10% khi cam kết của năm đã ký, Phụ trách KT duyệt và có MST.
+     Người đang đánh "Có cam kết 08" mà chưa có bản cam kết được duyệt sẽ bị khấu trừ 10% khi tính lại lương
+     (tắt được bằng cấu hình ckBatBuocDuyet = false).
+  6. Báo cáo kiểm thử: 4_HuongDan/BAO-CAO-KIEM-THU-v3.28 (.md, .xlsx) – 32 ca, gồm 18 tình huống bắt buộc.
+
+MỚI TRONG 3.27 – TAPACO PAYROLL & TAX 2026
+  1. Vai trò mới "Phụ trách kế toán": duyệt cam kết thu nhập, giấy ủy quyền quyết toán, hồ sơ thuế; cập nhật kho biểu mẫu, quy định.
+  2. Hồ sơ CBCNV -> tab "Tối ưu thuế TNCN": 10 chỉ tiêu thuế cả năm, 3 phương án (A khấu trừ mặc định, B không khấu trừ
+     theo cam kết hợp lệ, C quyết toán/hoàn), kiểm tra điều kiện cam kết & ủy quyền, lập/in/xuất Word mẫu, tải bản ký, Gross <-> Net.
+  3. "Hồ sơ thuế – BH": thử việc (vị trí, thời hạn, % lương), BH nơi khác + nơi đăng ký giảm trừ, nghỉ hưu, dấu hiệu quan hệ lao động
+     của HĐ khoán, thu nhập nơi khác (vãng lai <= 15 tr/tháng), giảm trừ y tế / giáo dục / hưu trí tự nguyện.
+  4. Bảng lương: cột giảm trừ bản thân / NPT, BH DN, tổng chi phí Công ty, cam kết, ủy quyền, GHI CHÚ THUẾ – BHXH (bấm xem căn cứ).
+  5. Báo cáo lương: tab "Ủy quyền & cam kết", tab "Hồ sơ – biểu mẫu thuế" (8 mẫu + cơ sở dữ liệu quy định có link nguồn).
+  6. Mẫu cam kết 08/CK-TNCN ĐANG XÁC MINH (TT 80/2021 đã được thay bằng TT 89/2026): chỉ in để tham khảo, Phụ trách KT phải
+     xác nhận mẫu được cơ quan thuế chấp nhận mới duyệt được.
+  7. Nâng cấp: thay 5 tệp trong 1_UngDung và Code.gs; cột NhanVien.hsThue, bảng HoSoThue tự tạo. Cấp tài khoản Phụ trách kế toán ở Tài khoản.
+
+MỚI TRONG 3.26 – 5 TRƯỜNG HỢP TÍNH LƯƠNG; TRẠNG THÁI TÍNH THUẾ THEO THỜI ĐIỂM; QUYẾT TOÁN TNCN NĂM
+  1. Hồ sơ CBCNV -> "Trường hợp tính lương": 1. HĐLĐ + BH tại Công ty · 2. Khoán việc theo tháng (không BH)
+     · 3. HĐLĐ, đóng BHXH nơi khác · 4. HĐLĐ với người đã nghỉ hưu · 5. HĐ thử việc (không BH).
+     Mỗi trường hợp tự áp bảo hiểm và cách tính thuế mặc định (lũy tiến / khấu trừ 10%, giảm trừ gia cảnh, ủy quyền).
+  2. Hồ sơ -> "trạng thái thuế theo thời điểm": đổi cách tính, giảm trừ tại Công ty, cam kết 08, ủy quyền
+     quyết toán theo từng kỳ (VD: hết thử việc chuyển lũy tiến; cam kết 08 riêng năm 2026).
+  3. Cài đặt: TNLĐ-BNN cho người nghỉ hưu; tùy chọn trả thêm khoản tương đương BH (Điều 168.3 BLLĐ).
+  4. Báo cáo lương -> "Quyết toán TNCN năm": thuế cả năm, đã khấu trừ, được hoàn / nộp thêm từng người
+     và gợi ý giảm thuế hợp pháp (ủy quyền, cam kết 08, tự quyết toán để hoàn, đăng ký người phụ thuộc).
+  Hồ sơ cũ "không đóng BH" chưa ghi lý do: tính như trước – đề nghị chọn lại trường hợp 3, 4 hoặc 5.
+  Nâng cấp: thay 5 tệp trong 1_UngDung và Code.gs. Cột mới NhanVien.thueTT, BangLuong.cachThue tự thêm.
+
+MỚI TRONG 3.25 – LƯƠNG, BHXH, THUẾ THEO QUY ĐỊNH TRƯỚC / SAU 01/7/2026; BẢNG CHẤM CÔNG THÊM GIỜ
+  1. Cài đặt -> "Quy định theo thời kỳ": mỗi kỳ lương tự áp mốc của kỳ đó
+       Trước 07/2026: lương cơ sở 2.340.000, biểu thuế 7 bậc, chỉ miễn thuế phần tiền làm thêm cao hơn giờ thường,
+                      khấu trừ 10% từ 2 triệu/lần; giảm trừ 11/4,4 triệu (đến 12/2025), 15,5/6,2 triệu (từ 01/2026)
+       Từ 07/2026:    lương cơ sở 2.530.000 (trần BHXH 50,6 triệu), biểu 5 bậc (Luật 109/2025), miễn thuế toàn bộ
+                      tiền làm thêm giờ trong giới hạn giờ (NĐ 253/2026), khấu trừ 10% từ 5 triệu/lần
+     Ô chọn "áp biểu 5 bậc cho cả kỳ tính thuế 2026" (Kế toán trưởng quyết); Báo cáo lương -> "So sánh thuế 2026".
+     Phiếu lương ghi "Áp dụng: …" và "tiền làm thêm giờ miễn thuế". Kỳ đã duyệt không bị tính lại.
+  2. Chấm công & Tính lương -> tab "Chấm công thêm giờ": nhập giờ làm thêm từng ngày cho từng người; tự xếp
+     150% / 200% / 300% theo ngày, cảnh báo vượt giờ ngày – tháng – năm, tự lưu, tự điền cột OT ở tab Tổng hợp,
+     xuất Excel bảng kê làm thêm giờ (căn cứ miễn thuế).
+     LƯU Ý: công thức lương mẫu TAPACO chỉ tính tiền làm thêm cho người THỬ VIỆC (biến OT_QD) – nếu Công ty trả
+     làm thêm cho mọi người, sửa khoản "Lương làm thêm giờ" ở màn hình Công thức lương.
+
+MỚI TRONG 3.24 – THÊM HỒ SƠ, ĐIỀU ĐỘNG KHÔNG PHẢI CHỜ; CÔNG VĂN ĐỌC BẰNG OCR
+  1. Thêm hồ sơ CBCNV, điều động: bấm Lưu là hiện ngay, lưu nền (mã trùng thì máy chủ tự cấp mã kế tiếp).
+  2. Công văn: ảnh / PDF -> nhận dạng chữ tiếng Việt (OCR Google Drive) -> AI phân tích chữ, tóm tắt, điền ô;
+     xem / sửa chữ OCR rồi "AI phân tích lại"; chữ OCR lưu kèm văn bản.
+
+  Nâng cấp: thay 5 tệp trong 1_UngDung và Code.gs (Triển khai -> Quản lý -> Phiên bản mới).
+  Cột mới (ChamCong.chiTietOT, BangLuong.cheDoLuat, CongVan.noiDungOCR) tự thêm vào Google Sheet.
+
+MỚI TRONG 3.23 – HỒ SƠ, QUÁ TRÌNH CÔNG TÁC LƯU NỀN; TIN NHẮN NHANH HƠN
+  1. Sửa hồ sơ CBCNV, thêm / sửa / xóa quá trình công tác: bấm Lưu là form đóng ngay, thông tin hiện ngay,
+     app gửi lên máy chủ chạy ngầm (góc dưới báo "Đang lưu…"). Lỗi mạng: hoàn lại, mở lại form còn nguyên dữ liệu.
+  2. Không còn tải lại toàn bộ dữ liệu sau mỗi lần lưu quá trình công tác, thêm hồ sơ, phòng ban, điều động.
+  3. Tin nhắn: lượt hỏi tin mới khi không có thay đổi trả lời từ bộ nhớ đệm, không mở Google Sheet – Apps Script
+     nhẹ hẳn, gửi tin / lưu dữ liệu không phải xếp hàng. Mở Tin nhắn: nhận tin mới mỗi 2 giây.
+  Nâng cấp: thay 5 tệp trong 1_UngDung và Code.gs (Triển khai -> Quản lý -> Phiên bản mới).
+
+MỚI TRONG 3.22 – CHẤM CÔNG NGÀY THEO BỘ PHẬN; TỰ LƯU CHẠY NỀN, KHÔNG PHẢI CHỜ
+  1. Bảng chấm công ngày nhóm theo bộ phận công tác (phòng ban trước, công trường sau), có số người;
+     bấm tên bộ phận để tô ô trống cả bộ phận. Ô lọc bộ phận, công ty.
+  2. Tự lưu: ngừng tô ~1,5 giây là app tự gửi lên máy chủ, chạy nền – cứ chấm tiếp, không chờ, bảng không
+     nhảy về đầu. Dòng trạng thái "Đang lưu… / ✓ Đã lưu lúc …". Mất mạng: giữ thay đổi, tự thử lại.
+  3. Máy chủ: lưu chấm công không đọc sheet Bảng lương nữa – mỗi lần lưu đọc ít hơn ~60%.
+  Nâng cấp: thay 5 tệp trong 1_UngDung và Code.gs (Triển khai -> Quản lý -> Phiên bản mới).
+
+MỚI TRONG 3.21 – BÁO CÁO BẢNG LƯƠNG LỌC & TÁCH THEO CÔNG TY
+  Báo cáo lương -> ô chọn góc trên:
+   - "Tất cả công ty – tách theo công ty, bộ phận" (mặc định): nhóm TAPACO / Thịnh Vượng Toàn Cầu / An Thuận Phát,
+     trong mỗi công ty nhóm theo phòng ban – công trường; cộng bộ phận, cộng công ty, tổng cộng.
+   - "Toàn bộ các công ty – gộp theo bộ phận".
+   - Từng công ty: chỉ người của công ty đó, tiêu đề in tên công ty.
+  Xuất Excel giữ đúng cách nhóm (công thức SUBTOTAL, không cộng trùng); danh sách chuyển khoản có cột Công ty.
+  Nâng cấp: thay 5 tệp trong 1_UngDung và Code.gs.
+
+MỚI TRONG 3.20 – KHAI BÁO CBCNV THEO CÔNG TY THÀNH VIÊN
+  1. Danh mục công ty: Phòng ban & công trình -> tab "Công ty thành viên". Mặc định TPC – TAPACO,
+     TC – Thịnh Vượng Toàn Cầu, ATP – An Thuận Phát. MST, địa chỉ, tên đầy đủ để trống: bấm "Sửa" điền theo giấy phép.
+  2. Hồ sơ CBCNV có ô "Công ty thành viên" (công ty ký HĐLĐ). Hồ sơ cũ chưa khai báo tính vào TAPACO.
+     Gán nhanh nhiều người: tab Công ty thành viên -> "Gán công ty cho CBCNV". Nhập Excel: cột "Công ty" (mã hoặc tên).
+  3. Tính lương chốt công ty hạch toán vào từng dòng bảng lương (chuyển công ty không đổi kỳ đã tính).
+     Báo cáo lương có ô chọn công ty: bảng lương, BHXH, thuế TNCN, chi phí lương xuất Excel riêng từng công ty.
+  4. Tổng quan: số CBCNV từng công ty; bảng theo công ty (đang làm, nghỉ việc, tiếp nhận, khen thưởng, kỷ luật,
+     quỹ lương, BHXH NLĐ, BHXH + KPCĐ DN, thuế TNCN, tổng chi phí); bảng theo phòng ban – công trường gộp các
+     công ty (có số người từng công ty), lọc được 1 công ty; chọn từng tháng hoặc cả năm.
+  Nâng cấp: thay Code.gs (Apps Script -> Triển khai -> Quản lý -> Phiên bản mới) và 5 tệp trong 1_UngDung.
+  Cột mới (NhanVien.congTy, BangLuong.congTy) tự thêm vào Google Sheet.
+
+MỚI TRONG 3.19 – NGÀY dd/mm/yyyy; GOM DỮ LIỆU DRIVE VỀ 1 THƯ MỤC
+  1. Mọi ô ngày nhập và hiển thị theo dd/mm/yyyy trên mọi máy (máy cài tiếng Anh trước đây hiện mm/dd/yyyy).
+     Gõ 05112026 -> 05/11/2026; bấm 📅 để chọn trên lịch. Google Sheet vẫn lưu yyyy-mm-dd, không phải sửa.
+  2. Mọi tệp của app nằm trong 1 thư mục mẹ đặt CÙNG THƯ MỤC VỚI GOOGLE SHEET:
+       TAPACO Nhân sự – Dữ liệu app (KHÔNG CHIA SẺ)/
+         ├─ Tài liệu hồ sơ nhân sự (…)   (hồ sơ CBCNV, chấm công GPS, tin nhắn, bảng tin, công văn…)
+         └─ Lưu trữ nhóm chat (…)        (lưu trữ nhóm, phân tích AI)
+     Hai thư mục cũ (một ở "Drive của tôi", một cạnh Sheet) được CHUYỂN NGUYÊN VẸN vào thư mục mẹ
+     (giữ mã tệp, tệp đính kèm cũ vẫn mở được).
+  NÂNG CẤP TỪ 3.18: dán Code.gs mới -> Phiên bản mới; trong Apps Script chọn hàm gomDuLieuDrive -> Chạy
+  (gom ngay, nhật ký thực thi ghi đường dẫn thư mục mẹ); thay 5 tệp 1_UngDung (đã gắn sẵn URL máy chủ).
+
+MỚI TRONG 3.18 – CHẤM DỨT HỢP ĐỒNG: TỰ KHÓA TÀI KHOẢN, GIỚI HẠN CHẤM CÔNG
+  Khai Quá trình công tác loại "Nghỉ việc" hoặc "Thanh lý hợp đồng" (mới), Từ ngày = ngày chấm dứt
+  (kể từ ngày này không còn làm việc):
+  - Tài khoản người đó tự khóa từ ngày chấm dứt (khai trước thì đến ngày mới khóa); đăng nhập báo lý do.
+  - Bảng chấm công: tháng làm dở dang vẫn có tên (nhãn đỏ "Chấm dứt HĐ từ …"), chỉ chấm được các ngày
+    trước ngày chấm dứt; từ tháng sau không còn tên.
+  - Nhập nhầm: xóa bản ghi -> tự mở lại. Vào làm lại: thêm "Tiếp nhận" -> tự mở lại.
+  - Tài khoản Quản trị không tự khóa. Quản trị vẫn khóa / mở tay được.
+  - Người đã "Đã nghỉ việc" từ trước mà tài khoản còn mở: khóa khi Quản trị / TCHC mở app lần đầu sau nâng cấp.
+  NÂNG CẤP TỪ 3.17.1: dán Code.gs mới -> Phiên bản mới; chạy upgradeSchema() 1 lần (thêm cột khoaTu,
+  khoaLyDo ở sheet Users); thay 5 tệp 1_UngDung (index.html trong gói đã gắn sẵn URL máy chủ).
+  LƯU Ý: hồ sơ cũ đã "Đã nghỉ việc" mà ngày nghỉ ghi là ngày làm việc cuối cùng -> sửa thành ngày hôm sau.
+
+MỚI TRONG 3.17.1 – SỬA LỖI MỞ TỪ Ổ ĐĨA VẪN HỎI MÁY CHỦ DÙ ĐÃ CÓ webapp.txt
+  Nguyên nhân: mở index.html trực tiếp từ ổ đĩa / thư mục Google Drive trên máy (địa chỉ bắt đầu file:///H:/...),
+  Chrome / Edge không cho trang web tự đọc tệp bên cạnh -> app không đọc được webapp.txt.
+  (Khi đưa lên GitHub Pages / Netlify - địa chỉ https:// - app tự đọc webapp.txt bình thường.)
+  Đã sửa:
+  - Gói này: webapp.txt đã có URL máy chủ của Công ty và index.html ĐÃ GẮN SẴN URL đó -> mở từ ổ đĩa là kết nối ngay.
+  - Màn hình đăng nhập khi mở từ ổ đĩa: nút "Chọn tệp webapp.txt để kết nối máy chủ" (làm 1 lần trên mỗi máy).
+  - Công cụ 0_CongCu/GanURL_MayChu.bat: bấm đúp -> đọc 1_UngDung/webapp.txt, ghi URL vào 1_UngDung/index.html.
+    Đổi URL trong webapp.txt thì chạy lại công cụ.
+  NÂNG CẤP: thay 5 tệp 1_UngDung + webapp.txt. Code.gs không đổi nội dung xử lý (chỉ số phiên bản).
+
+MỚI TRONG 3.17 – HỒ SƠ ĐÍNH KÈM TRONG LÝ LỊCH CBCNV
+  Hồ sơ CBCNV -> tab Thông tin (và Hồ sơ của tôi) -> mục "Hồ sơ đính kèm", 3 nhóm:
+    Hợp đồng, quyết định | Lý lịch | Hồ sơ cá nhân (CCCD, MST, BHXH, bằng cấp, sức khỏe, người phụ thuộc…)
+  - Tải PDF, Word, Excel, ảnh; chọn được nhiều tệp một lần; tối đa 10 MB/tệp (sửa ở Cài đặt).
+  - Tệp lưu riêng tư trên Google Drive Công ty: thư mục "TAPACO – Tài liệu hồ sơ nhân sự (KHÔNG CHIA SẺ)"
+    / <mã – họ tên> / 1. Hợp đồng – Quyết định | 2. Lý lịch | 3. Hồ sơ cá nhân.
+  - TCHC tải mọi loại; CBCNV tự tải lý lịch, hồ sơ cá nhân (chờ TCHC xác nhận).
+  NÂNG CẤP TỪ 3.16: dán Code.gs mới -> Phiên bản mới; thay 5 tệp 1_UngDung (giữ nguyên webapp.txt). Không thêm cột.
+
+MỚI TRONG 3.16 – URL MÁY CHỦ ĐỌC TỪ TỆP webapp.txt
+  - Dán URL ứng dụng web (Apps Script -> Triển khai -> Quản lý bản triển khai, đuôi /exec) vào tệp
+    1_UngDung/webapp.txt (mở bằng Notepad, dán vào một dòng riêng, không có dấu # ở đầu), lưu lại.
+  - Đưa webapp.txt lên cùng thư mục với index.html.
+  - Mở app lần đầu: tự kết nối máy chủ, CBCNV không phải dán URL.
+  - Đổi máy chủ: chỉ sửa webapp.txt rồi đưa lên lại; mọi máy tự nhận khi mở app và yêu cầu đăng nhập lại.
+  - "Sửa -> Phiên bản mới" trong Apps Script giữ nguyên URL: KHÔNG cần sửa webapp.txt.
+  NÂNG CẤP TỪ 3.15: dán Code.gs mới -> Phiên bản mới; thay 5 tệp 1_UngDung + thêm webapp.txt.
+
+MỚI TRONG 3.15 – ĐĂNG NHẬP NHANH, AI NHIỀU LỰA CHỌN, PHÂN TÍCH NHÓM SONG SONG
+  1. Đăng nhập: không chờ khóa ghi; chỉ tải chấm công / bảng lương 12 tháng gần nhất (dữ liệu gửi về
+     giảm khoảng 3 lần), các kỳ cũ hơn tự tải ngầm sau khi vào app.
+  2. AI: chọn Google Gemini, OpenAI GPT, Anthropic Claude hoặc DeepSeek (Phân tích nhóm (AI) -> Cài đặt AI).
+     - Model chính + model tổng hợp (tùy chọn): model nhanh cho các đợt, model mạnh cho bước tổng hợp.
+     - Nút "Lấy danh sách model": xem các model khóa API đang dùng được.
+     - Model bị nhà cung cấp ngừng: app tự chọn bản thay thế cùng dòng.
+     - DeepSeek không đọc ảnh: đọc CCCD / công văn tự dùng nhà cung cấp khác đã có khóa.
+  3. Phân tích nhóm: 3 đợt nhật ký chạy cùng lúc; nhật ký thi công lập song song với bước tổng hợp.
+  NÂNG CẤP TỪ 3.14: dán Code.gs mới -> Triển khai -> Quản lý bản triển khai -> Sửa -> Phiên bản mới;
+  thay 5 tệp 1_UngDung. Không thêm cột. Khóa Gemini / Claude đã lưu giữ nguyên.
+
+MỚI TRONG 3.14 – TĂNG TỐC NHẬP LIỆU VÀ GHI LÊN GOOGLE SHEET
+  Nguyên nhân chậm: mỗi lần ghi, máy chủ xóa và ghi lại TOÀN BỘ sheet. Sheet chấm công GPS lớn dần
+  mỗi ngày nên mỗi lượt chấm công mất hàng chục giây, mọi thao tác lưu khác phải xếp hàng chờ.
+  Đã sửa:
+  - Chỉ ghi đúng dòng thay đổi / thêm dòng mới vào cuối / xóa đúng dòng.
+  - Chấm công GPS chỉ đọc phần dữ liệu gần nhất thay vì cả năm.
+  - Mở app không chặn người khác; giảm lượt hỏi tin nhắn khi không mở Tin nhắn.
+  Đo trên dữ liệu giả lập 150 CBCNV, 6 tháng chấm công (ước lượng theo tốc độ Google Sheets):
+    chấm công GPS 38 giây -> dưới 1 giây; duyệt lượt chấm công 38 giây -> dưới 1 giây;
+    mở màn hình chấm công 7 -> 2 giây; lưu hồ sơ 0,9 -> 0,6 giây.
+  LƯU Ý: không chèn dòng / sắp xếp tay sheet ChamCongGPS (phải giữ thứ tự ghi theo thời gian).
+  NÂNG CẤP TỪ 3.13.3: dán Code.gs mới -> Triển khai -> Quản lý bản triển khai -> Sửa -> Phiên bản mới;
+  thay 5 tệp 1_UngDung. Không thêm cột. CBCNV tải lại app (kéo xuống / đóng mở lại) để nhận bản mới.
+
+MỚI TRONG 3.13.3 – SỬA LỖI AI "Không tìm thấy model gemini-2.5-flash"
+  Google đã ngừng cấp model gemini-2.5-flash cho khóa API mới.
+  - Model mặc định đổi thành gemini-flash-latest (luôn trỏ bản Flash mới nhất của Google).
+  - Khi Google ngừng model đang dùng, app tự dò danh sách model của khóa API, ưu tiên model Google
+    gợi ý, gọi lại ngay và lưu model mới vào Cài đặt AI - không cần sửa tay.
+  NÂNG CẤP TỪ 3.13.2 (BẮT BUỘC để AI chạy lại): dán Code.gs mới -> Triển khai -> Quản lý bản triển khai
+  -> Sửa -> Phiên bản mới; thay 5 tệp 1_UngDung. Sau đó vào Phân tích nhóm (AI) bấm "Chạy lại từ đợt lỗi".
+  Nếu Cài đặt AI đang ghi tay "gemini-2.5-flash" ở ô Model: app sẽ tự đổi; hoặc xóa trống ô đó rồi Lưu.
+
+MỚI TRONG 3.13.2 – CHẤM CÔNG GPS TÍNH ĐỦ CÔNG THEO 8 GIỜ LÀM THỰC
+  - Giờ làm = giờ ra - giờ vào - giờ nghỉ trưa (mặc định 12:00-13:30).
+  - Đủ 8 giờ (cho phép thiếu 10 phút) -> X: đủ công, có ăn ca. Thiếu -> ½: nửa công, không ăn ca.
+  - Ví dụ: VP 07:30-17:00 = 8 giờ (đủ); công trường 07:00-17:00 = 8,5 giờ; về 16:00 = 7 giờ (nửa công).
+  - Sửa ở Chấm công GPS -> Cài đặt: "Số giờ làm đủ 1 công", "Nghỉ trưa từ / đến", "Cho phép trễ".
+  NÂNG CẤP TỪ 3.13.1: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung. Không thêm cột.
+  Kỳ đã lấy công từ GPS trước khi nâng cấp: bấm lại "Lấy công từ chấm công GPS" nếu muốn áp cách tính mới.
+
+MỚI TRONG 3.13.1 – QUY CHẾ TIỀN ĂN CA
+  - Khối văn phòng: 30.000 đ/ngày; khối công trường: 70.000 đ/ngày (sửa ở Cài đặt -> Nơi làm việc).
+  - Chỉ ngày làm đủ 8 giờ (ô X, CT trên bảng chấm công theo ngày) mới có ăn ca; làm nửa ngày không có.
+  SAU KHI NÂNG CẤP: Quản trị vào Hệ thống -> Công thức lương -> khung vàng "Áp dụng quy chế ăn ca"
+    -> bấm "Áp dụng quy chế ăn ca". Kỳ đã duyệt giữ nguyên; kỳ đang mở được tính lại.
+  NÂNG CẤP TỪ 3.13: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung. Không thêm cột.
+
+MỚI TRONG 3.13 – PHÂN LOẠI LƯƠNG THEO HỢP ĐỒNG
+  Hồ sơ CBCNV -> mục "Thuế – Bảo hiểm – Ngân hàng" -> ô "Loại lương theo hợp đồng":
+   1. Trả lương + đóng BH tại Công ty (mặc định) - như trước.
+   2. Không đóng BH tại Công ty - chọn lý do:
+        - Đóng BH nơi khác: NLĐ không đóng; Công ty chỉ đóng BH TNLĐ-BNN 0,5% (Cài đặt).
+        - Đã nghỉ hưu: không đóng BHXH, BHYT, BHTN, KPCĐ.
+      Thu nhập vẫn theo công thức lương; thuế như cũ (không có BH để trừ).
+   3. Lương khoán việc: không chạy công thức lương thời gian, không BH; thu nhập = "Tiền khoán việc"
+      Kế toán lương nhập ở bước Tính lương (trống = mức khoán tháng trong hồ sơ) + thưởng + truy lĩnh;
+      khấu trừ thuế 10% khi trả từ 5.000.000 đ/lần (có cam kết 08 thì không khấu trừ).
+  Hồ sơ cũ: ai đang "Tham gia BH = Không" được xếp loại 2 (nhớ bổ sung lý do); còn lại loại 1.
+  Ngưỡng khấu trừ 10% mặc định nay là 5.000.000 đ/lần (NĐ 253/2026 Điều 50).
+  SAU KHI NÂNG CẤP: Cài đặt -> "Ngưỡng khấu trừ (đ/lần chi trả)": nếu còn 2.000.000 thì sửa thành
+  5.000.000 rồi Lưu; TCHC rà hồ sơ người đóng BH nơi khác / đã nghỉ hưu / khoán việc và chọn đúng loại.
+  CẦN KẾ TOÁN TRƯỞNG XÁC NHẬN: người đã nghỉ hưu có trả thêm khoản tương đương BH (Điều 168.3 BLLĐ)
+  hay không; tỷ lệ TNLĐ-BNN; ngưỡng 5 triệu (HD kỹ thuật mục 6.1d).
+  NÂNG CẤP TỪ 3.12: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Chạy upgradeSchema() một lần (thêm cột loaiLuong, lyDoKhongBH ở NhanVien; tienKhoan ở ChamCong).
+
+MỚI TRONG 3.12 – THUẾ TNCN VÀ BẢO HIỂM VỚI TIỀN LÀM THÊM GIỜ
+  - Bảo hiểm: tiền làm thêm giờ KHÔNG tính vào lương đóng BH (app đã đúng, có kiểm thử khẳng định).
+  - Thuế TNCN: theo Luật Thuế TNCN 109/2025/QH15 và Nghị định 253/2026/NĐ-CP (áp dụng từ kỳ
+    tính thuế 2026), tiền làm thêm giờ trong giới hạn luật lao động được MIỄN THUẾ TOÀN BỘ;
+    giờ vượt giới hạn (mặc định 40 giờ/tháng, 200 giờ/năm - sửa ở Cài đặt) vẫn chịu thuế.
+  - Mẫu TAPACO: tiền làm thêm giờ của người thử việc trước gộp vào lương nên chịu thuế toàn bộ;
+    nay tách thành khoản "Lương làm thêm giờ" - TỔNG LƯƠNG KHÔNG ĐỔI, chỉ thuế giảm.
+  SAU KHI NÂNG CẤP (bắt buộc, vì bộ công thức Công ty đang dùng lưu trong sheet):
+    Quản trị vào Hệ thống -> Công thức lương -> khung vàng "Cập nhật thuế TNCN tiền làm thêm giờ"
+    -> bấm "Cập nhật theo quy định mới". Kỳ đã duyệt giữ nguyên; kỳ đang mở được tính lại.
+  NÂNG CẤP TỪ 3.11: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Không thêm cột / sheet.
+
+MỚI TRONG 3.11 – AI ĐỌC ẢNH CCCD, ĐỀ XUẤT ĐIỀN LÝ LỊCH
+  Hồ sơ CBCNV -> tab Thông tin -> khối Ảnh CCCD -> "AI đọc ảnh, đề xuất điền lý lịch" (TCHC).
+  - AI đọc 2 mặt thẻ: số CCCD, ngày sinh, giới tính, ngày cấp, nơi cấp, hạn thẻ, quê quán,
+    nơi thường trú. Chỉ ghi chữ đọc rõ, chỗ mờ để trống - không đoán.
+  - Hộp soát: ảnh thẻ bên trái, bảng "Đang có | AI đọc được | Cập nhật" bên phải.
+    Chỉ tích sẵn ô lý lịch đang trống; ô khác lý lịch tô đỏ, không tích sẵn; sửa được trước khi lưu.
+  - Cảnh báo tự động: số CCCD không khớp giới tính / năm sinh (chữ số 4-6), ngày cấp trước
+    ngày sinh, thẻ hết hạn, họ tên trên thẻ khác hồ sơ.
+  - Chỉ lưu ô đã tích. Nhật ký ghi tên ô cập nhật, không ghi số liệu cá nhân.
+  - Cần khóa AI (Phân tích nhóm (AI) -> Cài đặt AI). Ảnh thẻ được gửi tới nhà cung cấp AI
+    để đọc - Công ty nên nêu trong thông báo xử lý dữ liệu cá nhân với CBCNV.
+  NÂNG CẤP TỪ 3.10: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Không thêm cột / sheet.
+
+MỚI TRONG 3.10 – ẢNH CCCD TRONG LÝ LỊCH
+  Hồ sơ CBCNV -> tab Thông tin (và Hồ sơ của tôi): khối "Ảnh căn cước công dân" 2 ô
+  Mặt trước / Mặt sau. Bấm "Tải ảnh lên" (điện thoại: chụp hoặc chọn ảnh) -> ảnh hiện ngay,
+  bấm vào ảnh để xem lớn / tải về.
+  - TCHC tải cho mọi người (có hiệu lực ngay, "Thay ảnh" thay ảnh cũ).
+  - CBCNV tự tải cho mình -> chờ TCHC xác nhận.
+  - Lưu thành tài liệu "Căn cước công dân" (có trong tab Tài liệu), tự ghi số CCCD, ngày cấp;
+    riêng tư trên Drive Công ty, chỉ người có quyền xem tài liệu và chính người đó xem được,
+    mỗi lần xem ghi nhật ký.
+  NÂNG CẤP TỪ 3.9.x: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Không thêm cột / sheet.
+
+MỚI TRONG 3.9.1 – SỬA LỖI GỬI ẢNH / TỆP TRONG TIN NHẮN
+  - Lỗi: trong khung chat, bấm (…) -> "Ảnh" hoặc "Tệp" không mở được hộp chọn tệp.
+  - Đã sửa: bấm là mở hộp chọn tệp (chọn được nhiều tệp, chọn lại cùng tệp được), trên cả máy
+    tính và điện thoại. Nút ảnh cạnh ô nhập tin và kéo-thả tệp vẫn dùng như cũ.
+  NÂNG CẤP TỪ 3.9: chỉ cần thay 5 tệp 1_UngDung (Code.gs không đổi chức năng, dán lại cũng được).
+  Trên điện thoại đã cài app: mở app, chờ vài giây rồi tắt hẳn và mở lại để nhận bản mới.
+
+MỚI TRONG 3.9 – YÊU CẦU BÁO CÁO CÓ "BẢNG SỐ LƯỢNG" ĐIỀN SẴN GỢI Ý
+  Tin nhắn -> nhóm -> (+) Yêu cầu báo cáo. Mẫu mặc định mới:
+  "Báo cáo công trường (nhân lực, máy, công việc)".
+  - Kiểu mục mới "Bảng số lượng (chọn mục gợi ý)". Bộ gợi ý 3 nhóm:
+      Nhân lực (người): NC ván khuôn, NC thép, NC bê tông, NC xây, NC lắp cống, Thợ điện nước,
+        Thợ hàn, Công nhật, Thợ khác... (15 mục)
+      Máy thi công (cái): Máy đào, ủi, lu, san, Ô tô tự đổ, Cần cẩu, Máy cắt uốn thép, Máy phát
+        điện, Máy hàn, Máy bơm nước, Máy toàn đạc... (17 mục)
+      Công việc thực hiện: Đào đất (m3), Đổ bê tông (m3), Cốt thép (tấn), Ván khuôn (m2),
+        Lắp đặt cống (m)... (17 mục, mỗi việc một đơn vị)
+  - Người lập: bỏ / chọn lẻ / thêm cả nhóm / thêm dòng riêng; cho phép người báo cáo tự thêm dòng.
+  - Người báo cáo: chỉ gõ số từng dòng, để trống dòng không có; nhân lực, máy tự cộng Tổng.
+  - Xem, tổng hợp, Excel hiện từng dòng; Phân tích nhóm (AI) đọc thẳng nhân lực (chi tiết từng
+    loại thợ), máy, khối lượng; cộng dồn từng dòng theo kỳ.
+  NÂNG CẤP TỪ 3.8: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Không thêm cột/sheet. Yêu cầu báo cáo cũ giữ nguyên.
+
+MỚI TRONG 3.8 – BẢNG PHÂN QUYỀN TÍCH CHỌN ĐƯỢC
+  Hệ thống -> Tài khoản -> cuối trang "Bảng phân quyền": Giám đốc và Quản trị tích chọn từng ô
+  (chức năng x chức danh) -> Lưu phân quyền. Người khác chỉ xem.
+  - 18 quyền, 4 nhóm: Hồ sơ & nhân sự · Văn bản & thông tin · Giám sát & AI · Hệ thống.
+  - Ô đổi tô vàng; Hoàn tác / Về mặc định; xác nhận liệt kê thay đổi, cảnh báo khi cấp quyền
+    nhạy cảm cho Trưởng phòng / CHT / Nhân viên. Áp dụng ngay ở máy chủ, ghi nhật ký.
+  - Ô khóa (luôn giữ, tránh tự khóa hệ thống): Quản trị – tài khoản, cài đặt, công thức;
+    Giám đốc – xem toàn bộ, phê duyệt; cả hai – quy trình.
+  - Các bước lương, duyệt nghỉ vẫn đổi người làm ở "Quy trình & phê duyệt".
+  NÂNG CẤP TỪ 3.7.x: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Không thêm cột/sheet (bảng phân quyền lưu trong sheet CauHinh, khóa "phanQuyen").
+
+MỚI TRONG 3.7.1 – SIẾT QUYỀN PHẦN QUẢN LÝ
+  Phân tích nhóm (AI) và Chấm công GPS (phần quản lý) CHỈ Giám đốc, TCHC, Kế toán tiền lương,
+  Kế toán công nợ xem và thao tác. Quản trị giữ quyền để cài đặt, hỗ trợ.
+  - Trưởng/phó nhóm chat, Trưởng phòng, Chỉ huy trưởng: không còn vào Phân tích nhóm, không lưu
+    trữ / xem báo cáo AI; không xem lượt chấm, ảnh, bản đồ, không duyệt, không khai báo điểm.
+    Họ vẫn tự chấm công và đăng ký công tác của mình.
+  - Trò chuyện riêng: chỉ Giám đốc, Quản trị phân tích.
+  - Đăng ký công tác: báo và do TCHC / Kế toán duyệt (không qua TP/CHT).
+  - Cảnh báo chấm công: "Nhắc kiểm tra lại" báo TCHC / Kế toán (và người lao động nếu chọn);
+    TCHC / Kế toán bấm "Ghi kết quả & đóng" để tự kết luận. Bỏ tab "Cần kiểm tra lại" của TP/CHT.
+  NÂNG CẤP TỪ 3.7: dán Code.gs mới -> Triển khai -> Phiên bản mới; thay 5 tệp 1_UngDung.
+  Không thêm cột/sheet mới.
+
+MỚI TRONG 3.7 – CÔNG VĂN: AI ĐỌC VĂN BẢN, GIÁM ĐỐC DUYỆT CHIA SẺ, TRAO ĐỔI XỬ LÝ
+
+  AI ĐỌC BẢN QUÉT VÀ ĐIỀN HỘ VÀO SỔ
+  - Vào sổ công văn đến/đi: chọn hoặc kéo thả bản quét (ảnh, PDF, Word) -> AI tự đọc và điền
+    số ký hiệu, ngày văn bản, nơi gửi, nơi nhận, loại, độ khẩn, trích yếu, người ký,
+    THỜI HẠN TRẢ LỜI, kèm đoạn TÓM TẮT nội dung.
+  - AI chỉ ghi những gì có trong văn bản; không thấy (vd. không ghi hạn, bản quét mờ) thì để trống.
+  - Không đè lên ô văn thư đã nhập. Ô AI điền tô vàng + độ tin cậy. VĂN THƯ SOÁT LẠI TRƯỚC KHI LƯU.
+  - Cần khóa AI: Quản trị cài ở Phân tích nhóm (AI) -> Cài đặt AI. Bản dùng thử trả dữ liệu
+    ghi rõ "NỘI DUNG MẪU".
+
+  GIÁM ĐỐC DUYỆT CHIA SẺ VĂN BẢN
+  - Văn thư bấm "Trình chia sẻ", chọn người cần đọc -> Giám đốc "Duyệt chia sẻ" (sửa được
+    danh sách) hoặc "Không chia sẻ" (bắt buộc ghi lý do).
+  - Duyệt xong những người đó mới nhận thông báo và đọc được văn bản + bản quét.
+
+  TRAO ĐỔI XỬ LÝ DƯỚI MỖI VĂN BẢN
+  - Cuối mỗi công văn đến/đi có mục chat riêng; ai đọc được văn bản thì trao đổi được,
+    gửi kèm tệp (lưu cùng thư mục _CÔNG VĂN trên Drive). Lưu hồ sơ xong thì khóa trao đổi.
+
+  NÂNG CẤP TỪ 3.6.x
+  1. Dán Code.gs mới -> chạy upgradeSchema() (thêm cột mới vào CongVan và sheet CongVanTN,
+     không đụng dữ liệu cũ) -> Triển khai -> Phiên bản mới.
+  2. Thay 5 tệp trong 1_UngDung trên GitHub Pages/Netlify.
+
+MỚI TRONG 3.6.1 – NHÓM, LOẠI, BỘ PHẬN ĐỀ XUẤT VÀ THẨM QUYỀN DUYỆT
+  Hoàn thiện phần Đề xuất nội bộ theo cách tổ chức của văn phòng.
+
+  BA THỨ PHÂN LOẠI MỘT ĐỀ XUẤT
+  - NHÓM LOẠI ĐỀ XUẤT  : gom các loại cùng tính chất cho dễ tìm, dễ lọc.
+                         Mặc định 5 nhóm: Tài chính – thanh toán · Vật tư – thiết bị ·
+                         Nhân sự – chế độ · Thi công – kỹ thuật · Khác.   (Quản trị tạo)
+  - LOẠI ĐỀ XUẤT       : quyết định trình tự duyệt, người theo dõi, người thực hiện,
+                         tiền tố mã, có số tiền hay không.                (Quản trị tạo)
+  - BỘ PHẬN ĐỀ XUẤT    : phòng ban hoặc công trình đứng tên đề xuất, lấy từ danh mục
+                         "Phòng ban & công trình". Người lập chọn khi lập, mặc định
+                         là bộ phận của chính mình.
+
+  MÃ ĐỀ XUẤT THEO TIỀN TỐ CỦA LOẠI
+  - Mỗi loại khai một tiền tố 2–8 chữ in hoa; mã = tiền tố + số thứ tự 4 chữ số chạy
+    riêng cho tiền tố đó: TT0147, TUL0032, VT0268. Không khai tiền tố thì mã chỉ là
+    số thứ tự (0004). Giữ đúng thói quen đánh số tờ trình theo loại của văn phòng.
+
+  GIÁM ĐỐC LÀ NGƯỜI DUYỆT CAO NHẤT
+  - Hệ thống TỰ GẮN cấp "Giám đốc phê duyệt" vào CUỐI mọi loại đề xuất. Quản trị không
+    cần khai và KHÔNG BỎ ĐƯỢC cấp này — mọi đề xuất, qua bao nhiêu cấp soát xét, đều
+    kết thúc ở Giám đốc.
+  - Giám đốc và Quản trị vẫn duyệt vượt cấp ở bất kỳ cấp nào.
+
+  HAI CÁCH DUYỆT (đặt riêng cho từng loại)
+  - Duyệt theo trình tự      : đi lần lượt từng cấp (dùng cho hầu hết các loại).
+  - Chỉ cần một người duyệt  : gộp tất cả người duyệt của loại đó, kể cả Giám đốc,
+                               thành MỘT cấp; ai duyệt trước là xong. Dùng cho việc nhỏ.
+
+  CHỈ QUẢN TRỊ CÀI ĐẶT NHÓM VÀ LOẠI ĐỀ XUẤT
+  - Quy trình & phê duyệt -> mục 4 "Nhóm loại đề xuất" và mục 5 "Loại đề xuất & trình
+    tự duyệt". Giám đốc và các vai trò khác XEM ĐƯỢC để nắm thẩm quyền nhưng KHÔNG SỬA
+    được (máy chủ chặn, không chỉ ẩn nút).
+  - Không xóa được nhóm còn loại đề xuất bên trong; tiền tố không trùng giữa các loại.
+  - Tắt ô "Đang hoạt động" thì loại không còn hiện cho CBCNV chọn, đề xuất cũ vẫn tra cứu được.
+
+  LỌC VÀ TÌM
+  - Danh sách đề xuất lọc theo NHÓM, LOẠI, BỘ PHẬN ĐỀ XUẤT và TRẠNG THÁI.
+  - Ô chọn loại khi lập đề xuất gom sẵn theo "Nhóm › Loại"; màn hình báo trước nhóm,
+    tiền tố mã và toàn bộ trình tự duyệt sẽ áp dụng.
+
+  SÁU LOẠI DỰNG SẴN (chỉ là MẪU về tên, nhóm, tiền tố và trình tự — đề nghị Công ty
+  sửa lại theo quy chế của mình; mọi ngưỡng tiền để 0):
+      Tài chính – thanh toán  | Đề nghị thanh toán, tạm ứng                 | TT
+      Tài chính – thanh toán  | Tạm ứng lương                               | TUL
+      Vật tư – thiết bị       | Đề nghị cấp vật tư, thiết bị                | VT
+      Nhân sự – chế độ        | Đề nghị nhân sự (tuyển dụng, điều động…)    | NS
+      Thi công – kỹ thuật     | Đề xuất biện pháp, khối lượng phát sinh     | TC
+      Khác                    | Đề xuất, kiến nghị khác                     | (không)
+
+  NÂNG CẤP TỪ 3.6
+  1. Dán Code.gs mới -> chạy upgradeSchema() -> Triển khai -> Phiên bản mới.
+  2. Thay index.html, sw.js trên hosting.
+  3. Quản trị vào Quy trình & phê duyệt, mục 4 và 5: sửa nhóm, loại, tiền tố, ngưỡng
+     tiền và người duyệt từng cấp theo quy chế của Công ty.
+
+MỚI TRONG 3.6 – SỔ CÔNG VĂN ĐẾN – ĐI VÀ ĐỀ XUẤT NỘI BỘ
+  Hai mục mới trong app, thay sổ công văn giấy và tờ trình giấy.
+
+  SỔ CÔNG VĂN ĐẾN – ĐI  (menu Quản lý -> "Công văn đến – đi")
+  - Văn thư (TCHC, Quản trị) đăng ký văn bản vào sổ; SỐ ĐẾN và SỐ ĐI tự tăng theo năm,
+    sửa được, không cho trùng số. Tải bản quét (PDF, ảnh, Word, Excel) kèm theo.
+  - Giám đốc BÚT PHÊ ngay trên văn bản: chọn người xử lý chính, người phối hợp và HẠN XỬ LÝ.
+  - Người được giao nhận thông báo, báo cáo tiến độ / kết quả, đính kèm được biên bản.
+    Quá hạn chưa xong thì hiện nhãn đỏ "Quá hạn" và cảnh báo ở tab "Việc của tôi".
+  - Văn thư lưu hồ sơ khi xong; văn bản đã lưu hồ sơ thì khóa, không sửa, không xóa.
+  - Người được giao CHỈ THẤY văn bản giao cho mình; toàn bộ sổ chỉ Giám đốc, TCHC, Quản trị xem.
+
+  ĐỀ XUẤT NỘI BỘ  (menu Công ty -> "Đề xuất nội bộ")
+  - Mọi CBCNV lập được đề xuất: chọn loại, nhập nội dung, số tiền dự kiến, thời hạn cần có,
+    đính kèm ảnh hiện trường / báo giá / bản vẽ (tối đa 20 tệp). Lưu nháp được để trình sau.
+  - Khi nhập, màn hình HIỆN TRƯỚC trình tự duyệt sẽ áp dụng — và trình tự đổi theo số tiền
+    nếu cấp duyệt có đặt ngưỡng.
+  - Đề xuất đi lần lượt qua các cấp; Giám đốc, Quản trị duyệt vượt cấp được. Từ chối phải nêu lý do.
+    Không ai tự duyệt đề xuất của mình.
+  - Duyệt xong, NGƯỜI THỰC HIỆN nhận việc, cập nhật tiến độ và báo hoàn thành.
+    NGƯỜI THEO DÕI được xem và nhận thông báo. Hai nhóm này cài sẵn theo từng loại đề xuất,
+    người lập và người duyệt thêm được cho từng đề xuất cụ thể.
+
+  CÀI ĐẶT (Quản trị, Giám đốc): Quy trình & phê duyệt -> mục 4 "Loại đề xuất nội bộ".
+  - Mỗi loại đặt riêng: các cấp duyệt, người duyệt từng cấp (vai trò / người cụ thể /
+    trưởng bộ phận của người đề nghị), NGƯỠNG SỐ TIỀN để cấp đó tham gia, người theo dõi,
+    người thực hiện.
+  - Bốn loại dựng sẵn (cấp vật tư – thiết bị; thanh toán – tạm ứng; nhân sự; đề xuất khác)
+    CHỈ LÀ MẪU VỀ TÊN VÀ TRÌNH TỰ. Mọi ngưỡng tiền để 0. Đề nghị Công ty sửa lại đúng
+    phân cấp thẩm quyền trong quy chế tài chính của mình trước khi cho CBCNV dùng.
+  - Đề xuất đã trình giữ nguyên trình tự tại thời điểm trình, sửa cấu hình không làm lệch.
+
+  DỮ LIỆU LƯU Ở ĐÂU: toàn bộ trên Google Drive của Công ty (cùng tài khoản chứa file
+  Google Sheet dữ liệu), thư mục riêng tư do app quản lý, KHÔNG chia sẻ cho CBCNV:
+      _CÔNG VĂN / Đến / <năm>              bản quét công văn đến, tệp kèm báo cáo kết quả
+      _CÔNG VĂN / Đi / <năm>               bản ban hành công văn đi
+      _ĐỀ XUẤT NỘI BỘ / <năm> / <mã>       nội dung đề xuất (tệp văn bản), ảnh, tệp đính kèm
+  Tệp nội dung đề xuất được ghi lại mỗi khi đề xuất thay đổi, nên mở Drive là thấy đủ hồ sơ.
+
+  NÂNG CẤP TỪ 3.5.x
+  1. Dán Code.gs mới vào Apps Script -> chạy upgradeSchema() (tạo 4 sheet mới:
+     CongVan, CongVanXL, DeXuat, DeXuatTep) -> Triển khai -> Phiên bản mới.
+  2. Thay index.html, sw.js trên hosting.
+  3. Vào Quy trình & phê duyệt -> mục 4, sửa loại đề xuất và trình tự duyệt theo quy chế Công ty.
+  4. LƯU Ý QUYỀN DRIVE: lần đầu chạy bản này Apps Script có thể hỏi lại quyền tạo thư mục,
+     ghi tệp trên Drive. Vào Apps Script -> chạy thử hàm setup() một lần và cấp quyền.
+
+MỚI TRONG 3.5.3
+  - Chạy xong lượt phân tích, hệ thống TỰ XUẤT EXCEL KẾT QUẢ và lưu vào thư mục
+    "4. Phân tích AI" của nhóm trên Drive, cạnh Google Docs, PDF và tệp JSON đã có.
+      · Các sheet: nhật ký thi công, khối lượng, vật tư – thiết bị, chứng từ, sự kiện,
+        thầu phụ – NCC, cá nhân.
+      · Tên tệp: PhanTich_<từ>_<đến>_<lần lập>.xlsx — chạy lại cùng kỳ thì GHI ĐÈ,
+        không sinh tệp rác.
+      · Mã tệp được ghi vào JSON của đợt nên mở lại báo cáo cũ vẫn thấy.
+      · Đầu báo cáo có dòng "Đã lưu trên Drive: ..." liệt kê những gì đã lưu.
+  - Trước 3.5.3, Excel chỉ tải thủ công về máy người chạy — đóng trình duyệt là mất,
+    người khác mở lại báo cáo không có file.
+  - Excel do trình duyệt dựng rồi gửi lên máy chủ. Mất mạng hoặc chưa tải được thư viện
+    thì chỉ báo ở dòng tiến trình, KHÔNG làm hỏng lượt phân tích; vẫn tải được bằng nút Excel.
+  - LƯU Ý QUYỀN DRIVE: lần đầu chạy bản này, Apps Script có thể hỏi lại quyền ghi tệp lên Drive
+    (do dùng thêm hàm tạo tệp nhị phân). Vào Apps Script -> chạy thử hàm setup() một lần
+    và chấp nhận quyền, sau đó Triển khai phiên bản mới.
+  - Nâng cấp từ 3.5.x: KHÔNG đổi cấu trúc dữ liệu. Dán Code.gs mới -> Triển khai phiên bản mới;
+    thay index.html, sw.js (bộ nhớ đệm tapaco-hr-v34). Không cần chạy lại upgradeSchema.
+
+MỚI TRONG 3.5.2
+  - KHỐI LƯỢNG trong báo cáo ngày của từng CBCNV nay chắc chắn vào được phân tích nhóm:
+      · Máy tự tách ô "Khối lượng thực hiện trong ngày" thành từng hạng mục + khối lượng + đơn vị
+        (vd "Đổ bê tông trụ T3: 42 m³; lắp cốt thép dầm D3 60%" -> 2 hạng mục), ghi sẵn vào
+        nhật ký gửi AI ở dòng [số liệu máy đọc được].
+      · Máy CHỈ nhận con số khi có đơn vị hợp lệ, nên ký hiệu cấu kiện như "đài móng T4",
+        "dầm D3" không bị hiểu nhầm thành khối lượng.
+      · Lưới an toàn: ngày nào báo cáo CÓ khối lượng / nhân lực / thiết bị / vật tư mà AI trả về
+        rỗng thì hệ thống tự điền lại từ số liệu máy đã bóc, ghi chú "lấy từ báo cáo định kỳ",
+        và quy việc về đúng tài khoản người nộp.
+      · Áp dụng cho cả nhân lực, thiết bị, vật tư nhập – xuất và đề nghị cấp vật tư.
+  - VẬT TƯ tách cột Nhập và cột Xuất:
+      · Bảng tổng hợp (màn hình, Word/PDF, Excel): mỗi vật tư MỘT dòng với các cột
+        Nhập · Xuất · Đề nghị cấp · Nhập − Xuất (trước đây một cột "Hoạt động" làm cùng một
+        vật tư bị tách thành nhiều dòng rời rạc).
+      · Bảng chi tiết từng lần cũng đưa số lượng vào đúng cột Nhập / Xuất / Đề nghị.
+      · Cột "Nhập − Xuất" chỉ hiện khi biết CẢ HAI chiều, và là chênh lệch của những gì được nêu
+        trong nhóm — KHÔNG phải tồn kho. Vẫn phải đối chiếu phiếu nhập, phiếu xuất kho.
+  - Nâng cấp từ 3.5.x: KHÔNG đổi cấu trúc dữ liệu. Dán Code.gs mới -> Triển khai phiên bản mới;
+    thay index.html, sw.js (bộ nhớ đệm tapaco-hr-v33). Không cần chạy lại upgradeSchema.
+  - Phân tích AI đã lập trước đó không tự cập nhật; chạy lại phân tích cho kỳ cần xem.
+
+MỚI TRONG 3.5.1
+  - Bảng tin công ty: bố cục tự giãn theo bề ngang màn hình (trước đây chặn cứng 1180px nên
+    màn 1920 bỏ trống khoảng 500px bên phải). Từ 1560px danh sách bài viết chia 2 cột cho
+    dễ đọc; màn siêu rộng chặn ở 1800px và căn giữa; điện thoại giữ nguyên 1 cột.
+  - Phân tích nhóm (AI) nay ĐỌC ĐẦY ĐỦ BÁO CÁO NGÀY để lấy khối lượng, nhân lực và công việc
+    do từng thành viên báo cáo:
+      · Khối báo cáo định kỳ chuyển lên TRƯỚC phần trò chuyện trong nhật ký gửi AI.
+      · Nhật ký một ngày quá dài chỉ lược bớt phần trò chuyện, GIỮ NGUYÊN khối báo cáo.
+        (Trước 3.5.1 nhật ký bị cắt từ cuối nên khối báo cáo mất toàn bộ trên các nhóm
+         nhắn tin nhiều — mất luôn số nhân lực, khối lượng và công việc đã báo cáo.)
+      · Mỗi dòng người nộp ghi kèm tài khoản để quy việc về đúng người.
+      · Prompt bổ sung bảng ánh xạ tên trường mẫu báo cáo sang các mục nhật ký thi công
+        (nhân lực, khối lượng thi công, thiết bị, vật tư, kiến nghị, kế hoạch mai, an toàn)
+        và quy tắc ưu tiên số liệu báo cáo hơn tin nhắn.
+  - Nâng cấp từ 3.5: KHÔNG đổi cấu trúc dữ liệu. Dán Code.gs mới -> Triển khai phiên bản mới;
+    thay index.html, sw.js (bộ nhớ đệm tapaco-hr-v32). Không cần chạy lại upgradeSchema.
+  - Phân tích AI đã lập trước đó không tự cập nhật; chạy lại phân tích cho kỳ cần xem.
+
+MỚI TRONG 3.5
+  - Trợ lý quy định công ty: CBCNV hỏi về chế độ, quy định, biểu mẫu, chính sách ngay trong
+    mục Tin nhắn (dòng đầu danh sách, luôn ghim). Dùng được trên điện thoại, mọi lúc.
+  - Trợ lý CHỈ trả lời dựa trên nội dung phòng TCHC đưa vào, qua hai nguồn:
+      (1) Mục quy định   – TCHC tự nhập câu hỏi thường gặp + nội dung trích từ quy chế
+      (2) Văn bản công ty – quy chế, quyết định trên Drive (Google Tài liệu, Word, PDF, văn bản thuần);
+                            máy tự trích chữ và lưu đệm trong "_QUY ĐỊNH CÔNG TY (KHÔNG CHIA SẺ)"
+  - Mỗi câu trả lời ghi rõ CĂN CỨ (tên quy định hoặc số hiệu văn bản). Không có căn cứ thì trợ lý
+    nói rõ là Công ty chưa có quy định và mời liên hệ TCHC — KHÔNG đưa ra con số phỏng đoán.
+  - Quản lý nội dung: menu Công ty -> "Quy định công ty (trợ lý)" (Giám đốc, TCHC, Quản trị).
+    Ba thẻ: Mục quy định · Văn bản công ty · Câu hỏi của CBCNV (nhật ký + danh sách nội dung
+    CBCNV hỏi mà chưa có quy định, kèm số lần hỏi — đây là việc cần làm hằng tuần của TCHC).
+  - CBCNV bấm đánh giá hữu ích / chưa hữu ích dưới mỗi câu trả lời.
+  - Chưa cài khóa AI vẫn dùng được ở mức tra cứu: trích nguyên văn mục quy định khớp tiêu đề.
+
+  VIỆC BẮT BUỘC TRƯỚC KHI MỞ CHO CBCNV
+    Kho quy định ban đầu RỖNG (bản dùng thử có 6 mục mang nhãn "(mẫu)" chỉ để xem giao diện).
+    TCHC phải nhập quy chế THẬT của Công ty trước, nếu không trợ lý chỉ trả lời "chưa có quy định".
+      1. Nhập 15-20 mục quy định cho các câu hỏi hay gặp nhất.
+      2. Đăng ký các văn bản gốc quan trọng (nội quy lao động, quy chế tiền lương, quy định chấm công).
+      3. Tự hỏi thử 10 câu và ĐỐI CHIẾU câu trả lời với văn bản gốc trước khi công bố.
+      4. Phân công một người của TCHC phụ trách cập nhật hằng tuần.
+
+  - Nâng cấp từ 3.4: dán Code.gs mới -> chạy upgradeSchema (tạo sheet BotQuyDinh, BotVanBan, BotHoi)
+    -> Triển khai phiên bản mới; thay index.html, sw.js (bộ nhớ đệm tapaco-hr-v31).
+  - LƯU Ý TÀI LIỆU: 1_Huong_dan_cai_dat và 2_Huong_dan_su_dung (Word/PDF) là bản của 3.4,
+    chưa có phần trợ lý. Phần trợ lý nằm ở 4_HUONG-DAN-KY-THUAT.md mục "4x" và bộ slide đào tạo
+    "Trợ lý quy định công ty" gửi kèm.
+
+MỚI TRONG 3.4
+  - Đánh giá tổng hợp CBCNV (menu Quản lý -> Đánh giá CBCNV (AI); Giám đốc, TCHC, Quản trị):
+    kết hợp chấm công GPS, cảnh báo chấm công, vị trí ngoài phạm vi khi nhắn tin, hoạt động trên nhóm
+    công việc và nhận xét của "Phân tích nhóm (AI)" -> điểm chuyên cần / tuân thủ / tương tác,
+    AI nhận xét tích cực, hạn chế, thiếu sót, đề xuất cho từng người.
+  - Giám đốc / TCHC chốt xếp loại, kết luận, công bố; nhân viên xem trong "Hồ sơ của tôi" và phản hồi.
+  - Xuất Excel; báo cáo Word/PDF lưu trong thư mục "_ĐÁNH GIÁ CBCNV (KHÔNG CHIA SẺ)" trên Drive.
+  - Nâng cấp từ 3.3: dán Code.gs mới -> chạy upgradeSchema (tạo sheet DanhGiaTH, DanhGiaCN)
+    -> Triển khai phiên bản mới; thay index.html, sw.js (bộ nhớ đệm tapaco-hr-v30).
+
+MỚI TRONG 3.3
+  - Kiểm tra vị trí khi nhắn tin: trong giờ làm việc, khi CBCNV gửi tin nhắn, app so vị trí điện thoại
+    với điểm chấm công. Ngoài phạm vi -> ghi sheet "KiemTraCong" (ngày ghi, giờ ghi, tên, mã NV,
+    vị trí chấm công, vị trí ngoài phạm vi, khoảng cách, giờ đo) và báo TCHC, Ban Giám đốc, Kế toán.
+  - Xem, xuất Excel: Chấm công GPS -> tab "Ngoài phạm vi". Cài đặt: tab Cài đặt.
+  - TRƯỚC KHI BẬT: bổ sung vào Quy chế chấm công, phổ biến, lấy xác nhận CBCNV (HD cài đặt mục 6.4, 6.5).
+  - Nâng cấp từ 3.2.x: dán Code.gs mới -> chạy upgradeSchema (tạo sheet KiemTraCong) -> Triển khai
+    phiên bản mới; thay index.html, sw.js.
+
+MỚI TRONG 3.2.1 (sửa lỗi)
+  - Camera bị chặn: hướng dẫn mở quyền hiện ngay trong khung chụp, có nút Thử lại.
+  - Mở link trong Zalo / Facebook: app báo rõ và hướng dẫn "Mở bằng trình duyệt".
+  - Bản đồ khai báo điểm chấm công hiển thị ổn định; mất nền bản đồ vẫn ghim được, có dòng tọa độ đang đặt.
+  - LƯU Ý: link xem thử trên Claude chặn camera, định vị, nền bản đồ -> tự chuyển mô phỏng.
+    Chấm công thật phải mở app trên GitHub Pages / Netlify.
+
+MỚI TRONG 3.2
+  - Kiểm tra chấm công bằng AI: chỉ Giám đốc, TCHC, Kế toán, Admin dùng được.
+  - Lượt sai bị đánh dấu ĐỎ (sai phạm vi, sai người, sai giờ) hoặc VÀNG (cần xem lại) ngay trong nhật ký.
+  - Nhắc bộ phận kiểm tra lại qua thông báo điện thoại; Trưởng bộ phận giải trình ở tab "Cần kiểm tra lại".
+  - NÂNG CẤP TỪ 3.1.x: dán Code.gs mới -> chạy upgradeSchema -> Triển khai -> Phiên bản mới;
+    thay index.html và sw.js trên hosting.
+
+LƯU Ý BẢO MẬT
+  - Không chia sẻ file Google Sheet, thư mục Drive của hệ thống cho CBCNV.
+  - Không gửi tệp khóa Firebase (JSON), mật khẩu admin qua tin nhắn; xóa tệp khóa sau khi cài.

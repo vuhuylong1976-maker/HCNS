@@ -4,4 +4,4 @@
 # Đổi máy chủ: sửa URL ở đây và đưa tệp lên lại - mọi máy tự nhận khi mở app, yêu cầu đăng nhập lại.
 # Ví dụ: https://script.google.com/macros/s/AKfycb..../exec
 
-https://script.google.com/macros/s/AKfycbw7aMr-feYQa37MPdmKqBHnpu_-upZUnr7Vvyw_ikcCC64yZioI56hatsYWlRsAIi2FlA/exec
+https://script.google.com/macros/s/AKfycbxbwTNHi6zTq1OpEKH6sCLBaGGwboLNwvSbk5G7aq7MqP-j7NJkyzFfsTPCUS9fh44ddA/exec
