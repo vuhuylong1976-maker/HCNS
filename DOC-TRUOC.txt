@@ -1,4 +1,4 @@
-TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.51 (11/2026)
+TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.52 (11/2026)
 ===========================================================================
 
 1_UngDung/              Giao diện app (PWA): index.html, sw.js, manifest.webmanifest, icon-180.png, icon-192.png, icon-512.png, webapp.txt
@@ -16,7 +16,7 @@ TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN 
                         2_Huong_dan_su_dung (Word + PDF)  – cho toàn thể CBCNV và từng chức danh
                         3_Bien_ban_kiem_tra_cham_cong_dien_thoai (Word + PDF)
                         4_HUONG-DAN-KY-THUAT.md, 5_PROMPT-TAO-LAI-APP.md – tài liệu kỹ thuật chi tiết
-5_AppDienThoai/          TAPACO-NhanSu-3.51.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
+5_AppDienThoai/          TAPACO-NhanSu-3.52.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
 6_DangWeb_iPhone/        HUONG-DAN-DANG-WEB.txt – đăng 1_UngDung lên https (GitHub Pages / Netlify) để cài trên iPhone
 
 THỨ TỰ LÀM
@@ -26,6 +26,17 @@ THỨ TỰ LÀM
   4. Mục 9: chạy thử 1 tuần, rồi phát "2_Huong_dan_su_dung" cho CBCNV.
   5. Cuối mỗi kỳ: TCHC / Kế toán vào Chấm công GPS -> tab "Kiểm tra AI" để quét sai phạm vi,
      sai người, sai thời gian; nhắc bộ phận giải trình cờ đỏ trước khi lấy công (HD sử dụng – Phần G).
+
+MỚI TRONG 3.52 – LÝ LỊCH TẢI LÊN TỰ ĐIỀN QUÁ TRÌNH CÔNG TÁC
+- Tải "Sơ yếu lý lịch" (Word .docx, PDF, ảnh chụp/scan) vào Tài liệu của CBCNV → app tự đọc mục "Tóm tắt quá trình công tác"
+  → hiện bảng các dòng (từ ngày, đến ngày, đơn vị, chức vụ, nội dung) đã tích sẵn → người soát sửa nếu cần → "Lưu vào lý lịch".
+- Word đọc ngay trên máy; PDF/ảnh đọc bằng OCR như 3.37 (Google Drive OCR hoặc trên máy). KHÔNG gửi AI bên ngoài.
+- Nhận các dạng: 08/2009 - 12/2014 | …; bảng 2 cột Từ / Đến; "tháng 5 năm 2010 – nay"; "2018 – nay"; nội dung xuống dòng.
+- Lưu thành loại mới "Theo lý lịch" trong Quá trình công tác: KHÔNG đổi phòng ban, chức vụ hiện tại, không khép quá trình đang mở.
+- Dòng đã có, hoặc trùng thời gian làm tại Công ty (từ ngày vào làm – đã có quyết định), không tích sẵn; lưu lại lần 2 tự bỏ trùng.
+- Tài liệu đã tải trước đây: bấm nút đọc chữ trên tài liệu đó để lấy quá trình. CBCNV tự tải lý lịch: TCHC soát và lưu.
+- Bản .doc đời cũ chưa đọc được – mở bằng Word, lưu thành .docx hoặc PDF.
+- PHẢI cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới.
 
 MỚI TRONG 3.51 – TỰ NHẬN ĐỊA CHỈ MÁY CHỦ (/exec) TỪ GITHUB
 - App tự đọc URL máy chủ theo thứ tự: (1) https://raw.githubusercontent.com/vuhuylong1976-maker/HCNS/refs/heads/main/webapp.txt
