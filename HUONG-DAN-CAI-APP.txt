@@ -1,7 +1,11 @@
-APP ĐIỆN THOẠI TAPACO NHÂN SỰ – PHIÊN BẢN 3.43
+APP ĐIỆN THOẠI TAPACO NHÂN SỰ – PHIÊN BẢN 3.52
 ==============================================
 
-ANDROID (tệp TAPACO-NhanSu-3.43.apk)
+SỬA LỖI 3.49: tệp .apk bản 3.43–3.48 bị máy Android 11 trở lên từ chối ("Ứng dụng chưa được
+cài đặt" / "Gói không hợp lệ") do đóng gói thiếu chuẩn (resources.arsc bị nén, chưa căn thẳng hàng).
+Bản 3.49 đã sửa và có bước tự kiểm khi đóng gói. Hãy xóa tệp .apk cũ trên Drive/Zalo, phát tệp 3.49.
+
+ANDROID (tệp TAPACO-NhanSu-3.52.apk)
 - Phát hành: tải tệp .apk lên Google Drive của Công ty, chia sẻ "Bất kỳ ai có đường liên kết"
   (hoặc gửi qua Zalo nhóm). Dán link vào Cài đặt → "Link tải app Android (.apk)".
   CBCNV xem hướng dẫn ở menu tài khoản → "📱 Cài app điện thoại".
@@ -25,6 +29,10 @@ IPHONE / IPAD
 - Apple không cho cài tệp .apk và không cho cài app ngoài App Store nếu không có tài khoản
   Apple Developer. Dùng: mở link app bằng Safari → Chia sẻ → "Thêm vào MH chính".
   App chạy toàn màn hình, nhận thông báo đẩy (iOS 16.4+).
+- ĐIỀU KIỆN: thư mục 1_UngDung phải được đăng lên một địa chỉ web https (mở từ tệp trên máy
+  hoặc từ Google Drive thì KHÔNG cài được). Cách đăng miễn phí: xem 6_DangWeb_iPhone.
+  Có link rồi dán vào Cài đặt → "Link app web https"; CBCNV thấy link + nút Sao chép trong
+  menu tài khoản → "📱 Cài app điện thoại".
 
 LƯU Ý
 - Bản app này CHƯA được thử trên điện thoại thật trong quá trình đóng gói. Trước khi phát cho
