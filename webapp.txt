@@ -1,3 +1,4 @@
+# Bản chính đặt trên GitHub: https://raw.githubusercontent.com/vuhuylong1976-maker/HCNS/refs/heads/main/webapp.txt – app đọc GitHub trước, tệp này là dự phòng.
 # TAPACO Nhân sự – URL máy chủ (Ứng dụng web Google Apps Script)
 # Dán URL vào MỘT dòng riêng phía dưới (không có dấu # ở đầu), lưu tệp, rồi đưa lên cùng thư mục với index.html.
 # Lấy URL: Apps Script -> Triển khai -> Quản lý bản triển khai -> URL ứng dụng web (đuôi /exec).

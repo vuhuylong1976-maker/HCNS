@@ -7,6 +7,10 @@
 <meta name="theme-color" content="#0F1E3D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TAPACO HR">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1235,7 +1239,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.48';
+  var VERSION = '3.51';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1646,6 +1650,7 @@ var HRCORE = (function () {
     ngayNghiTuan: 'cn',
     mauPhieu: null, mauBangLuong: null,
     hsns: null,   // v3.47: bảng xác định hệ số năng suất tháng (tiêu chí, tỷ trọng, xếp loại → hệ số, biến kỳ nhận hệ số)
+    linkWeb: '',   // v3.49: địa chỉ https của app web (GitHub Pages / Netlify…) để iPhone "Thêm vào MH chính"
     linkAPK: '',   // v3.43: link tải app Android (.apk) do Quản trị dán (Drive / web công ty)   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
     cheDoBangLuong: 'gop',            // v3.32: 'gop' – 1 bảng lương gồm cả tiền làm thêm giờ; 'tach' – 2 bảng độc lập: lương theo công thời gian / lương tăng ca, thêm giờ
     anCaMienTheoCong: true, anCaMienChia: 22, anCaMienCT: '',   // v3.39: anCaMienCT = công thức mở (trống = theo 2 khóa cũ)
@@ -4961,7 +4966,7 @@ var HRCORE = (function () {
         var nvBP = bpQL ? T('NhanVien').filter(function (n) { return n.phongBan === bpQL && n.trangThai !== 'Đã nghỉ việc'; }).map(function (n) { return n.maNV; }) : [];
         var kyDuyet = T('KyLuong').filter(function (k) { return k.trangThai === 'Đã duyệt'; }).map(function (k) { return k.ky; });
         return {
-          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
+          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
           nv: T('NhanVien').filter(function (r) { return r.maNV === me; }),
           qt: T('QuaTrinh').filter(function (r) { return r.maNV === me; }),
           ll: T('LenLuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
@@ -5064,7 +5069,7 @@ var HRCORE = (function () {
       u.lastLogin = env.now(); D('Users');
       log(s, 'login', '');
       if (can(u.role, 'view_all')) { applyDueRaises(); chamDutDenHan(); }
-      var dl = loadAll(s); dl.soCB = soCanhBao(s);
+      var dl = loadAll(s); dl.soCB = soCanhBao(s); dl.svVer = VERSION;
       return { token: token, user: publicUser(u), data: dl };
     };
 
@@ -5078,7 +5083,7 @@ var HRCORE = (function () {
     H.load = function (req, s) {
       if (can(s.role, 'view_all')) { applyDueRaises(); chamDutDenHan(); }
       var u = T('Users').filter(function (x) { return x.username === s.username; })[0];
-      var d = loadAll(s); d.soCB = soCanhBao(s);
+      var d = loadAll(s); d.soCB = soCanhBao(s); d.svVer = VERSION;   // v3.50: app so phiên bản máy chủ, báo khi Code.gs chưa cập nhật
       return { user: publicUser(u), data: d };
     };
     function soCanhBao(s) {                         // số cảnh báo chấm công cần mình làm: QL – chờ giải trình; người kiểm tra – đã giải trình chờ kết luận
@@ -10140,6 +10145,12 @@ var HRCORE = (function () {
         req.cfg.anCaMienCT = String(req.cfg.anCaMienCT).trim().slice(0, 500);
         if (req.cfg.anCaMienCT) { var lAC = kiemCTAnCa(Object.assign({}, getCfg(), req.cfg), req.cfg.anCaMienCT); if (lAC.length) err(lAC.join(' ')); }
       }           // bảng phân quyền chỉ sửa qua pq.save
+      ['linkWeb', 'linkAPK'].forEach(function (k) {                    // v3.49: link cài app chỉ nhận https
+        if (!req.cfg || req.cfg[k] == null) return;
+        var v = String(req.cfg[k]).trim().slice(0, 500);
+        if (v && !/^https:\/\/[^\s"'<>]+$/i.test(v)) err((k === 'linkWeb' ? 'Link app web' : 'Link tải app Android') + ' phải bắt đầu bằng https:// (điện thoại chỉ cài được qua https).');
+        req.cfg[k] = v;
+      });
       var cfTruoc = getCfg(), truocK = {}, sauK = {};
       Object.keys(req.cfg || {}).forEach(function (k) { truocK[k] = cfTruoc[k]; });
       setCfg(req.cfg || {});
@@ -10550,7 +10561,7 @@ var HRCORE = (function () {
 /* =====================================================================
    TAPACO NHÂN SỰ – TIỀN LƯƠNG · GIAO DIỆN
    ===================================================================== */
-const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbxbwTNHi6zTq1OpEKH6sCLBaGGwboLNwvSbk5G7aq7MqP-j7NJkyzFfsTPCUS9fh44ddA/exec';   // dán URL Ứng dụng web Apps Script vào đây khi triển khai (hoặc nhập trong "Cấu hình máy chủ")
+const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbw7aMr-feYQa37MPdmKqBHnpu_-upZUnr7Vvyw_ikcCC64yZioI56hatsYWlRsAIi2FlA/exec';   // dán URL Ứng dụng web Apps Script vào đây khi triển khai (hoặc nhập trong "Cấu hình máy chủ")
 const C = HRCORE, num = C.num;
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -10657,7 +10668,9 @@ function setupPWA() {
     const mf = { name: 'TAPACO Nhân sự – Tiền lương', short_name: 'TAPACO HR', start_url: location.href.split('#')[0], display: 'standalone', background_color: '#0F1E3D', theme_color: '#0F1E3D', icons: [{ src: icon, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }] };
     const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(mf)); document.head.appendChild(l);
   }
-  const a = document.createElement('link'); a.rel = 'apple-touch-icon'; a.href = icon; document.head.appendChild(a);
+  if (location.protocol !== 'https:') { const a = document.createElement('link'); a.rel = 'apple-touch-icon'; a.href = icon; document.head.appendChild(a); }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window._bip = e; });
+  window.addEventListener('appinstalled', () => { window._bip = null; });
   if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.TapacoApp) navigator.serviceWorker.register('./sw.js').catch(() => { });
 }
 
@@ -11408,7 +11421,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && _ps
 function toast(m, type) {
   const d = document.createElement('div'); d.className = 'ts ' + (type || ''); d.textContent = m;
   const box = $('toast'); while (box.children.length >= 2) box.firstChild.remove();
-  box.appendChild(d); setTimeout(() => d.remove(), type === 'err' ? 6000 : 3200);
+  box.appendChild(d); setTimeout(() => d.remove(), type === 'err' ? Math.max(6000, String(m).length * 70) : 3200);
 }
 let modalOnOk = null;
 function modal(title, body, opt = {}) {
@@ -11499,7 +11512,7 @@ function showLogin() {
   const dm = $('lgDemo');
   if (!APP.api) {
     dm.classList.remove('hide');
-    dm.innerHTML = (location.protocol === 'file:' ? `<div class="note w" style="margin-bottom:10px;text-align:left">Đang mở <b>trực tiếp từ ổ đĩa</b>: trình duyệt không cho app tự đọc tệp <b>webapp.txt</b>.
+    dm.innerHTML = (location.protocol === 'file:' ? `<div class="note w" style="margin-bottom:10px;text-align:left">Đang mở <b>trực tiếp từ ổ đĩa</b> và chưa đọc được <b>webapp.txt</b> trên GitHub (kiểm tra mạng, rồi mở lại app) – hoặc chọn tệp bằng tay:
       <label class="btn sm pri" style="margin-top:6px;white-space:normal;max-width:100%;text-align:center"><input type="file" accept=".txt,text/plain" class="hide" onchange="napWebappTep(this)">Chọn tệp webapp.txt để kết nối máy chủ</label>
       <div class="small muted" style="margin-top:4px">Chỉ cần làm 1 lần trên máy này. Khi đưa app lên GitHub Pages / Netlify (https), app tự đọc webapp.txt.</div></div>` : '') +
       `<b>Tài khoản dùng thử</b> (mật khẩu <b>123456</b>):<br>` +
@@ -11527,7 +11540,7 @@ async function reloadData() {
 }
 function openServerCfg(e) {
   if (e) e.preventDefault();
-  modal('Cấu hình máy chủ', `<div class="note">Dán <b>URL Ứng dụng web</b> của Google Apps Script (dạng https://script.google.com/macros/s/…/exec). Để trống để dùng chế độ dùng thử trên trình duyệt.</div>${APP.webapp ? `<div class="note" style="margin-top:8px">URL hiện lấy tự động từ tệp <b>webapp.txt</b> trên máy chủ web của Công ty. Muốn đổi cho mọi máy: sửa tệp webapp.txt rồi đưa lên lại. Sửa ở đây chỉ có tác dụng trên máy này đến lần mở app sau.</div>` : ''}<br>` +
+  modal('Cấu hình máy chủ', `<div class="note">Dán <b>URL Ứng dụng web</b> của Google Apps Script (dạng https://script.google.com/macros/s/…/exec). Để trống để dùng chế độ dùng thử trên trình duyệt.</div>${APP.webapp ? `<div class="note" style="margin-top:8px">URL hiện lấy tự động từ tệp <b>webapp.txt</b> (${esc(APP.webappNguon || 'GitHub / thư mục app')}). Muốn đổi cho mọi máy: sửa tệp webapp.txt rồi đưa lên lại. Sửa ở đây chỉ có tác dụng trên máy này đến lần mở app sau.</div>` : ''}<br>` +
     formHTML([{ k: 'api', l: 'URL Apps Script', w: 'wf', ph: 'https://script.google.com/macros/s/.../exec' }], { api: APP.api }) +
     `<label class="btn sm" style="margin-top:8px"><input type="file" accept=".txt,text/plain" class="hide" onchange="napWebappTep(this)">Lấy URL từ tệp webapp.txt…</label>`,
     { okText: 'Lưu', onOk: async () => {
@@ -12955,7 +12968,15 @@ function openNVForm(ma) {
 }
 /* v3.15: nhận dữ liệu tải về. Máy chủ chỉ gửi chấm công, bảng lương 12 tháng gần nhất (dlTu = mốc); kỳ cũ hơn (đã duyệt, đã khóa)
    giữ lại từ dữ liệu đang có trên máy nếu đã tải, nếu chưa thì tải ngầm – không bắt người dùng chờ lúc đăng nhập. */
+function soPB(v) { const m = String(v || '').match(/^(\d+)\.(\d+)/); return m ? +m[1] * 1000 + +m[2] : 0; }
+function mcCu(can) { return !!(APP.D && soPB(APP.D.svVer) < soPB(can || C.VERSION)); }   // v3.50: máy chủ Apps Script cũ hơn (bản cũ không gửi svVer → coi là cũ)
+function mcBao() {
+  if (!APP.D || !mcCu() || APP._mcBao || !(APP.user && APP.user.role === 'admin')) return;
+  APP._mcBao = 1;
+  toast('Máy chủ Apps Script đang chạy bản ' + (APP.D.svVer || 'cũ (trước 3.50)') + ', app là ' + C.VERSION + '. Cần dán Code.gs mới vào Apps Script → Triển khai → Quản lý bản triển khai → Sửa → Phiên bản mới → Triển khai. Nếu không, các chức năng mới (ảnh thẻ, cột lương…) sẽ báo lỗi.', 'err');
+}
 function nhanDL(d) {
+  setTimeout(mcBao, 1500);
   const cu = APP.D;
   if (d && d.dlTu && cu && cu.dlTu === '' && Array.isArray(cu.bl)) {
     const ky = new Set((d.ky || []).filter(k => k.trangThai === 'Đã duyệt').map(k => k.ky)), giu = x => x.ky < d.dlTu && ky.has(x.ky);
@@ -13309,7 +13330,12 @@ function atKhung(ma, cv, r, nguon) {
     <div><div class="sec" style="margin-top:0">Ảnh thẻ</div><canvas id="atXem" class="at-x"></canvas><div class="small muted" style="margin-top:6px">Lưu 600 × 800 px, dùng làm ảnh hồ sơ và in Lý lịch cá nhân. Xử lý trên máy.</div></div></div>`, {
     size: 'lg', okText: 'Lưu ảnh thẻ', onOk: async () => {
       const o = atCatCV(ATK.cv, ATK.r), data = o.toDataURL('image/jpeg', 0.9).split(',')[1];
-      const r = await api('tl.upload', { row: { maNV: ma }, file: { name: 'AnhThe_3x4.jpg', mime: 'image/jpeg', data }, anhThe: nguon === 'cccd' ? 'cccd' : 1 });
+      let r;
+      try { r = await api('tl.upload', { row: { maNV: ma }, file: { name: 'AnhThe_3x4.jpg', mime: 'image/jpeg', data }, anhThe: nguon === 'cccd' ? 'cccd' : 1 }); }
+      catch (e) {   // v3.50: máy chủ cũ (< 3.47) không biết ảnh thẻ → báo "Chọn loại tài liệu"
+        if (/Chọn loại tài liệu|Loại tài liệu không hợp lệ|do TCHC cập nhật/.test(e.message || '')) throw new Error('Máy chủ Apps Script chưa cập nhật (đang ' + (APP.D.svVer || 'bản trước 3.47') + ', cần 3.47 trở lên) nên chưa lưu được ảnh thẻ. Quản trị dán Code.gs mới (thư mục 2_MayChu_AppsScript) → Triển khai → Quản lý bản triển khai → Sửa → Phiên bản: Mới → Triển khai, rồi thử lại.');
+        throw e;
+      }
       APP.D.tl = (APP.D.tl || []).filter(x => !(r.xoa || []).includes(x.id)); delete r.xoa; APP.D.tl.push(r);
       CCCD_ANH[r.id] = 'data:image/jpeg;base64,' + data; persist(); render();
       toast(r.trangThai === 'Đã xác nhận' ? 'Đã lưu ảnh thẻ.' : 'Đã tải ảnh thẻ, chờ TCHC xác nhận.', 'ok');
@@ -13706,23 +13732,29 @@ async function appLuuTep(href, ten) {
   } catch (e) { toast('Không lưu được tệp: ' + e.message, 'err'); }
 }
 function caiAppDT() {
-  const c = cfg(), link = String(c.linkAPK || '').trim(), laApp = !!window.TapacoApp, ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  modal('📱 Cài app điện thoại', `${laApp ? `<div class="note" style="margin-bottom:10px">Bạn đang dùng app Android, phiên bản ${esc(TapacoApp.phienBan ? TapacoApp.phienBan() : '')}.${link ? ' Khi Công ty phát hành bản mới, tải và cài đè (dữ liệu, đăng nhập giữ nguyên).' : ''}</div>` : ''}
-    <div class="sec">Android – cài tệp .apk</div>
+  const c = cfg(), link = String(c.linkAPK || '').trim(), laApp = !!window.TapacoApp, ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const web = String(c.linkWeb || '').trim(), daCai = appDaCai(), tep = location.protocol === 'file:';
+  const A = `<div class="sec">Android – cài tệp .apk</div>
     ${link ? `<p style="margin-top:0"><a class="btn pri" href="${esc(link)}" target="_blank" rel="noopener">Tải app Android</a></p>` : '<p class="muted" style="margin-top:0">Công ty chưa đăng link tải app. Hỏi Tổ chức – Hành chính để nhận tệp TAPACO-NhanSu-x.xx.apk (qua Zalo / Drive).</p>'}
     <ol class="small" style="padding-left:18px;line-height:1.6;margin:0 0 10px">
       <li>Mở tệp <b>.apk</b> vừa tải (thanh thông báo hoặc thư mục Tải xuống).</li>
       <li>Nếu máy hỏi, bấm <b>Cài đặt</b> → cho phép "Cài ứng dụng không rõ nguồn gốc" với Chrome / Zalo / Files (chỉ lần đầu).</li>
       <li>Nếu Play Protect cảnh báo "ứng dụng chưa được kiểm tra", bấm <b>Thêm chi tiết → Vẫn cài đặt</b> (app nội bộ Công ty, không phát hành trên CH Play).</li>
       <li>Mở app <b>TAPACO Nhân sự</b>, đăng nhập như trên web; cho phép <b>Vị trí</b> và <b>Máy ảnh</b> để chấm công.</li>
-    </ol>
-    <div class="sec">iPhone / iPad</div>
+      <li>Nếu máy báo <b>"Ứng dụng chưa được cài đặt"</b>: dùng tệp bản <b>3.49 trở lên</b> (bản 3.43–3.48 đóng gói thiếu chuẩn Android 11+); nếu máy đã có app TAPACO cài từ nguồn khác thì gỡ app đó trước.</li>
+    </ol>`;
+  const I = `<div class="sec">iPhone / iPad</div>
     <ol class="small" style="padding-left:18px;line-height:1.6;margin:0">
-      <li>Mở link app bằng <b>Safari</b>.</li>
+      <li>Mở link app bằng <b>Safari</b>${web ? `: <b style="word-break:break-all">${esc(web)}</b> <button class="btn sm" onclick="saoLinkWeb()">Sao chép</button>` : ' (Công ty chưa đăng link web https – hỏi Tổ chức – Hành chính)'}. Nếu link mở trong Zalo, bấm ⋯ → <b>Mở bằng trình duyệt</b> (Zalo không có mục cài).</li>
       <li>Bấm nút <b>Chia sẻ</b> (ô vuông có mũi tên) → <b>Thêm vào MH chính</b> → Thêm.</li>
-      <li>Mở biểu tượng TAPACO trên màn hình chính; app chạy toàn màn hình, nhận thông báo đẩy (iOS 16.4+).</li>
-    </ol>${ios ? '<p class="small muted">Apple không cho cài tệp .apk; trên iPhone dùng cách "Thêm vào MH chính".</p>' : ''}`, { foot: '<button class="btn" onclick="closeModal()">Đóng</button>' });
+      <li>Mở biểu tượng TAPACO trên màn hình chính; app chạy toàn màn hình, nhận thông báo đẩy (iOS 16.4+). Đăng nhập lại 1 lần trong app.</li>
+    </ol>${ios ? '<p class="small muted">Apple không cho cài tệp .apk; trên iPhone dùng cách "Thêm vào MH chính".</p>' : ''}`;
+  modal('📱 Cài app điện thoại', `${daCai ? '<div class="note" style="margin-bottom:10px">✅ App đang chạy toàn màn hình như ứng dụng đã cài.</div>' : ''}${tep && !laApp ? '<div class="note" style="margin-bottom:10px;border-color:#F97316">⚠ Đang mở app từ <b>tệp trên máy</b> (file://). Điện thoại chỉ cài được khi mở bằng <b>link https</b> do Công ty đăng (xem dưới) hoặc tệp .apk.</div>' : ''}${window._bip ? '<p style="margin-top:0"><button class="btn pri" onclick="caiNgayPWA()">⬇ Cài app ngay trên máy này</button></p>' : ''}${laApp ? `<div class="note" style="margin-bottom:10px">Bạn đang dùng app Android, phiên bản ${esc(TapacoApp.phienBan ? TapacoApp.phienBan() : '')}.${link ? ' Khi Công ty phát hành bản mới, tải và cài đè (dữ liệu, đăng nhập giữ nguyên).' : ''}</div>` : ''}
+    ${ios ? I + A : A + I}`, { foot: '<button class="btn" onclick="closeModal()">Đóng</button>' });
 }
+function appDaCai() { try { return !!window.TapacoApp || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } }
+function caiNgayPWA() { const e = window._bip; if (!e) return; e.prompt(); (e.userChoice || Promise.resolve()).then(() => { window._bip = null; closeModal(); }); }
+function saoLinkWeb() { const v = String(cfg().linkWeb || ''); (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('Đã sao chép link – dán vào Safari')).catch(() => prompt('Sao chép link:', v)); }
 function nvOptions() { return APP.D.nv.slice().sort((a, b) => a.maNV < b.maNV ? -1 : 1).map(n => [n.maNV, n.maNV + ' – ' + n.hoTen + (n.trangThai === 'Đã nghỉ việc' ? ' (đã nghỉ)' : '')]); }
 function openQTForm(ma, id) {
   const r = id ? APP.D.qt.find(x => x.id === id) : { maNV: ma || '', tuNgay: todayS() };
@@ -20235,6 +20267,7 @@ const CFG_F = [
   { k: 'thueVangLai', l: 'Khấu trừ HĐ thử việc / dưới 3 tháng / khoán việc (%)', t: 'num', hint: 'Giảm trừ gia cảnh, biểu thuế, ngưỡng khấu trừ: theo bảng "Quy định theo thời kỳ"' },
   { sec: 'Ngày công – làm thêm giờ – nâng bậc' },
   { k: 'cheDoBangLuong', l: 'Chế độ bảng lương', t: 'select', o: [['gop', '1 bảng: lương theo công + lương làm thêm giờ, tăng ca'], ['tach', '2 bảng độc lập: (1) lương theo công thời gian, (2) lương tăng ca, thêm giờ']], blank: false, w: 'w2', hint: 'Tách: Bảng 2 trả riêng tiền làm thêm giờ, thuế TNCN phân bổ; BH, công nợ trừ ở Bảng 1' },
+  { k: 'linkWeb', l: 'Link app web https (cho iPhone, Android)', w: 'w2', ph: 'https://<tên>.github.io/tapaco-nhansu/ hoặc https://<tên>.netlify.app/', hint: 'Địa chỉ thư mục 1_UngDung đã đăng lên web https (xem 6_DangWeb_iPhone). iPhone mở bằng Safari → Thêm vào MH chính.' },
   { k: 'linkAPK', l: 'Link tải app Android (.apk)', w: 'w2', ph: 'https://drive.google.com/… (tệp TAPACO-NhanSu-x.xx.apk đã chia sẻ cho CBCNV)', hint: 'CBCNV xem ở menu tài khoản → 📱 Cài app điện thoại. Để trống nếu chưa phát hành app.' },
   { k: 'anCaMienCT', l: 'Ăn ca miễn thuế TNCN – công thức (sửa được)', w: 'w2', inp: 'anCaXem()', xem: 'anCaXemHTML', hint: 'Biến: MUC_MIEN (mức tối đa của thời kỳ: 1,2 tr từ 07/2026), NGAY_CONG (ngày công thực tế), SO_BUA, GT (tiền ăn ca của tháng) và mọi biến của công thức lương. Hàm: MIN, MAX, ROUND, IF… Kết quả không vượt MUC_MIEN. Mặc định: ' + C.CT_ANCA_MD },
   { k: 'cachTinhCongChuan', l: 'Cách xác định công chuẩn', t: 'select', o: [['codinh', 'Cố định'], ['truCN', 'Số ngày trong tháng trừ Chủ nhật']], blank: false },
@@ -20468,13 +20501,22 @@ async function loadLog() {
    Đổi máy chủ: sửa webapp.txt rồi đưa lên – mọi điện thoại / máy tính tự nhận URL mới khi mở app. */
 const WEBAPP_RE = /https:\/\/script\.google\.com\/(?:a\/macros\/[^\/\s]+|macros)\/s\/[\w-]+\/exec/;
 function urlTuWebapp(t) { return String(t || '').split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^(#|\/\/)/.test(l)).map(l => (l.match(WEBAPP_RE) || [])[0]).find(Boolean) || ''; }
-async function docWebapp() {
-  if (!/^https?:$/.test(location.protocol)) return '';
+/* v3.51: nguồn webapp.txt dùng chung trên GitHub (Công ty sửa 1 chỗ, mọi bản app – web, APK, mở từ ổ đĩa – tự nhận).
+   Thứ tự: (1) link GitHub dưới đây; (2) webapp.txt trong cùng thư mục với index.html. Chỉ nhận URL dạng
+   https://script.google.com/macros/s/…/exec (WEBAPP_RE) – tệp trên GitHub bị sửa thành địa chỉ khác sẽ bị bỏ qua. */
+const WEBAPP_NGUON = ['https://raw.githubusercontent.com/vuhuylong1976-maker/HCNS/refs/heads/main/webapp.txt'];
+async function docWebappTu(url, ms) {
   try {
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 4000);
-    const r = await fetch('webapp.txt', { cache: 'no-store', signal: ctl.signal }); clearTimeout(t);
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 5000);
+    const r = await fetch(url, { cache: 'no-store', signal: ctl.signal }); clearTimeout(t);
     return r.ok ? urlTuWebapp(await r.text()) : '';
   } catch (e) { return ''; }
+}
+async function docWebapp() {
+  const phut = Math.floor(Date.now() / 60000);             // tránh bộ đệm CDN của GitHub (~5 phút)
+  for (const g of WEBAPP_NGUON) { const u = await docWebappTu(g + (g.includes('?') ? '&' : '?') + '_=' + phut, 5000); if (u) { APP.webappNguon = 'GitHub'; return u; } }
+  if (/^https?:$/.test(location.protocol)) { const u = await docWebappTu('webapp.txt', 4000); if (u) { APP.webappNguon = 'thư mục app'; return u; } }
+  return '';
 }
 let _webappLuc = 0;
 /* mở index.html trực tiếp từ ổ đĩa (file://): trình duyệt chặn đọc tệp bên cạnh → cho chọn webapp.txt bằng tay */
@@ -20494,7 +20536,7 @@ async function apWebapp(khoiDong) {
   APP.webapp = u;
   if (u === APP.api) return false;
   const cu = APP.api; APP.api = u; LS.set('tphr_api', u);
-  if (APP.token && cu) { toast('Máy chủ đã đổi theo cấu hình của Công ty (webapp.txt). Vui lòng đăng nhập lại.', 'ok'); forceLogout(); }
+  if (APP.token && cu) { toast('Máy chủ đã đổi theo cấu hình của Công ty (webapp.txt – ' + (APP.webappNguon || '') + '). Vui lòng đăng nhập lại.', 'ok'); forceLogout(); }
   else if (APP.token && !cu) forceLogout();                 // đang ở bản dùng thử → chuyển sang máy chủ thật
   else if (!khoiDong) showLogin();
   return true;

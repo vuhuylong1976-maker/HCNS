@@ -1,8 +1,8 @@
-TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.48 (11/2026)
+TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.51 (11/2026)
 ===========================================================================
 
-1_UngDung/              Giao diện app (PWA): index.html, sw.js, manifest.webmanifest, icon-192.png, icon-512.png, webapp.txt
-                        -> Dán URL ứng dụng web Apps Script vào webapp.txt, rồi đưa cả 6 tệp lên GitHub Pages
+1_UngDung/              Giao diện app (PWA): index.html, sw.js, manifest.webmanifest, icon-180.png, icon-192.png, icon-512.png, webapp.txt
+                        -> Dán URL ứng dụng web Apps Script vào webapp.txt, rồi đưa cả 7 tệp lên GitHub Pages
                            hoặc Netlify (bắt buộc https). App tự đọc webapp.txt để kết nối máy chủ.
                         -> Mở index.html bằng Chrome trên máy tính để DÙNG THỬ ngay với dữ liệu mẫu
                            (tài khoản quantm / landt / hant / huongpt / kttruong / thanglv / anhvd / admin, mật khẩu 123456).
@@ -16,6 +16,8 @@ TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN 
                         2_Huong_dan_su_dung (Word + PDF)  – cho toàn thể CBCNV và từng chức danh
                         3_Bien_ban_kiem_tra_cham_cong_dien_thoai (Word + PDF)
                         4_HUONG-DAN-KY-THUAT.md, 5_PROMPT-TAO-LAI-APP.md – tài liệu kỹ thuật chi tiết
+5_AppDienThoai/          TAPACO-NhanSu-3.51.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
+6_DangWeb_iPhone/        HUONG-DAN-DANG-WEB.txt – đăng 1_UngDung lên https (GitHub Pages / Netlify) để cài trên iPhone
 
 THỨ TỰ LÀM
   1. Đọc "1_Huong_dan_cai_dat" mục 2–4: cài máy chủ, đưa app lên mạng.
@@ -24,6 +26,35 @@ THỨ TỰ LÀM
   4. Mục 9: chạy thử 1 tuần, rồi phát "2_Huong_dan_su_dung" cho CBCNV.
   5. Cuối mỗi kỳ: TCHC / Kế toán vào Chấm công GPS -> tab "Kiểm tra AI" để quét sai phạm vi,
      sai người, sai thời gian; nhắc bộ phận giải trình cờ đỏ trước khi lấy công (HD sử dụng – Phần G).
+
+MỚI TRONG 3.51 – TỰ NHẬN ĐỊA CHỈ MÁY CHỦ (/exec) TỪ GITHUB
+- App tự đọc URL máy chủ theo thứ tự: (1) https://raw.githubusercontent.com/vuhuylong1976-maker/HCNS/refs/heads/main/webapp.txt
+  (2) webapp.txt trong cùng thư mục với index.html (dự phòng khi không vào được GitHub).
+- Áp dụng cho mọi cách mở: web https, app Android (.apk), iPhone, và cả mở index.html trực tiếp từ ổ đĩa
+  (không còn phải chọn tệp webapp.txt bằng tay khi có mạng).
+- ĐỔI MÁY CHỦ: chỉ sửa tệp webapp.txt trên GitHub (repository HCNS) → mọi máy tự nhận khi mở app (GitHub có bộ đệm
+  tới ~5 phút), người đang đăng nhập được yêu cầu đăng nhập lại.
+- An toàn: app chỉ nhận URL dạng https://script.google.com/macros/s/…/exec; nếu tệp trên GitHub bị sửa thành địa chỉ
+  khác thì bỏ qua. Chỉ người có quyền sửa repository HCNS được đổi máy chủ – bật xác thực 2 lớp cho tài khoản GitHub.
+- webapp.txt trong 1_UngDung đã cập nhật trùng URL trên GitHub.
+
+MỚI TRONG 3.50 – SỬA LỖI "CHỌN LOẠI TÀI LIỆU" KHI LƯU ẢNH THẺ
+- Nguyên nhân: app trên điện thoại đã là bản mới (có Cắt ảnh thẻ, từ 3.47) nhưng MÁY CHỦ Apps Script vẫn chạy
+  Code.gs cũ, không biết loại "Ảnh thẻ" nên báo "Chọn loại tài liệu.".
+- CÁCH SỬA (bắt buộc mỗi lần nâng cấp): mở Google Sheet → Tiện ích mở rộng → Apps Script → xóa hết, dán
+  2_MayChu_AppsScript/Code.gs → Lưu → Triển khai → Quản lý bản triển khai → ✏ Sửa → Phiên bản: "Phiên bản mới"
+  → Triển khai. (Giữ nguyên bản triển khai cũ để URL /exec không đổi; KHÔNG tạo "Bản triển khai mới".)
+- Từ 3.50: máy chủ gửi kèm số phiên bản. Quản trị đăng nhập thấy cảnh báo đỏ nếu máy chủ cũ hơn app; lưu ảnh thẻ
+  với máy chủ cũ báo rõ "Máy chủ Apps Script chưa cập nhật…" thay vì "Chọn loại tài liệu".
+
+MỚI TRONG 3.49 – CÀI APP TRÊN ĐIỆN THOẠI
+- SỬA LỖI tệp .apk (bản 3.43–3.48) bị Android 11+ báo "Ứng dụng chưa được cài đặt": đóng gói lại đúng chuẩn
+  (resources.arsc không nén, căn thẳng hàng 4 byte), ký v2+v3, tự kiểm sau khi đóng gói. Phát tệp 3.49, bỏ tệp cũ.
+- iPhone: thư mục mới 6_DangWeb_iPhone hướng dẫn đăng 1_UngDung lên web https miễn phí (GitHub Pages / Netlify)
+  để Safari "Thêm vào MH chính". Cài đặt có ô "Link app web https" (chỉ nhận https://); menu "📱 Cài app điện thoại"
+  hiện link + nút Sao chép, đưa phần iPhone lên đầu khi mở bằng iPhone, cảnh báo khi đang mở từ tệp trên máy.
+- Android Chrome: nút "Cài app ngay" khi trình duyệt cho phép cài. Biểu tượng iPhone 180px (icon-180.png).
+- Chưa thử trên điện thoại thật (đang xác minh): cài thử 1–2 máy Android và iPhone trước khi phát toàn Công ty.
 
 MỚI TRONG 3.48 – THÊM CỘT BIẾN TÍNH LƯƠNG VÀO BẢNG LƯƠNG
   Cài đặt → Mẫu bảng lương: thêm cột TN chịu thuế, giảm trừ gia cảnh, TN tính thuế, ăn ca nhận / miễn thuế, BHXH – BHYT – BHTN, tổng nợ, BH công ty đóng, mọi khoản Công thức lương và biến kỳ; ô lọc cột.
