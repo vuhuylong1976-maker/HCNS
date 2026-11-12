@@ -1239,7 +1239,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.52';
+  var VERSION = '3.54';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1382,6 +1382,13 @@ var HRCORE = (function () {
   var QT_NGHI_MD = [
     { id: 'tbp', ten: 'Trưởng phòng / Chỉ huy trưởng duyệt', nguoi: ['tbp'], tren: 0, loai: [] },
     { id: 'tchc', ten: 'TCHC duyệt', nguoi: ['r:tchc'], tren: 0, loai: [] }
+  ];
+  /* v3.54: đề xuất điều chỉnh lương / nâng lương: cá nhân hoặc người phụ trách lập → Trưởng phòng / CHT → TCHC → Giám đốc.
+     Cấp mà người duyệt chính là người lập (hoặc người được đề xuất) được bỏ qua; cấp cuối (Giám đốc) luôn giữ. */
+  var QT_LL_MD = [
+    { id: 'tbp', ten: 'Trưởng phòng / Chỉ huy trưởng xác nhận', nguoi: ['tbp'] },
+    { id: 'tchc', ten: 'TCHC thẩm định', nguoi: ['r:tchc'] },
+    { id: 'gd', ten: 'Giám đốc phê duyệt', nguoi: ['r:giamdoc'] }
   ];
   var QT_YKIEN_MD = [
     { chuDe: 'Ngày công, nghỉ, làm thêm giờ', nguoi: ['r:tchc'] },
@@ -1557,7 +1564,7 @@ var HRCORE = (function () {
       'noiDung', 'taoBoi', 'taoLuc'],
     LenLuong: ['id', 'maNV', 'loai', 'hieuLuc', 'ngachCu', 'bacCu', 'luongCu', 'luongBHCu', 'ngachMoi', 'bacMoi',
       'luongMoi', 'luongBHMoi', 'lyDo', 'soQD', 'trangThai', 'apDung', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet',
-      'ngayDuyet', 'ghiChuDuyet'],
+      'ngayDuyet', 'ghiChuDuyet', 'luongDuyet', 'capDuyet', 'lichSu'],
     KhenThuong: ['id', 'maNV', 'loai', 'hinhThuc', 'ngay', 'soTien', 'chiuThue', 'kyLuong', 'noiDung', 'soQD',
       'trangThai', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet', 'ngayDuyet'],
     ChamCong: ['id', 'ky', 'maNV', 'ngayCong', 'nghiHuongLuong', 'nghiKhongLuong', 'nghiOm', 'ot150', 'ot200', 'ot300',
@@ -1677,6 +1684,7 @@ var HRCORE = (function () {
     ngayPhepCoBan: 12,                // Điều 113 BLLĐ 2019 (công việc bình thường)
     thamNienCongPhep: 5,              // Điều 114: cứ đủ 5 năm làm việc được thêm 1 ngày phép
     quyTrinhLuong: QT_LUONG_MD,       // các bước lập & duyệt lương
+    quyTrinhLenLuong: QT_LL_MD,      // v3.54: các cấp duyệt đề xuất điều chỉnh lương, nâng lương
     quyTrinhNghi: QT_NGHI_MD,         // các cấp duyệt đơn nghỉ (áp dụng khi số ngày > tren, cho các loại nghỉ trong 'loai', trống = mọi loại)
     quyTrinhYKien: QT_YKIEN_MD,       // chủ đề ý kiến về lương → người tiếp nhận
     nhomDeXuat: NHOM_DX_MD,           // nhóm loại đề xuất (Quản trị tạo)
@@ -1729,7 +1737,7 @@ var HRCORE = (function () {
     chucVu: ['Chủ tịch HĐQT', 'Tổng Giám đốc', 'Phó Tổng Giám đốc', 'Kế toán trưởng', 'Trưởng phòng', 'Phó phòng',
       'Chỉ huy trưởng', 'Kỹ sư', 'Kế toán viên', 'Chuyên viên', 'Nhân viên', 'Công nhân', 'Lái xe', 'Thủ kho'],
     donVi: ['Văn phòng Công ty'],
-    gps: { bat: true, doChinhXac: 50, hieuChuanGiay: 25, nguongKM: 0.5, gioVao: '07:30', gioRa: '17:00', phutTre: 10, gioDuCong: 6, gioLamDuCong: 8, nghiTruaTu: '12:00', nghiTruaDen: '13:30', khoaThietBi: true, batBuocKM: true, nhanAnhNgoaiVung: true, banKinhCT: 300, banDo: '' },
+    gps: { bat: true, doChinhXac: 50, hieuChuanGiay: 25, nguongKM: 0.5, gioVao: '07:30', gioRa: '17:00', phutTre: 10, gioDuCong: 6, gioLamDuCong: 8, nghiTruaTu: '12:00', nghiTruaDen: '13:30', khoaThietBi: true, batBuocKM: true, nhanAnhNgoaiVung: true, banKinhCT: 300, banDo: '', ggKey: '' },
     // v3.3: kiểm tra vị trí khi nhắn tin – ngoài phạm vi điểm chấm công thì ghi sheet KiemTraCong, báo TCHC, Ban Giám đốc, Kế toán
     viTriTN: { bat: true, chiGioLam: true, chuKyPhut: 15, doChinhXacToiDa: 100, dungSai: 50, baoLaiPhut: 60, boQuaVaiTro: ['admin', 'giamdoc'] },
     push: { bat: false, firebase: {}, vapid: '' },   // thông báo đẩy (Firebase Cloud Messaging); khóa bí mật lưu trong Thuộc tính tập lệnh
@@ -2845,7 +2853,7 @@ var HRCORE = (function () {
     if (!Array.isArray(c.loaiTamUng) || !c.loaiTamUng.length) c.loaiTamUng = LOAI_TU_MD.slice();
     c.danhMucViPham = (c.danhMucViPham || []).map(function (d) { var x = clone(d); if (NHOM_VP.indexOf(x.nhom) < 0) x.nhom = x.loai === 'Bồi thường thiệt hại' ? 'Mất mát, hư hỏng tài sản' : 'Vi phạm nội quy – an toàn'; return x; });
     // tên vai trò cũ trong quy trình
-    ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhYKien'].forEach(function (k) {
+    ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien'].forEach(function (k) {
       if (Array.isArray(c[k])) c[k] = c[k].map(function (b) { var x = clone(b); x.nguoi = (x.nguoi || []).map(function (a) { return /^r:/.test(a) ? 'r:' + normRole(a.slice(2)) : a; }); return x; });
     });
     if (!c.congThucDongBH) c.congThucDongBH = CT_DONGBH_MD;
@@ -5002,19 +5010,21 @@ var HRCORE = (function () {
       var cfg = getCfg();
       T('KyLuong').forEach(function (k) { kyRow(k.ky, false); });
       T('NghiPhep').forEach(function (o) { chuanHoaDon(o, cfg); });
+      T('LenLuong').forEach(function (o) { if (!o.luongDuyet && o.trangThai === 'Chờ duyệt') { chuanHoaLL(o, cfg); D('LenLuong'); } });   // v3.54
       cfg = trangTriQT(cfg);
       var ma = 'u:' + s.username;
       var giaoNP = function (o) { return parseJSON(o.luongDuyet, []).some(function (c) { return c.nguoi.indexOf(ma) >= 0; }); };
       var giaoYK = function (o) { return ykXuLy(o).indexOf(ma) >= 0; };
+      var giaoLL = function (o) { return parseJSON(o.luongDuyet, []).some(function (c) { return (c.nguoi || []).indexOf(ma) >= 0 || (c.nguoi || []).indexOf('r:' + s.role) >= 0; }); };
       if (!can(s.role, 'view_all')) {
         var me = s.maNV, bpQL = bpXem(s);
         var nvBP = bpQL ? T('NhanVien').filter(function (n) { return n.phongBan === bpQL && n.trangThai !== 'Đã nghỉ việc'; }).map(function (n) { return n.maNV; }) : [];
         var kyDuyet = T('KyLuong').filter(function (k) { return k.trangThai === 'Đã duyệt'; }).map(function (k) { return k.ky; });
         return {
-          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
+          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
           nv: T('NhanVien').filter(function (r) { return r.maNV === me; }),
           qt: T('QuaTrinh').filter(function (r) { return r.maNV === me; }),
-          ll: T('LenLuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
+          ll: T('LenLuong').filter(function (r) { return (r.maNV === me && (r.trangThai === 'Đã duyệt' || r.nguoiDeXuat === s.username)) || (r.maNV !== me && (r.nguoiDeXuat === s.username || giaoLL(r))); }),   // v3.54: đề xuất tự lập / lập cho nhân viên / được giao duyệt
           mh: T('MucHuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Hiệu lực'; }),
           kt: T('KhenThuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
           bl: T('BangLuong').filter(function (r) { return r.maNV === me && kyDuyet.indexOf(r.ky) >= 0; }),
@@ -5738,38 +5748,87 @@ var HRCORE = (function () {
     };
 
     /* ---- lên lương ---- */
+    function llLaQL(s, maNV) { var nv = findNV(maNV); return !!nv && quanLyCua(nv.phongBan).some(function (u) { return u.username === s.username; }); }
+    function capDuyetLL(o, cfg) {                    // v3.54: các cấp duyệt của một đề xuất lương
+      var qt = cfg.quyTrinhLenLuong || QT_LL_MD, bo = ['u:' + o.nguoiDeXuat].concat(T('Users').filter(function (u) { return u.maNV === o.maNV; }).map(function (u) { return 'u:' + u.username; }));
+      var nguoiLap = T('Users').filter(function (u) { return u.username === o.nguoiDeXuat; })[0];
+      var caps = qt.map(function (c, i) { var ng = quyTbp(c.nguoi, o.maNV, cfg); return { id: c.id, ten: c.ten, nguoi: ng, nguoiTen: tenNguoi(ng), cuoi: i === qt.length - 1 }; });
+      caps = caps.filter(function (c) {
+        if (c.cuoi) return true;                       // cấp cuối (Giám đốc) luôn giữ
+        var conNguoi = c.nguoi.filter(function (a) { return bo.indexOf(a) < 0 && !(nguoiLap && a === 'r:' + nguoiLap.role && ['tchc', 'truongphong', 'cht'].indexOf(nguoiLap.role) >= 0 && c.nguoi.length === 1); });
+        return conNguoi.length > 0;                    // bỏ cấp mà người duyệt chính là người lập / người được đề xuất
+      });
+      caps = caps.filter(function (c, i) { return i === caps.length - 1 || JSON.stringify(c.nguoi) !== JSON.stringify(caps[i + 1].nguoi); });   // 2 cấp liền nhau cùng người: giữ cấp sau (VD bộ phận chưa có TP → TCHC)
+      return caps;
+    }
+    function chuanHoaLL(o, cfg) {                    // đề xuất lập từ bản cũ (1 cấp duyệt): đưa thẳng tới cấp cuối như trước
+      if (o.luongDuyet) return;
+      var caps = capDuyetLL(o, cfg); o.luongDuyet = JSON.stringify(caps); o.capDuyet = o.trangThai === 'Chờ duyệt' ? caps.length - 1 : 0; o.lichSu = o.lichSu || '[]';
+    }
+    function llBao(o, s) {
+      var cap = parseJSON(o.luongDuyet, [])[num(o.capDuyet)]; if (!cap) return;
+      var nv = findNV(o.maNV) || {};
+      bao(nguoiCo(cap.nguoi, s.username).filter(function (u) { return u !== userCuaNV(o.maNV); }), { loai: 'duyet', t: 'Đề xuất lương chờ bạn duyệt', b: (nv.hoTen || o.maNV) + ': ' + o.loai + ', hiệu lực ' + ngayVN(o.hieuLuc), tag: 'll_' + o.id, mo: '#v=' + (cap.nguoi.some(function (a) { return a === 'r:tchc' || a === 'r:giamdoc'; }) ? 'll' : 'myll') });
+    }
     H['ll.save'] = function (req, s) {
-      need(s, 'propose');
       var r = req.row || {}, nv = findNV(r.maNV);
       if (!nv) err('Không tìm thấy nhân viên.');
+      var tuDX = r.maNV === s.maNV, laQL = llLaQL(s, r.maNV);
+      if (!can(s.role, 'propose') && !tuDX && !laQL) err('Chỉ cá nhân (cho chính mình), Trưởng phòng / Chỉ huy trưởng của bộ phận, hoặc người có quyền lập đề xuất mới lập được.');
       if (LOAI_LL.indexOf(r.loai) < 0) err('Loại điều chỉnh không hợp lệ.');
       if (!parseD(r.hieuLuc)) err('Thiếu ngày hiệu lực.');
       if (num(r.luongMoi) <= 0) err('Mức lương mới phải lớn hơn 0.');
       var rows = T('LenLuong'), o = r.id ? rows.filter(function (x) { return x.id === r.id; })[0] : null;
       if (o && o.trangThai !== 'Chờ duyệt') err('Đề xuất đã được xử lý, không sửa được.');
+      var cfg = getCfg();
+      if (o) {
+        chuanHoaLL(o, cfg);
+        if (o.nguoiDeXuat !== s.username && !can(s.role, 'propose')) err('Chỉ người lập đề xuất được sửa.');
+        if (parseJSON(o.lichSu, []).length && !can(s.role, 'propose')) err('Đề xuất đã qua cấp duyệt, không sửa được.');
+        if (o.maNV !== r.maNV) err('Không đổi người được đề xuất.');
+      }
+      if (!String(r.lyDo || '').trim() && !can(s.role, 'propose')) err('Nhập lý do / căn cứ đề xuất.');
       if (!o) {
         o = { id: newId(), trangThai: 'Chờ duyệt', apDung: '', nguoiDeXuat: s.username, ngayDeXuat: env.now(),
           ngachCu: nv.ngach || '', bacCu: nv.bac || '', luongCu: num(nv.luongChinh), luongBHCu: num(nv.luongBH) };
         rows.push(o);
       }
-      ['maNV', 'loai', 'hieuLuc', 'ngachMoi', 'bacMoi', 'lyDo', 'soQD'].forEach(function (c) { o[c] = String(r[c] == null ? '' : r[c]).trim(); });
+      ['maNV', 'loai', 'hieuLuc', 'ngachMoi', 'bacMoi', 'lyDo'].forEach(function (c) { o[c] = String(r[c] == null ? '' : r[c]).trim(); });
+      if (can(s.role, 'propose') || can(s.role, 'approve')) o.soQD = String(r.soQD == null ? '' : r.soQD).trim();
       o.luongMoi = num(r.luongMoi); o.luongBHMoi = num(r.luongBHMoi);
+      var moiLap = !o.luongDuyet;
+      if (moiLap || !parseJSON(o.lichSu, []).length) { o.luongDuyet = JSON.stringify(capDuyetLL(o, cfg)); o.capDuyet = 0; o.lichSu = o.lichSu || '[]'; }
       D('LenLuong');
+      if (moiLap) llBao(o, s);
       log(s, 'll.save', o.maNV + ' → ' + o.luongMoi);
       return o;
     };
 
-    H['ll.decide'] = function (req, s) {
-      need(s, 'approve');
+    H['ll.decide'] = function (req, s) {               // v3.54: duyệt theo từng cấp (TP/CHT → TCHC → Giám đốc); Giám đốc duyệt vượt cấp được
       var o = T('LenLuong').filter(function (x) { return x.id === req.id; })[0];
       if (!o) err('Không tìm thấy đề xuất.');
+      var cfg = getCfg(); chuanHoaLL(o, cfg);
       if (o.trangThai !== 'Chờ duyệt') err('Đề xuất đã được xử lý.');
-      o.trangThai = req.approve ? 'Đã duyệt' : 'Từ chối';
-      o.nguoiDuyet = s.username; o.ngayDuyet = env.now(); o.ghiChuDuyet = String(req.note || '');
-      if (req.approve && req.soQD) o.soQD = String(req.soQD);
+      var caps = parseJSON(o.luongDuyet, []), ci = num(o.capDuyet), cap = caps[ci];
+      if (!cap) err('Đề xuất không còn cấp duyệt.');
+      var note = String(req.note || '').trim(), duocGiao = laNguoiXuLy(s, cap.nguoi) && s.role !== 'admin' || (s.role === 'admin' && cap.nguoi.indexOf('u:' + s.username) >= 0);
+      var vuotCap = !duocGiao && (s.role === 'giamdoc' || s.role === 'admin');
+      if (o.maNV === s.maNV && s.role !== 'admin') err('Không tự duyệt đề xuất lương của chính mình.');
+      if (!duocGiao && !vuotCap) err('Đề xuất đang chờ "' + cap.ten + '" (' + (cap.nguoiTen || tenNguoi(cap.nguoi)) + ').');
+      var ls = parseJSON(o.lichSu, []);
+      ls.push({ cap: cap.ten, nguoi: s.hoTen || s.username, luc: env.now(), ketQua: req.approve ? (vuotCap && ci < caps.length - 1 ? 'Duyệt (vượt cấp)' : 'Duyệt') : 'Từ chối', ghiChu: note });
+      if (!req.approve) { if (!note) err('Nhập lý do từ chối.'); o.trangThai = 'Từ chối'; }
+      else if (vuotCap || ci + 1 >= caps.length) o.trangThai = 'Đã duyệt';
+      else o.capDuyet = ci + 1;
+      if (req.soQD && (can(s.role, 'propose') || can(s.role, 'approve'))) o.soQD = String(req.soQD).trim();
+      if (note) o.ghiChuDuyet = (o.ghiChuDuyet ? o.ghiChuDuyet + ' | ' : '') + (s.hoTen || s.username) + ': ' + note;
+      if (o.trangThai !== 'Chờ duyệt') { o.nguoiDuyet = s.username; o.ngayDuyet = env.now(); }
+      o.lichSu = JSON.stringify(ls);
       D('LenLuong');
-      if (req.approve) applyDueRaises();
-      log(s, 'll.' + (req.approve ? 'approve' : 'reject'), o.maNV);
+      if (o.trangThai === 'Đã duyệt') applyDueRaises();
+      log(s, 'll.decide', o.maNV + ' → ' + (o.trangThai === 'Chờ duyệt' ? 'chuyển ' + caps[o.capDuyet].ten : o.trangThai));
+      if (o.trangThai === 'Chờ duyệt') llBao(o, s);
+      else bao([o.nguoiDeXuat, userCuaNV(o.maNV)].filter(function (u, i, a) { return u && u !== s.username && a.indexOf(u) === i; }), { loai: 'duyet', t: 'Đề xuất lương ' + (o.trangThai === 'Đã duyệt' ? 'đã được duyệt' : 'bị từ chối'), b: ((findNV(o.maNV) || {}).hoTen || o.maNV) + ': ' + o.loai + (note ? ' · ' + note : ''), tag: 'll_' + o.id, mo: '#v=myll' });
       return { row: o, nv: findNV(o.maNV) };
     };
 
@@ -5777,7 +5836,7 @@ var HRCORE = (function () {
       var a = T('LenLuong');
       for (var i = a.length - 1; i >= 0; i--) if (a[i].id === req.id) {
         if (a[i].trangThai === 'Đã duyệt' && s.role !== 'admin') err('Chỉ Quản trị được xóa quyết định đã duyệt.');
-        if (a[i].trangThai !== 'Đã duyệt') need(s, 'propose');
+        if (a[i].trangThai !== 'Đã duyệt' && !can(s.role, 'propose') && !(a[i].nguoiDeXuat === s.username && a[i].trangThai === 'Chờ duyệt' && !parseJSON(a[i].lichSu, []).length)) err('Chỉ người lập (khi chưa có cấp nào duyệt) hoặc TCHC được xóa đề xuất.');
         var nvX = findNV(a[i].maNV);
         if (nvX && a[i].trangThai === 'Đã duyệt') {
           var cuX = {}; if (num(a[i].luongCu) > 0) cuX.luongChinh = num(a[i].luongCu); if (num(a[i].luongBHCu) > 0) cuX.luongBH = num(a[i].luongBHCu);
@@ -7778,8 +7837,9 @@ var HRCORE = (function () {
       ['bat', 'khoaThietBi', 'batBuocKM', 'nhanAnhNgoaiVung'].forEach(function (k) { if (o[k] != null) c[k] = !!o[k]; });
       if (o.banKinhCT != null) { if (!(+o.banKinhCT >= 50 && +o.banKinhCT <= 5000)) err('Bán kính điểm công tác từ 50 đến 5.000 m.'); c.banKinhCT = Math.round(+o.banKinhCT); }
       if (o.banDo != null) { var bd = String(o.banDo || '').trim(); if (bd && !/^https:\/\/[^\s]+\{z\}[^\s]*\{x\}[^\s]*\{y\}/.test(bd)) err('Địa chỉ lớp bản đồ phải dạng https://…/{z}/{x}/{y}…'); c.banDo = bd.slice(0, 300); }
+      if (o.ggKey != null) { var gk = String(o.ggKey || '').trim(); if (gk && !/^[A-Za-z0-9_\-]{30,60}$/.test(gk)) err('Khóa Google Maps không đúng dạng (thường bắt đầu bằng AIza…, 39 ký tự).'); c.ggKey = gk; }   // v3.53
       if (c.doChinhXac < 10 || c.doChinhXac > 300) err('Độ chính xác tối đa từ 10 đến 300 m.');
-      setCfg({ gps: c }); log(s, 'gps.caidat', JSON.stringify(c));
+      setCfg({ gps: c }); log(s, 'gps.caidat', JSON.stringify(Object.assign({}, c, { ggKey: c.ggKey ? '(đã đặt)' : '' })));
       return { gps: c };
     };
     /* công theo ngày từ chấm công GPS hợp lệ: có vào và ra đủ giờ → X, thiếu ra hoặc chưa đủ giờ → ½ */
@@ -9501,7 +9561,7 @@ var HRCORE = (function () {
       return out;
     }
     function trangTriQT(cfg) {               // gắn tên người xử lý để hiển thị
-      ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhYKien'].forEach(function (k) {
+      ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien'].forEach(function (k) {
         cfg[k] = (cfg[k] || []).map(function (b) { var c = clone(b); c.nguoiTen = tenNguoi(b.nguoi); return c; });
       });
       var nhDX = {};
@@ -10085,6 +10145,12 @@ var HRCORE = (function () {
         qn.forEach(function (c) { if (!c.ten) err('Có cấp duyệt nghỉ chưa đặt tên.'); kiemNguoi(c.nguoi, true, c.ten); });
         out.quyTrinhNghi = qn; ghi.push('nghỉ phép');
       }
+      if (req.quyTrinhLenLuong) {                      // v3.54
+        var qll = req.quyTrinhLenLuong.map(function (c) { return { id: String(c.id || newId()), ten: String(c.ten || '').trim(), nguoi: c.nguoi || [] }; });
+        if (!qll.length) err('Quy trình duyệt đề xuất lương cần ít nhất 1 cấp.');
+        qll.forEach(function (c) { if (!c.ten) err('Có cấp duyệt đề xuất lương chưa đặt tên.'); if (!c.nguoi.length) err('Cấp "' + c.ten + '" chưa có người duyệt.'); kiemNguoi(c.nguoi, true, c.ten); });
+        out.quyTrinhLenLuong = qll; ghi.push('đề xuất lương');
+      }
       if (req.quyTrinhYKien) {
         var qy = req.quyTrinhYKien.map(function (c) { return { chuDe: String(c.chuDe || '').trim(), nguoi: c.nguoi || [] }; });
         if (!qy.length) err('Cần ít nhất 1 chủ đề ý kiến.');
@@ -10602,7 +10668,7 @@ var HRCORE = (function () {
     CV_CS: CV_CS, CV_CS_OK: CV_CS_OK,
     DX_TT: DX_TT, DX_MO: DX_MO, DX_XONG: DX_XONG, QT_DX_MD: QT_DX_MD, NHOM_DX_MD: NHOM_DX_MD, DX_CACH: DX_CACH,
     kiemTraLoaiDX: kiemTraLoaiDX, kiemTraNhomDX: kiemTraNhomDX, dxBuocDay: dxBuocDay,
-    QT_LUONG_MD: QT_LUONG_MD, QT_NGHI_MD: QT_NGHI_MD, QT_YKIEN_MD: QT_YKIEN_MD, LOAI_VP: LOAI_VP, YK_TT: YK_TT, LOAI_NGHI: LOAI_NGHI, NGHI_COT: NGHI_COT, NP_TT: NP_TT,
+    QT_LUONG_MD: QT_LUONG_MD, QT_NGHI_MD: QT_NGHI_MD, QT_LL_MD: QT_LL_MD, QT_YKIEN_MD: QT_YKIEN_MD, LOAI_VP: LOAI_VP, YK_TT: YK_TT, LOAI_NGHI: LOAI_NGHI, NGHI_COT: NGHI_COT, NP_TT: NP_TT,
     laNgayNghiLe: laNgayNghiLe, soNgayDon: soNgayDon, ngayNghiTheoKy: ngayNghiTheoKy, quyPhepNam: quyPhepNam, phepNamDaDung: phepNamDaDung, normBuoc: normBuoc, SCHEMA: SCHEMA, isNumCol: isNumCol,
     DEFAULT_CFG: DEFAULT_CFG, LOAI_HD: LOAI_HD, LOAI_LUONG: LOAI_LUONG, LY_DO_KHONG_BH: LY_DO_KHONG_BH, loaiLuongNV: loaiLuongNV, TRANG_THAI_NV: TRANG_THAI_NV, LOAI_QT: LOAI_QT,
     LOAI_LL: LOAI_LL, LOAI_KT: LOAI_KT, HT_KYLUAT: HT_KYLUAT,
@@ -11638,6 +11704,7 @@ const IC = {
   nv: '<circle cx="9" cy="8" r="4"/><path d="M1 21c0-4 4-7 8-7s8 3 8 7M17 4a4 4 0 0 1 0 8M23 21c0-3-2-5-4-6"/>',
   qt: '<path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/>',
   ll: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+  myll: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
   kt: '<path d="M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.6 6.5 19.5l1-6.3L3 8.9 9 8z"/>',
   luong: '<rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9v6M18 9v6"/>',
   np: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 14h3"/>',
@@ -11686,6 +11753,7 @@ const VIEWS = {
   me: { t: 'Hồ sơ của tôi', p: 'me', g: 'Cá nhân' },
   slip: { t: 'Phiếu lương của tôi', p: 'me', g: 'Cá nhân' },
   mynp: { t: 'Nghỉ phép của tôi', p: 'me', g: 'Cá nhân' },
+  myll: { t: 'Đề xuất lương', p: 'llme', g: 'Cá nhân' },
   users: { t: 'Tài khoản', p: 'users', g: 'Hệ thống' },
   qtp: { t: 'Quy trình & phê duyệt', p: 'quytrinh', g: 'Hệ thống' },
   ctl: { t: 'Công thức lương', p: 'congthuc', g: 'Hệ thống' },
@@ -11704,6 +11772,7 @@ function allowed(v) {
   if (p === 'congvan') return can('congvan') || !!APP.D.coCV;          // người được giao xử lý công văn cũng thấy sổ
   if (p === 'dx') return !!APP.user.maNV || can('view_all');            // ai cũng lập được đề xuất; Quản trị xem để theo dõi
   if (p === 'me') return !!APP.user.maNV;
+  if (p === 'llme') return !can('view_all') && (!!APP.user.maNV || (APP.D.ll || []).some(llCanDecide));   // v3.54
   if (p === 'users') return can('users') || can('doimk');
   if (p === 'ql') return !can('view_all') && !!bpXemTen();   // v3.38: theo quyền xem_bp
   if (p === 'giao') return can('view_all') || (v === 'np' ? (APP.D.np || []).some(o => npCaps(o).some(c => (c.nguoi || []).includes('u:' + APP.user.username))) : (APP.D.yk || []).some(o => ykXuLy(o).includes('u:' + APP.user.username)));
@@ -11713,7 +11782,8 @@ function badge(v) {
   const D = APP.D;
   if (v === 'bt') return btUnread();
   if (v === 'chat') return chUnreadAll();
-  if (v === 'll' && can('approve')) return D.ll.filter(r => r.trangThai === 'Chờ duyệt').length + (D.mh || []).filter(r => r.trangThai === 'Chờ duyệt').length;
+  if (v === 'll') return D.ll.filter(r => { const c = llCap(r); return c && llCanDecide(r) && (APP.user.role !== 'giamdoc' || (c.nguoi || []).includes('r:giamdoc') || (c.nguoi || []).includes('u:' + APP.user.username)); }).length + (can('approve') ? (D.mh || []).filter(r => r.trangThai === 'Chờ duyệt').length : 0);
+  if (v === 'myll') return (D.ll || []).filter(llCanDecide).length;
   if (v === 'kt' && can('approve')) return D.kt.filter(r => r.trangThai === 'Chờ duyệt').length;
   if (v === 'np') return (D.np || []).filter(npCanDecide).length;
   if (v === 'gpsql') return D.soCB || 0;
@@ -11775,7 +11845,7 @@ function render() {
   renderNav();
   const v = APP.view;
   $('title').textContent = v === 'nvd' ? 'Hồ sơ CBCNV' : VIEWS[v].t;
-  const fn = { bt: vBT, chat: vChat, aibc: vAI, ccgps: vGPS, gpsql: vGPSQL, dgt: vDGT, botqd: vBotQD, cv: vCV, dx: vDX, dash: vDash, nv: vNV, nvd: vNVD, bc: vBC, khoan: vKhoan, le: vLe, bp: vBP, bpme: vBPme, qt: vQT, ll: vLL, kt: vKT, luong: vLuong, yk: vYK, np: vNP, mynp: vMyNP, me: vMe, slip: vSlip, users: vUsers, qtp: vQTP, ctl: vCTL, cfg: vCfg, log: vLog }[v];
+  const fn = { bt: vBT, chat: vChat, aibc: vAI, ccgps: vGPS, gpsql: vGPSQL, dgt: vDGT, botqd: vBotQD, cv: vCV, dx: vDX, dash: vDash, nv: vNV, nvd: vNVD, bc: vBC, khoan: vKhoan, le: vLe, bp: vBP, bpme: vBPme, qt: vQT, ll: vLL, kt: vKT, luong: vLuong, yk: vYK, np: vNP, mynp: vMyNP, myll: vMyLL, me: vMe, slip: vSlip, users: vUsers, qtp: vQTP, ctl: vCTL, cfg: vCfg, log: vLog }[v];
   $('view').innerHTML = fn();
   renderNav();
   if (v === 'log') loadLog();
@@ -13920,35 +13990,38 @@ function openLLForm(ma, id) {
   const r = id ? Object.assign({}, APP.D.ll.find(x => x.id === id)) : { maNV: ma || '', loai: 'Nâng bậc định kỳ', hieuLuc: C.addMonths(todayS().slice(0, 8) + '01', 1) };
   const tl = cfg().thangLuong || [], ngachs = [...new Set(tl.map(x => x.ngach))];
   const F = [
-    { k: 'maNV', l: 'Cán bộ CNV', t: 'select', o: nvOptions().filter(o => (nvBy(o[0]) || {}).trangThai !== 'Đã nghỉ việc'), req: 1, w: 'w2', ro: !!id, on: 'llShowCur()' },
+    { k: 'maNV', l: 'Cán bộ CNV', t: 'select', o: llNVs(), req: 1, w: 'w2', ro: !!id, on: 'llShowCur()' },
     { k: 'loai', l: 'Loại', t: 'select', o: C.LOAI_LL, req: 1 }, { k: 'hieuLuc', l: 'Ngày hiệu lực', t: 'date', req: 1 },
     { k: 'ngachMoi', l: 'Ngạch mới', t: ngachs.length ? 'list' : 'text', o: ngachs, on: 'llTl()' }, { k: 'bacMoi', l: 'Bậc mới', on: 'llTl()' },
     { k: 'luongMoi', l: 'Lương chính mới (đ)', t: 'money', req: 1 }, { k: 'luongBHMoi', l: 'Lương đóng BH mới (đ)', t: 'money', blank0: 1, hint: 'Để trống nếu không đổi cách tính' },
-    { k: 'soQD', l: 'Số quyết định' }, { k: 'lyDo', l: 'Lý do / căn cứ', t: 'textarea', w: 'wf' }
+    ...(can('propose') || can('approve') ? [{ k: 'soQD', l: 'Số quyết định' }] : []), { k: 'lyDo', l: 'Lý do / căn cứ (thành tích, đánh giá, thay đổi nhiệm vụ…)', t: 'textarea', w: 'wf', req: !can('propose') }
   ];
-  modal(id ? 'Sửa đề xuất lương' : 'Đề xuất điều chỉnh lương', `<div id="llCur" class="note"></div><br>` + formHTML(F, r), {
+  modal(id ? 'Sửa đề xuất lương' : 'Đề xuất điều chỉnh lương', `<div id="llCur" class="note"></div><div class="small muted" style="margin:6px 0 10px">Trình tự duyệt: <b>${esc((cfg().quyTrinhLenLuong || C.QT_LL_MD).map(c => c.ten).join(' → '))}</b> (cấp mà người duyệt chính là người lập được bỏ qua).</div>` + formHTML(F, r), {
     okText: id ? 'Lưu' : 'Gửi đề xuất', onOk: async () => {
       const v = readForm(F); if (id) { v.id = id; v.maNV = r.maNV; }
-      const res = await api('ll.save', { row: v }); upsertLocal(APP.D.ll, res, 'id'); persist(); render(); toast('Đã gửi đề xuất, chờ Ban Giám đốc duyệt.', 'ok');
+      const res = await api('ll.save', { row: v }); upsertLocal(APP.D.ll, res, 'id'); persist(); render(); const c0 = llCap(res); toast('Đã gửi đề xuất' + (c0 ? ', chờ: ' + c0.ten + (c0.nguoiTen ? ' (' + c0.nguoiTen + ')' : '') : '') + '.', 'ok');
     }
   });
   llShowCur();
 }
 function llShowCur() {
   const n = nvBy($('f_maNV').value), el = $('llCur'); if (!el) return;
-  if (!n) { el.textContent = 'Chọn CBCNV để xem lương hiện hưởng.'; return; }
+  if (!n || n.luongChinh == null) { el.textContent = n ? 'Đề xuất cho: ' + n.hoTen : 'Chọn CBCNV.'; return; }
   const han = C.hanNangBac(n, APP.D.ll, APP.D.kt, cfg());
   el.innerHTML = `Hiện hưởng: <b>${money0(n.luongChinh)} đ</b>${n.bac ? ' · ' + esc(n.ngach || '') + ' bậc ' + esc(n.bac) : ''} · hạn nâng bậc: <b>${dfmt(han) || '—'}</b>`;
 }
 function llTl() { const tl = cfg().thangLuong || []; const r = tl.find(x => x.ngach === $('f_ngachMoi').value.trim() && String(x.bac) === $('f_bacMoi').value.trim()); if (r) $('f_luongMoi').value = money(r.muc); }
 function decideLL(id, ok) {
   const r = APP.D.ll.find(x => x.id === id);
-  const F = [{ k: 'soQD', l: 'Số quyết định', def: r.soQD }, { k: 'note', l: 'Ghi chú', t: 'textarea', w: 'wf' }];
-  modal((ok ? 'Duyệt' : 'Từ chối') + ' đề xuất lương', `<p><b>${esc(nvName(r.maNV))}</b>: ${money0(r.luongCu)} → <b>${money0(r.luongMoi)} đ</b>, hiệu lực ${dfmt(r.hieuLuc)}.</p>` + formHTML(ok ? F : F.slice(1)), {
+  const c = llCap(r), caps = llCaps(r), cuoi = c && (num(r.capDuyet) >= caps.length - 1), vuot = c && !(c.nguoi || []).some(a => a === 'u:' + APP.user.username || a === 'r:' + APP.user.role);
+  const F = [...(can('propose') || can('approve') ? [{ k: 'soQD', l: 'Số quyết định', def: r.soQD }] : []), { k: 'note', l: ok ? 'Ý kiến' : 'Lý do từ chối', t: 'textarea', w: 'wf', req: !ok }];
+  const FF = ok ? F : F.filter(x => x.k === 'note');
+  modal((ok ? 'Duyệt' : 'Từ chối') + ' đề xuất lương' + (c ? ' – ' + esc(c.ten) : ''), `<p><b>${esc(nvName(r.maNV) || r.maNV)}</b>: ${num(r.luongCu) ? money0(r.luongCu) + ' → ' : ''}<b>${money0(r.luongMoi)} đ</b>, hiệu lực ${dfmt(r.hieuLuc)}.${r.lyDo ? '<br><span class="small">' + esc(r.lyDo) + '</span>' : ''}</p>${llTienTrinh(r)}
+    ${ok ? `<div class="note small">${cuoi || vuot ? 'Duyệt ở cấp này là <b>phê duyệt cuối</b>' + (vuot && !cuoi ? ' (Giám đốc duyệt vượt cấp – bỏ qua các cấp còn lại)' : '') + ': lương mới áp dụng từ ngày hiệu lực.' : 'Duyệt xong chuyển cấp tiếp theo: <b>' + esc((caps[num(r.capDuyet) + 1] || {}).ten || '') + '</b>.'}</div>` : ''}` + formHTML(FF), {
     size: 'sm', okText: ok ? 'Duyệt' : 'Từ chối', onOk: async () => {
-      const v = readForm(ok ? F : F.slice(1));
+      const v = readForm(FF);
       const res = await api('ll.decide', { id, approve: ok, note: v.note, soQD: v.soQD });
-      upsertLocal(APP.D.ll, res.row, 'id'); if (res.nv) upsertLocal(APP.D.nv, res.nv, 'maNV'); persist(); render(); toast(ok ? 'Đã duyệt.' : 'Đã từ chối.', 'ok');
+      upsertLocal(APP.D.ll, res.row, 'id'); if (res.nv && can('view_all')) upsertLocal(APP.D.nv, res.nv, 'maNV'); persist(); render(); const c1 = llCap(res.row); toast(!ok ? 'Đã từ chối.' : c1 ? 'Đã duyệt, chuyển: ' + c1.ten + '.' : 'Đã phê duyệt.', 'ok');
     }
   });
 }
@@ -14088,6 +14161,43 @@ async function mhImport(inp) {
     else toast(`Đã ghi ${res.ok} khai báo.` + (res.tinhLai.length ? ' Đã tính lại kỳ ' + res.tinhLai.map(kyfmt).join(', ') + '.' : ''), 'ok');
   } catch (e) { toast(e.message, 'err'); }
 }
+/* v3.54: đề xuất lương duyệt theo cấp: cá nhân / TP-CHT lập → TP/CHT → TCHC → Giám đốc */
+const llCaps = r => C.parseJSON(r.luongDuyet, []);
+const llCap = r => r.trangThai === 'Chờ duyệt' ? llCaps(r)[num(r.capDuyet)] : null;
+function llCanDecide(r) {
+  const c = llCap(r), u = APP.user; if (!c || r.maNV === u.maNV && u.role !== 'admin') return false;
+  return (c.nguoi || []).some(a => a === 'u:' + u.username || (a === 'r:' + u.role && u.role !== 'admin')) || u.role === 'giamdoc' || u.role === 'admin';
+}
+const llCuaToi = r => r.trangThai === 'Chờ duyệt' && r.nguoiDeXuat === APP.user.username && !C.parseJSON(r.lichSu, []).length;
+function llTT(r) {                        // trạng thái + cấp đang chờ
+  const c = llCap(r);
+  return c ? `<span class="pill warn" title="${esc(c.nguoiTen || moTaNguoi(c.nguoi))}">Chờ: ${esc(c.ten)}</span>` : pill(r.trangThai) + (r.trangThai === 'Đã duyệt' && r.apDung !== 'Có' ? ' <span class="pill info">Chờ hiệu lực</span>' : '');
+}
+function llTienTrinh(r) {                 // các cấp + lịch sử
+  const caps = llCaps(r), ls = C.parseJSON(r.lichSu, []), ci = num(r.capDuyet);
+  if (!caps.length) return '';
+  return `<div class="flow" style="margin:8px 0">${caps.map((c, i) => { const h = ls.find(x => x.cap === c.ten); const xong = r.trangThai === 'Đã duyệt' || (r.trangThai === 'Chờ duyệt' && i < ci) || (h && h.ketQua !== 'Từ chối');
+    return `<div class="fs${r.trangThai === 'Chờ duyệt' && i === ci ? ' on' : ''}"><b>${xong ? '✓ ' : ''}${esc(c.ten)}</b><span>${esc(c.nguoiTen || moTaNguoi(c.nguoi))}</span>${h ? `<em>${esc(h.ketQua)} · ${esc(h.nguoi)} · ${esc(String(h.luc).slice(0, 16))}${h.ghiChu ? ' · ' + esc(h.ghiChu) : ''}</em>` : ''}</div>`; }).join('')}</div>`
+    + (ls.filter(x => !caps.some(c => c.ten === x.cap)).map(x => `<div class="small muted">${esc(x.cap)}: ${esc(x.ketQua)} · ${esc(x.nguoi)}</div>`).join(''));
+}
+function llNVs() {                        // người được lập đề xuất: TCHC/quyền lập → mọi CBCNV; TP/CHT → bộ phận mình; cá nhân → chính mình
+  if (can('propose')) return nvOptions().filter(o => (nvBy(o[0]) || {}).trangThai !== 'Đã nghỉ việc');
+  const me = APP.user.maNV, ds = me ? [[me, (nvBy(me) || {}).hoTen || APP.user.hoTen || me]] : [];
+  if (C.ROLE_QL.includes(APP.user.role)) (APP.D.bpNV || []).forEach(n => { if (n.maNV !== me && n.trangThai !== 'Đã nghỉ việc') ds.push([n.maNV, n.hoTen + ' · ' + (n.chucVu || '')]); });
+  return ds;
+}
+function vMyLL() {
+  const ds = APP.D.ll || [], me = APP.user.maNV, cho = ds.filter(llCanDecide), cuaToi = ds.filter(r => r.maNV === me), toiLap = ds.filter(r => r.maNV !== me && r.nguoiDeXuat === APP.user.username && !llCanDecide(r));
+  const ql = C.ROLE_QL.includes(APP.user.role) && (APP.D.bpNV || []).length;
+  const the = r => `<div class="card" style="margin:8px 0;padding:12px"><div class="bar"><b>${esc(nvName(r.maNV) || (APP.D.bpNV || []).find(n => n.maNV === r.maNV)?.hoTen || r.maNV)}</b><span class="muted small">${esc(r.loai)} · hiệu lực ${dfmt(r.hieuLuc)}</span><span style="flex:1"></span>${llTT(r)}</div>
+    <div class="small" style="margin-top:4px">${num(r.luongCu) ? money0(r.luongCu) + ' → ' : 'Đề xuất: '}<b>${money0(r.luongMoi)} đ</b>${r.lyDo ? ' · ' + esc(r.lyDo) : ''}</div>${llTienTrinh(r)}
+    <div class="bar">${llCanDecide(r) ? `<button class="btn ok sm" onclick="decideLL('${r.id}',true)">Duyệt</button><button class="btn sm" onclick="decideLL('${r.id}',false)">Từ chối</button>` : ''}${llCuaToi(r) ? `<button class="btn sm" onclick="openLLForm(null,'${r.id}')">Sửa</button><button class="btn bad sm" onclick="delLL('${r.id}')">Xóa</button>` : ''}</div></div>`;
+  return `<div class="card"><div class="hd"><h2>Đề xuất điều chỉnh lương, nâng lương</h2><div class="bar">${me ? `<button class="btn pri" onclick="openLLForm('${me}')">+ Đề xuất cho bản thân</button>` : ''}${ql ? '<button class="btn" onclick="openLLForm()">+ Đề xuất cho nhân viên</button>' : ''}</div></div>
+    <div class="note">Trình tự duyệt: ${esc((cfg().quyTrinhLenLuong || C.QT_LL_MD).map(c => c.ten).join(' → '))}. Cấp mà người duyệt chính là người lập được bỏ qua.</div>
+    ${cho.length ? `<div class="sec">Chờ bạn duyệt (${cho.length})</div>${cho.map(the).join('')}` : ''}
+    <div class="sec">Đề xuất của tôi</div>${cuaToi.length ? cuaToi.sort((a, b) => a.ngayDeXuat < b.ngayDeXuat ? 1 : -1).map(the).join('') : '<div class="muted small">Chưa có đề xuất.</div>'}
+    ${toiLap.length ? `<div class="sec">Tôi đã lập cho nhân viên</div>${toiLap.map(the).join('')}` : ''}</div>`;
+}
 function delLL(id) { confirmBox('Xóa đề xuất/quyết định lương này?', async () => { await api('ll.delete', { id }); APP.D.ll = APP.D.ll.filter(x => x.id !== id); persist(); render(); toast('Đã xóa.', 'ok'); }); }
 function vLL() {
   const t = curTab('ll', 'ds');
@@ -14096,8 +14206,8 @@ function vLL() {
     const f = APP.filt.ll || (APP.filt.ll = { tt: '' });
     const rows = APP.D.ll.filter(r => !f.tt || r.trangThai === f.tt).sort((a, b) => (a.trangThai === 'Chờ duyệt') !== (b.trangThai === 'Chờ duyệt') ? (a.trangThai === 'Chờ duyệt' ? -1 : 1) : (a.hieuLuc < b.hieuLuc ? 1 : -1));
     body = `<div class="bar" style="margin-bottom:12px"><select onchange="APP.filt.ll.tt=this.value;render()" style="max-width:200px"><option value="">Mọi trạng thái</option>${['Chờ duyệt', 'Đã duyệt', 'Từ chối'].map(s => `<option${s === f.tt ? ' selected' : ''}>${s}</option>`).join('')}</select>${can('propose') ? '<button class="btn pri" onclick="openLLForm()">+ Đề xuất điều chỉnh lương</button>' : ''}</div>` +
-      tableHTML([{ l: 'CBCNV', f: r => `<a href="#" onclick="event.preventDefault();go('nvd','${r.maNV}')"><b>${esc(nvName(r.maNV))}</b></a>` }, { l: 'Loại', k: 'loai' }, { l: 'Hiệu lực', f: r => dfmt(r.hieuLuc) }, { l: 'Lương cũ', n: 1, f: r => money(r.luongCu) }, { l: 'Lương mới', n: 1, f: r => `<b>${money(r.luongMoi)}</b>` }, { l: 'Tăng', n: 1, f: r => num(r.luongCu) ? ((r.luongMoi / r.luongCu - 1) * 100).toFixed(1) + '%' : '' }, { l: 'Lý do', k: 'lyDo', wrap: 1 }, { l: 'Trạng thái', f: r => pill(r.trangThai) + (r.trangThai === 'Đã duyệt' && r.apDung !== 'Có' ? ' <span class="pill info">Chờ hiệu lực</span>' : '') },
-        { l: '', f: r => r.trangThai === 'Chờ duyệt' ? `${can('approve') ? `<button class="btn ok sm" onclick="decideLL('${r.id}',true)">Duyệt</button> <button class="btn sm" onclick="decideLL('${r.id}',false)">Từ chối</button> ` : ''}${can('propose') ? `<button class="btn sm" onclick="openLLForm(null,'${r.id}')">Sửa</button> <button class="btn bad sm" onclick="delLL('${r.id}')">Xóa</button>` : ''}` : (APP.user.role === 'admin' ? `<button class="btn bad sm" onclick="delLL('${r.id}')">Xóa</button>` : '') }],
+      tableHTML([{ l: 'CBCNV', f: r => `<a href="#" onclick="event.preventDefault();go('nvd','${r.maNV}')"><b>${esc(nvName(r.maNV))}</b></a>` }, { l: 'Loại', k: 'loai' }, { l: 'Hiệu lực', f: r => dfmt(r.hieuLuc) }, { l: 'Lương cũ', n: 1, f: r => money(r.luongCu) }, { l: 'Lương mới', n: 1, f: r => `<b>${money(r.luongMoi)}</b>` }, { l: 'Tăng', n: 1, f: r => num(r.luongCu) ? ((r.luongMoi / r.luongCu - 1) * 100).toFixed(1) + '%' : '' }, { l: 'Lý do', k: 'lyDo', wrap: 1 }, { l: 'Trạng thái', f: r => llTT(r) + (r.nguoiDeXuat ? `<div class="muted small">lập: ${esc(r.nguoiDeXuat)}</div>` : '') },
+        { l: '', f: r => r.trangThai === 'Chờ duyệt' ? `${llCanDecide(r) ? `<button class="btn ok sm" onclick="decideLL('${r.id}',true)">Duyệt</button> <button class="btn sm" onclick="decideLL('${r.id}',false)">Từ chối</button> ` : ''}${can('propose') || llCuaToi(r) ? `<button class="btn sm" onclick="openLLForm(null,'${r.id}')">Sửa</button> <button class="btn bad sm" onclick="delLL('${r.id}')">Xóa</button>` : ''}` : (APP.user.role === 'admin' ? `<button class="btn bad sm" onclick="delLL('${r.id}')">Xóa</button>` : '') }],
         rows, { empty: 'Chưa có đề xuất điều chỉnh lương.' });
   } else if (t === 'mh') {
     const f = APP.filt.mh || (APP.filt.mh = { tt: '', q: '' });
@@ -16852,7 +16962,7 @@ async function gpsBDVe() {             // bản đồ vị trí của bạn so v
   const g = GP.gan; if (!g || !GP.pos || !$('gpMap') || $('gpMap').classList.contains('bd-on')) return;
   const m = await bdTao('gpMap', { giu: true, cuon: false, tam: [GP.pos.lat, GP.pos.lng], zoom: 16 }); if (!m) return;
   (GP.info.diem || []).forEach(p => bdVung(m, p, p.congTac ? BD_MAU.ct : p.caNhan ? BD_MAU.rieng : BD_MAU.diem, esc(p.ten) + ' · ' + p.banKinh + ' m', { dam: p === g.p }));
-  L.circle([GP.pos.lat, GP.pos.lng], { radius: Math.max(GP.pos.acc, 3), color: BD_MAU.toi, weight: 1, fillOpacity: .12 }).addTo(m);
+  lx(m).circle([GP.pos.lat, GP.pos.lng], { radius: Math.max(GP.pos.acc, 3), color: BD_MAU.toi, weight: 1, fillOpacity: .12 }).addTo(m);
   bdCham(m, GP.pos.lat, GP.pos.lng, BD_MAU.toi, 'Vị trí của bạn (±' + Math.round(GP.pos.acc) + ' m)', true).openPopup();
   bdVua(m, g.p.linhHoat ? [[GP.pos.lat, GP.pos.lng]] : [[GP.pos.lat, GP.pos.lng], [+g.p.lat, +g.p.lng]], 30);
 }
@@ -17090,7 +17200,7 @@ async function vtBDVe() {
   const ds = vtLoc().slice(0, 300); if (!ds.length || !$('vtMap') || $('vtMap').classList.contains('bd-on')) return;
   const m = await bdTao('vtMap', { cuon: false }); if (!m) return; const diem = {}, b = [];
   ds.forEach(x => { const k = x.latCC + ',' + x.lngCC; if (!diem[k]) { diem[k] = 1; bdVung(m, { lat: x.latCC, lng: x.lngCC, banKinh: x.banKinh }, BD_MAU.diem, esc(x.diemCC) + ' · ' + x.banKinh + ' m'); b.push([x.latCC, x.lngCC]); }
-    L.polyline([[x.lat, x.lng], [x.latCC, x.lngCC]], { color: BD_MAU.bad, weight: 1.5, dashArray: '5 5', opacity: .7 }).addTo(m);
+    lx(m).polyline([[x.lat, x.lng], [x.latCC, x.lngCC]], { color: BD_MAU.bad, weight: 1.5, dashArray: '5 5', opacity: .7 }).addTo(m);
     bdCham(m, x.lat, x.lng, BD_MAU.bad, `<b>${esc(x.hoTen)}</b> (${esc(x.maNV)})<br>${dfmt(x.gioDo.slice(0, 10))} ${x.gioDo.slice(11, 16)} · cách "${esc(x.diemCC)}" ${gpsM(x.khoangCach)}`); b.push([x.lat, x.lng]); });
   bdVua(m, b, 30);
 }
@@ -17224,7 +17334,7 @@ function gqDiemHTML() {
   setTimeout(gqDiemBDVe, 40);
   const ds = [{ ma: '_chung', ten: 'Điểm dùng chung (mọi CBCNV)', loai: 'Chung' }].concat((cfg().boPhan || []).filter(b => b.trangThai !== 'Đã kết thúc'));
   return `<p class="small muted" style="margin-top:10px">Mỗi công trình / văn phòng khai báo một hay nhiều điểm (vĩ độ, kinh độ) và bán kính cho phép. CBCNV chỉ chấm công được ở điểm của bộ phận đang công tác và các điểm dùng chung. Bán kính công trường thường 100–300 m; văn phòng 50–100 m. Chỉ huy trưởng có thể đứng tại công trường bấm <b>Lấy vị trí hiện tại</b>.</p>
-    <div class="bdo bd-tong" id="gqDiemMap"></div>
+    <div class="bdo bd-tong" id="gqDiemMap"></div>${can('edit_nv') || APP.user.role === 'giamdoc' ? '<div class="small muted" style="margin:-4px 0 8px">Bấm vào chỗ bất kỳ trên bản đồ để <b>thêm điểm chấm công</b> tại đó.' + (ggKey() ? '' : ' Muốn dùng nền <b>Google Maps</b>: nhập khóa ở tab Cài đặt.') + '</div>' : ''}
     ${ds.map(b => { const p = dc[b.ma] || []; return `<div class="gq-bp"><div class="hd"><b>${esc(b.ten)}</b><span class="pill">${esc(b.loai)}</span><span class="muted small">${p.length ? p.length + ' điểm' : 'chưa khai báo'}</span><span style="flex:1"></span>${sua(b.ma) ? `<button class="btn sm" onclick="gqSuaDiem('${b.ma}')">${p.length ? 'Sửa' : '+ Thêm điểm'}</button>` : ''}</div>
       ${p.map(x => `<div class="gp-d"><b>${esc(x.ten)}</b><span class="muted small">${x.lat}, ${x.lng} · bán kính ${x.banKinh} m${x.gioVao ? ' · vào ' + x.gioVao : ''}${x.gioRa ? ' · ra ' + x.gioRa : ''}</span><a class="small" href="https://www.google.com/maps?q=${x.lat},${x.lng}" target="_blank" rel="noopener">Bản đồ</a></div>`).join('')}</div>`; }).join('')}
     <div class="gq-bp"><div class="hd"><b>Điểm riêng của cá nhân</b><span class="pill">Cá nhân</span><span class="muted small">kho, mỏ, trạm trộn, văn phòng đại diện…</span><span style="flex:1"></span><button class="btn sm" onclick="gqThemRieng()">+ Điểm riêng cho nhân viên</button></div>
@@ -17270,15 +17380,16 @@ function gqCaiDatHTML() {
       <label class="f"><span>Độ chính xác GPS tối đa (m)</span><input type="number" id="gqc_doChinhXac" value="${g.doChinhXac}"></label><label class="f"><span>Thời gian hiệu chuẩn (giây)</span><input type="number" id="gqc_hieuChuanGiay" value="${g.hieuChuanGiay}"></label>
       <label class="f"><span>Ngưỡng so khớp khuôn mặt (0,3–0,7)</span><input type="number" id="gqc_nguongKM" value="${g.nguongKM}" step="0.05"></label>
       <label class="f"><span>Bán kính mặc định điểm công tác (m)</span><input type="number" id="gqc_banKinhCT" value="${g.banKinhCT || 300}" step="50"></label>
-      <label class="f w2"><span>Lớp bản đồ riêng (để trống = OpenStreetMap)</span><input id="gqc_banDo" value="${esc(g.banDo || '')}" placeholder="https://…/{z}/{x}/{y}.png"></label></div>
+      <label class="f w2"><span>Khóa Google Maps (Maps JavaScript API) – để trống = OpenStreetMap</span><input id="gqc_ggKey" value="${esc(g.ggKey || '')}" placeholder="AIza…" autocomplete="off" spellcheck="false"><small class="muted">Có khóa: mọi bản đồ dùng Google Maps (bản đồ / vệ tinh), bấm lên bản đồ để đặt điểm. Bắt buộc giới hạn khóa trong Google Cloud: chỉ "Maps JavaScript API" + chỉ các địa chỉ trang của app. ${GM_LOI && g.ggKey ? '<b style="color:#B91C1C">Lỗi: ' + esc(GM_LOI) + '</b>' : ''} <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener">Hướng dẫn lấy khóa</a></small></label>
+      <label class="f w2"><span>Lớp bản đồ riêng khi không dùng Google (để trống = OpenStreetMap)</span><input id="gqc_banDo" value="${esc(g.banDo || '')}" placeholder="https://…/{z}/{x}/{y}.png"></label></div>
     <div style="display:grid;gap:6px;margin:10px 0">${ck('bat', 'Bật chấm công GPS')}${ck('batBuocKM', 'Bắt buộc đăng ký khuôn mặt trước khi chấm công')}${ck('khoaThietBi', 'Chấm công trên điện thoại khác điện thoại đã đăng ký → chờ duyệt')}${ck('nhanAnhNgoaiVung', 'Lưu ảnh của lượt thử ngoài vùng')}</div>
     <p class="small muted"><b>Đủ công (cả ngày, có tiền ăn ca)</b> khi giờ ra − giờ vào − phần trùng giờ nghỉ trưa ≥ "Số giờ làm đủ 1 công", cho phép thiếu bằng số phút "Cho phép trễ". Ví dụ vào 07:30, ra 17:00, nghỉ trưa 12:00–13:30 → 8 giờ: đủ công. Thiếu giờ hoặc thiếu chấm công ra → nửa công, không có ăn ca. Để trống cả hai ô nghỉ trưa nếu không trừ.</p>
     <p class="small muted">Ngưỡng so khớp càng nhỏ càng chặt (0,5 là mức khuyến nghị của bộ nhận diện). Độ chính xác GPS ngoài trời thường 5–20 m; trong nhà, gần mái tôn có thể 30–100 m.</p>
     <button class="btn pri" onclick="gqLuuCD()">Lưu cài đặt</button>${vtCaiDatHTML()}`;
 }
 async function gqLuuCD() {
-  const o = {}; ['gioVao', 'gioRa', 'nghiTruaTu', 'nghiTruaDen'].forEach(k => o[k] = $('gqc_' + k).value); ['phutTre', 'gioLamDuCong', 'doChinhXac', 'hieuChuanGiay', 'nguongKM', 'banKinhCT'].forEach(k => o[k] = +$('gqc_' + k).value); o.banDo = $('gqc_banDo').value.trim(); ['bat', 'batBuocKM', 'khoaThietBi', 'nhanAnhNgoaiVung'].forEach(k => o[k] = $('gqc_' + k).checked);
-  try { const r = await api('gps.caidat', { gps: o }); APP.D.cfg.gps = r.gps; persist(); toast('Đã lưu cài đặt chấm công GPS.', 'ok'); } catch (e) { toast(e.message, 'err'); }
+  const o = {}; ['gioVao', 'gioRa', 'nghiTruaTu', 'nghiTruaDen'].forEach(k => o[k] = $('gqc_' + k).value); ['phutTre', 'gioLamDuCong', 'doChinhXac', 'hieuChuanGiay', 'nguongKM', 'banKinhCT'].forEach(k => o[k] = +$('gqc_' + k).value); o.banDo = $('gqc_banDo').value.trim(); o.ggKey = $('gqc_ggKey').value.trim(); ['bat', 'batBuocKM', 'khoaThietBi', 'nhanAnhNgoaiVung'].forEach(k => o[k] = $('gqc_' + k).checked);
+  try { const r = await api('gps.caidat', { gps: o }); const doiKhoa = (APP.D.cfg.gps || {}).ggKey !== r.gps.ggKey; APP.D.cfg.gps = r.gps; persist(); if (doiKhoa) { GM_LOI = ''; GM_NAP = null; } toast('Đã lưu cài đặt chấm công GPS.' + (doiKhoa && r.gps.ggKey ? ' Mở lại tab Bản đồ / Điểm chấm công để dùng Google Maps (nếu trước đó đã tải bản khác: tải lại trang).' : ''), 'ok'); } catch (e) { toast(e.message, 'err'); }
 }
 /* đưa công GPS vào bảng chấm công theo ngày (chỉ ô trống, không đè ngày nghỉ theo đơn) */
 async function dgTuGPS() {
@@ -17302,8 +17413,70 @@ function napLeaflet() {
 }
 const BD_MAU = { ok: '#15803D', warn: '#B45309', bad: '#B91C1C', diem: '#1D4ED8', ct: '#7C3AED', rieng: '#0E7490', toi: '#F97316' };
 function bdLop() { const u = ((cfg().gps || {}).banDo || '').trim(); return u || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'; }
+/* v3.53: GOOGLE MAPS (Maps JavaScript API) – dùng khi Quản trị nhập khóa ở Chấm công GPS → Cài đặt.
+   Lớp GL bắt chước phần Leaflet app đang dùng (setView, fitBounds, on click, circle, circleMarker, marker kéo được, polyline, popup)
+   nên mọi bản đồ (điểm chấm công, bản đồ trong ngày, công tác, vị trí khi chấm công) tự chuyển sang Google. Khóa sai / bị chặn → quay về OpenStreetMap. */
+let GM_NAP = null, GM_LOI = '';
+const ggKey = () => String((cfg().gps || {}).ggKey || '').trim();
+function napGG(key) {
+  if (window.google && google.maps && google.maps.Map) return Promise.resolve();
+  return GM_NAP = GM_NAP || new Promise((ok, no) => {
+    window.gm_authFailure = () => { GM_LOI = 'Google Maps từ chối khóa (khóa sai, chưa bật Maps JavaScript API, chưa bật thanh toán, hoặc địa chỉ trang chưa được cho phép).'; toast(GM_LOI + ' Đang dùng OpenStreetMap.', 'err'); Object.keys(BD).forEach(k => { const m = BD[k]; if (m && m._gg) { delete BD[k]; } }); setTimeout(render, 50); };
+    window.__ggOk = () => ok();
+    const s = document.createElement('script');
+    s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&language=vi&region=VN&callback=__ggOk';
+    s.onerror = () => { GM_NAP = null; no(new Error('Không tải được Google Maps (cần mạng).')); }; document.head.appendChild(s);
+    setTimeout(() => no(new Error('Google Maps tải quá lâu.')), 15000);
+  });
+}
+const gLL = p => Array.isArray(p) ? { lat: +p[0], lng: +p[1] } : { lat: +p.lat, lng: +p.lng };
+class GWMap {                                   // bản đồ Google với giao diện kiểu Leaflet
+  constructor(el, o) {
+    this._gg = true; this._click = [];
+    this.m = new google.maps.Map(el, { center: gLL(o.tam || [21.0285, 105.8542]), zoom: o.zoom || 13, mapTypeControl: true, mapTypeControlOptions: { mapTypeIds: ['roadmap', 'hybrid'] }, streetViewControl: false, fullscreenControl: true, clickableIcons: false, gestureHandling: o.cuon === false ? 'cooperative' : 'greedy' });
+    this.iw = new google.maps.InfoWindow();
+    this.m.addListener('click', e => this._bam(e.latLng));
+    this.attributionControl = { setPrefix() { } };
+  }
+  _bam(ll) { const e = { latlng: { lat: ll.lat(), lng: ll.lng() } }; this._click.forEach(f => f(e)); }
+  on(ev, f) { if (ev === 'click') this._click.push(f); return this; }
+  setView(p, z) { this.m.setCenter(gLL(p)); if (z) this.m.setZoom(z); return this; }
+  panTo(p) { this.m.panTo(gLL(p)); return this; }
+  fitBounds(ds, o = {}) { const b = new google.maps.LatLngBounds(); ds.forEach(p => b.extend(gLL(p))); this.m.fitBounds(b, (o.padding || [28])[0]);
+    if (o.maxZoom) google.maps.event.addListenerOnce(this.m, 'idle', () => { if (this.m.getZoom() > o.maxZoom) this.m.setZoom(o.maxZoom); }); return this; }
+  invalidateSize() { return this; } remove() { this._click = []; }
+}
+class GWLop {
+  constructor(o, pos) { this.o = o; this._pos = pos; this._ev = {}; }
+  addTo(w) { this.w = w; this.o.setMap(w.m); return this; }
+  remove() { this.o.setMap(null); return this; }
+  getLatLng() { const p = this.o.getPosition ? this.o.getPosition() : this.o.getCenter ? this.o.getCenter() : null; return p ? { lat: p.lat(), lng: p.lng() } : this._pos; }
+  bindPopup(html) { this._pop = html; if (!this._coPop) { this._coPop = 1; this.o.addListener('click', e => { this.openPopup(e && e.latLng); if (this._noi && this.w) this.w._bam(e.latLng); }); } return this; }
+  bindTooltip(t) { if (this.o instanceof google.maps.Marker) this.o.setTitle(String(t).replace(/<[^>]+>/g, ' ')); else this._tip = t; return this; }
+  openPopup(at) { if (!this.w || !this._pop) return this; this.w.iw.setContent(this._pop); this.w.iw.setPosition(at || gLL(this.getLatLng())); this.w.iw.open(this.w.m); return this; }
+  on(ev, f) { this.o.addListener(ev, () => f({ target: this })); return this; }
+}
+const GL = {
+  circle(p, o) { const l = new GWLop(new google.maps.Circle({ center: gLL(p), radius: o.radius, strokeColor: o.color, strokeWeight: o.weight || 2, strokeOpacity: o.opacity ?? .9, fillColor: o.fillColor || o.color, fillOpacity: o.fillOpacity ?? .2 }), gLL(p)); l._noi = 1; l.o.addListener('click', e => { if (!l._pop && l.w) l.w._bam(e.latLng); }); return l; },
+  circleMarker(p, o) { return new GWLop(new google.maps.Marker({ position: gLL(p), icon: { path: google.maps.SymbolPath.CIRCLE, scale: o.radius || 6, fillColor: o.fillColor || o.color, fillOpacity: o.fillOpacity ?? 1, strokeColor: o.color || '#fff', strokeWeight: o.weight || 2 } }), gLL(p)); },
+  marker(p, o = {}) { return new GWLop(new google.maps.Marker({ position: gLL(p), draggable: !!o.draggable, zIndex: 999, icon: { path: 'M12 0C6.5 0 2 4.4 2 9.8 2 17.2 12 28 12 28s10-10.8 10-18.2C22 4.4 17.5 0 12 0z', fillColor: BD_MAU.toi, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, scale: 1.2, anchor: new google.maps.Point(12, 28) } }), gLL(p)); },
+  polyline(ds, o) { return new GWLop(new google.maps.Polyline({ path: ds.map(gLL), strokeColor: o.color, strokeWeight: o.weight || 2, strokeOpacity: o.opacity ?? .8 })); },
+  divIcon() { return null; }
+};
+const lx = m => m && m._gg ? GL : L;          // thư viện lớp đúng với bản đồ đang dùng
 async function bdTao(id, o = {}) {        // tạo bản đồ trong phần tử #id; trả về đối tượng map hoặc null nếu không tải được
   const el = $(id); if (!el) return null;
+  const key = ggKey();
+  if (key && !GM_LOI) {
+    try {
+      await napGG(key);
+      if (!$(id) || $(id) !== el || GM_LOI) throw new Error(GM_LOI || 'bỏ');
+      el.innerHTML = ''; el.classList.add('bd-on', 'bd-gg'); el.classList.remove('bd-khongnen');
+      if (BD[id]) { try { BD[id].remove(); } catch (e) { } delete BD[id]; }
+      const w = new GWMap(el, o); BD[id] = w; return w;
+    } catch (e) { if (!$(id) || $(id) !== el) return null; if (!GM_LOI) { GM_LOI = e.message; toast(e.message + ' Đang dùng OpenStreetMap.', 'err'); } }
+  }
+  el.classList.remove('bd-gg');
   try { await napLeaflet(); } catch (e) { if (!o.giu) { el.innerHTML = `<div class="bd-loi">${esc(e.message)} Dùng nút "Bản đồ" để mở Google Maps.</div>`; el.classList.add('loi'); } return null; }
   if (!$(id) || $(id) !== el) return null;
   el.innerHTML = ''; el.classList.add('bd-on');
@@ -17319,13 +17492,13 @@ async function bdTao(id, o = {}) {        // tạo bản đồ trong phần tử
   return m;
 }
 function bdVung(m, p, mau, nhan, o = {}) {    // điểm chấm công: vòng bán kính + tâm
-  const c = L.circle([+p.lat, +p.lng], { radius: Math.max(+p.banKinh || 0, 5), color: mau, weight: 2, fillColor: mau, fillOpacity: o.dam ? .18 : .1, dashArray: o.netDut ? '6 5' : null }).addTo(m);
-  const t = L.circleMarker([+p.lat, +p.lng], { radius: 4, color: '#fff', weight: 2, fillColor: mau, fillOpacity: 1 }).addTo(m);
+  const c = lx(m).circle([+p.lat, +p.lng], { radius: Math.max(+p.banKinh || 0, 5), color: mau, weight: 2, fillColor: mau, fillOpacity: o.dam ? .18 : .1, dashArray: o.netDut ? '6 5' : null }).addTo(m);
+  const t = lx(m).circleMarker([+p.lat, +p.lng], { radius: 4, color: '#fff', weight: 2, fillColor: mau, fillOpacity: 1 }).addTo(m);
   if (nhan) { c.bindTooltip(nhan, { sticky: true }); t.bindPopup(nhan); }
   return [c, t];
 }
 function bdCham(m, lat, lng, mau, nd, lon) {  // chấm vị trí (người / lượt chấm công)
-  return L.circleMarker([lat, lng], { radius: lon ? 8 : 6, color: '#fff', weight: 2, fillColor: mau, fillOpacity: 1 }).addTo(m).bindPopup(nd);
+  return lx(m).circleMarker([lat, lng], { radius: lon ? 8 : 6, color: '#fff', weight: 2, fillColor: mau, fillOpacity: 1 }).addTo(m).bindPopup(nd);
 }
 function bdVua(m, diem, pad) { const b = diem.filter(p => isFinite(+p[0]) && isFinite(+p[1]) && (+p[0] || +p[1])); if (!b.length) return; if (b.length === 1) m.setView(b[0], 16); else m.fitBounds(b, { padding: [pad || 28, pad || 28], maxZoom: 17 }); }
 const bdGG = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
@@ -17350,7 +17523,7 @@ function bcVe(vua) {
   BDC.ds.forEach((p, i) => { if (!(+p.lat && +p.lng)) return; BDC.lop.push(...bdVung(m, p, i === BDC.i ? BD_MAU.toi : BD_MAU.diem, esc(p.ten || 'Điểm ' + (i + 1)) + ' · ' + (p.banKinh || 0) + ' m', { dam: i === BDC.i })); });
   const p = BDC.ds[BDC.i];
   if (p && +p.lat && +p.lng) {
-    BDC.ghim = L.marker([+p.lat, +p.lng], { draggable: true, icon: L.divIcon({ className: 'bd-ghim', html: '<i></i>', iconSize: [28, 28], iconAnchor: [14, 28] }) }).addTo(m);
+    BDC.ghim = lx(m).marker([+p.lat, +p.lng], { draggable: true, icon: lx(m).divIcon({ className: 'bd-ghim', html: '<i></i>', iconSize: [28, 28], iconAnchor: [14, 28] }) }).addTo(m);
     BDC.ghim.on('dragend', e => { const q = e.target.getLatLng(); bcDat(q.lat, q.lng, true); });
   }
   if (vua) bdVua(m, BDC.ds.filter(x => +x.lat && +x.lng).map(x => [+x.lat, +x.lng]));
@@ -17486,7 +17659,19 @@ function gqCTHTML() {
 /* ---------- điểm chấm công: bản đồ tổng + sửa trên bản đồ + điểm riêng cá nhân ---------- */
 function gqDiemBDVe() {
   bdTao('gqDiemMap').then(m => { if (!m) return; const dc = cfg().diemCC || {}, b = [];
+    if (can('edit_nv') || APP.user.role === 'giamdoc') m.on('click', e => gqBamThem(e.latlng.lat, e.latlng.lng));   // v3.53: bấm bản đồ → thêm điểm chấm công tại đó
     Object.keys(dc).forEach(ma => (dc[ma] || []).forEach(p => { bdVung(m, p, /^nv:/.test(ma) ? BD_MAU.rieng : BD_MAU.diem, `<b>${esc(p.ten)}</b> · ${p.banKinh} m`); b.push([+p.lat, +p.lng]); })); bdVua(m, b, 30); });
+}
+function gqBamThem(lat, lng) {                // v3.53: chọn bộ phận / công trình cho điểm vừa bấm trên bản đồ
+  lat = +(+lat).toFixed(6); lng = +(+lng).toFixed(6);
+  const ds = [{ ma: '_chung', ten: 'Điểm dùng chung (mọi CBCNV)' }].concat((cfg().boPhan || []).filter(b => b.trangThai !== 'Đã kết thúc'));
+  modal('Thêm điểm chấm công tại vị trí đã chọn', `<div class="small muted" style="margin-bottom:8px">Tọa độ ${lat}, ${lng} · <a href="${bdGG(lat, lng)}" target="_blank" rel="noopener">xem trên Google Maps</a></div>
+    <div class="fg"><label class="f w2"><span>Thuộc bộ phận / công trình</span><select id="gqBTbp">${ds.map(b => `<option value="${esc(b.ma)}">${esc(b.ten)}${(cfg().diemCC || {})[b.ma] && cfg().diemCC[b.ma].length ? ' (' + cfg().diemCC[b.ma].length + ' điểm)' : ''}</option>`).join('')}</select></label>
+      <label class="f"><span>Tên điểm</span><input id="gqBTten" placeholder="VD: Cổng công trường"></label><label class="f"><span>Bán kính (m)</span><input id="gqBTbk" type="number" min="20" max="5000" value="150"></label></div>
+    <p class="small muted">Bấm "Tiếp tục" để mở bảng điểm của bộ phận: chỉnh vòng tròn, kéo ghim cho chính xác rồi Lưu.</p>`, { okText: 'Tiếp tục', onOk: () => {
+      const ma = $('gqBTbp').value, ten = $('gqBTten').value.trim(), bk = Math.min(5000, Math.max(20, +$('gqBTbk').value || 150));
+      setTimeout(() => { GQ.sua = { ma, ds: JSON.parse(JSON.stringify((cfg().diemCC || {})[ma] || [])) }; GQ.sua.ds.push({ ten, lat, lng, banKinh: bk }); BDC.ds = null; gqDiemModal(); setTimeout(() => bcChon(GQ.sua.ds.length - 1), 400); }, 30);
+    } });
 }
 function gqThemRieng() {
   const nvs = gqNVs();
@@ -17890,7 +18075,7 @@ function qtInit() {
   // bỏ cấp "Giám đốc phê duyệt" chốt cuối (cờ chot) khỏi trình sửa: cấp này do cờ gdCuoi sinh ra, không sửa tay
   const stripDX = l => JSON.parse(JSON.stringify(l || [])).map(x => { delete x.theoDoiTen; delete x.thucHienTen; delete x.tenNhom; delete x.cachTen;
     x.buoc = (x.buoc || []).filter(b => !b.chot).map(b => { delete b.nguoiTen; return b; }); return x; });
-  APP.qtE = { luong: strip(c.quyTrinhLuong || C.QT_LUONG_MD), nghi: strip(c.quyTrinhNghi || C.QT_NGHI_MD), yk: strip(c.quyTrinhYKien || C.QT_YKIEN_MD),
+  APP.qtE = { luong: strip(c.quyTrinhLuong || C.QT_LUONG_MD), nghi: strip(c.quyTrinhNghi || C.QT_NGHI_MD), ll: strip(c.quyTrinhLenLuong || C.QT_LL_MD), yk: strip(c.quyTrinhYKien || C.QT_YKIEN_MD),
     dx: stripDX(c.loaiDeXuat || C.QT_DX_MD), nhomDX: JSON.parse(JSON.stringify(c.nhomDeXuat || C.NHOM_DX_MD)),
     tbp: Object.assign({}, c.truongBoPhan || {}), apDung: true, dirty: false };
 }
@@ -17977,11 +18162,12 @@ function qtAdd(list) {
   const id = 'b' + Date.now().toString(36);
   if (list === 'luong') { const a = APP.qtE.luong; a.splice(Math.max(2, a.length - 1), 0, { id, ten: 'Kiểm tra', loai: 'kiemtra', nguoi: [] }); }
   else if (list === 'nghi') APP.qtE.nghi.push({ id, ten: 'Cấp duyệt mới', nguoi: [], tren: 0, loai: [] });
+  else if (list === 'll') APP.qtE.ll.splice(Math.max(0, APP.qtE.ll.length - 1), 0, { id, ten: 'Cấp duyệt mới', nguoi: [] });
   else APP.qtE.yk.push({ chuDe: 'Chủ đề mới', nguoi: ['r:tchc'] });
   APP.qtE.dirty = true; render();
 }
 function qtLoaiNghi(i, l, on) { const it = APP.qtE.nghi[i]; it.loai = (it.loai || []).filter(x => x !== l); if (on) it.loai.push(l); APP.qtE.dirty = true; render(); }
-function qtReset(list) { APP.qtE[list === 'nhomDX' ? 'nhomDX' : list] = JSON.parse(JSON.stringify(list === 'luong' ? C.QT_LUONG_MD : list === 'nghi' ? C.QT_NGHI_MD : list === 'dx' ? C.QT_DX_MD : list === 'nhomDX' ? C.NHOM_DX_MD : C.QT_YKIEN_MD)); APP.qtE.dirty = true; render(); }
+function qtReset(list) { APP.qtE[list === 'nhomDX' ? 'nhomDX' : list] = JSON.parse(JSON.stringify(list === 'luong' ? C.QT_LUONG_MD : list === 'nghi' ? C.QT_NGHI_MD : list === 'll' ? C.QT_LL_MD : list === 'dx' ? C.QT_DX_MD : list === 'nhomDX' ? C.NHOM_DX_MD : C.QT_YKIEN_MD)); APP.qtE.dirty = true; render(); }
 function qtFlow(steps, last) {
   return `<div class="flow">${steps.map(b => `<div class="fs"><b>${esc(b.ten || b.chuDe)}</b><span>${esc(moTaNguoi(b.nguoi) || '— chưa có người —')}</span>${b.tren ? `<em>khi nghỉ trên ${b.tren} ngày</em>` : ''}${b.loai && Array.isArray(b.loai) && b.loai.length ? `<em>chỉ: ${b.loai.map(x => x.replace(' (BHXH chi trả)', '')).join(', ')}</em>` : ''}</div>`).join('<i>→</i>')}${last ? `<i>→</i><div class="fs end"><b>${last}</b></div>` : ''}</div>`;
 }
@@ -18018,6 +18204,14 @@ function vQTP() {
     <div class="bar" style="margin-top:10px"><button class="btn sm" onclick="qtAdd('nghi')">+ Thêm cấp duyệt</button></div>
     <p class="small muted">Đơn đi lần lượt qua các cấp thỏa điều kiện. Ví dụ "Áp dụng khi số ngày &gt; 3": đơn từ 3,5 ngày trở lên mới qua cấp đó. Cấp mà người duyệt chính là người nộp đơn được bỏ qua; hai cấp liền nhau cùng người duyệt chỉ tính một lần. Giám đốc và Quản trị duyệt vượt cấp được. Đơn đã nộp giữ quy trình tại thời điểm nộp.</p></div>
 
+  <div class="card"><div class="hd"><h2>2b. Duyệt đề xuất điều chỉnh lương, nâng lương</h2><button class="btn sm" onclick="qtReset('ll')">Khôi phục mặc định</button></div>
+    ${qtFlow(E.ll, 'Đã duyệt – áp dụng từ ngày hiệu lực')}
+    <div class="tw" style="margin-top:10px"><table class="t qt"><thead><tr><th>#</th><th>Tên cấp duyệt</th><th>Người duyệt</th><th></th></tr></thead><tbody>
+    ${E.ll.map((c, i) => `<tr><td>${i + 1}</td><td><input value="${esc(c.ten)}" onchange="qtSet('ll',${i},'ten',this.value)" style="min-width:200px"></td><td class="wrap">${qtChips('ll', i, true)}</td><td>${ctrl('ll', i, E.ll.length)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="bar" style="margin-top:10px"><button class="btn sm" onclick="qtAdd('ll')">+ Thêm cấp duyệt</button></div>
+    <p class="small muted">Cá nhân lập đề xuất cho chính mình, Trưởng phòng / Chỉ huy trưởng lập cho người trong bộ phận, TCHC lập cho mọi người. Đề xuất đi lần lượt qua các cấp; cấp mà người duyệt chính là người lập (hoặc người được đề xuất) được bỏ qua; <b>cấp cuối luôn giữ</b> và là cấp phê duyệt. Giám đốc duyệt được ở bất kỳ cấp nào (bỏ qua các cấp còn lại). Bộ phận chưa có Trưởng phòng / CHT thì cấp đó chuyển TCHC. Đề xuất đã lập giữ trình tự tại thời điểm lập.</p></div>
+
   <div class="card"><div class="hd"><h2>3. Tiếp nhận ý kiến, kiến nghị về lương</h2><button class="btn sm" onclick="qtReset('yk')">Khôi phục mặc định</button></div>
     <div class="tw"><table class="t qt"><thead><tr><th>#</th><th>Chủ đề CBCNV chọn khi gửi</th><th>Người tiếp nhận, xử lý</th><th></th></tr></thead><tbody>
     ${E.yk.map((c, i) => `<tr><td>${i + 1}</td><td><input value="${esc(c.chuDe)}" onchange="qtSet('yk',${i},'chuDe',this.value)" style="min-width:240px"></td><td class="wrap">${qtChips('yk', i, true)}</td><td>${ctrl('yk', i, E.yk.length)}</td></tr>`).join('')}
@@ -18036,7 +18230,7 @@ async function saveQTP() {
   const E = APP.qtE, ad = qtDXAdmin();
   const err = C.kiemTraQTLuong(E.luong) || (ad ? (C.kiemTraNhomDX(E.nhomDX) || C.kiemTraLoaiDX(E.dx, E.nhomDX)) : '');
   if (err) return toast(err, 'err');
-  const p = { quyTrinhLuong: E.luong, quyTrinhNghi: E.nghi, quyTrinhYKien: E.yk, truongBoPhan: E.tbp, apDungKyDangXuLy: E.apDung };
+  const p = { quyTrinhLuong: E.luong, quyTrinhNghi: E.nghi, quyTrinhLenLuong: E.ll, quyTrinhYKien: E.yk, truongBoPhan: E.tbp, apDungKyDangXuLy: E.apDung };
   if (ad) { p.nhomDeXuat = E.nhomDX; p.loaiDeXuat = E.dx; }      // nhóm, loại đề xuất và người duyệt: chỉ Quản trị
   const r = await run(() => api('quytrinh.save', p));
   if (!r) return;

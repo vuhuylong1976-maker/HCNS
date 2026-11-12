@@ -1,4 +1,4 @@
-TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.51 (11/2026)
+TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.54 (11/2026)
 ===========================================================================
 
 1_UngDung/              Giao diện app (PWA): index.html, sw.js, manifest.webmanifest, icon-180.png, icon-192.png, icon-512.png, webapp.txt
@@ -16,7 +16,7 @@ TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN 
                         2_Huong_dan_su_dung (Word + PDF)  – cho toàn thể CBCNV và từng chức danh
                         3_Bien_ban_kiem_tra_cham_cong_dien_thoai (Word + PDF)
                         4_HUONG-DAN-KY-THUAT.md, 5_PROMPT-TAO-LAI-APP.md – tài liệu kỹ thuật chi tiết
-5_AppDienThoai/          TAPACO-NhanSu-3.51.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
+5_AppDienThoai/          TAPACO-NhanSu-3.54.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
 6_DangWeb_iPhone/        HUONG-DAN-DANG-WEB.txt – đăng 1_UngDung lên https (GitHub Pages / Netlify) để cài trên iPhone
 
 THỨ TỰ LÀM
@@ -26,6 +26,36 @@ THỨ TỰ LÀM
   4. Mục 9: chạy thử 1 tuần, rồi phát "2_Huong_dan_su_dung" cho CBCNV.
   5. Cuối mỗi kỳ: TCHC / Kế toán vào Chấm công GPS -> tab "Kiểm tra AI" để quét sai phạm vi,
      sai người, sai thời gian; nhắc bộ phận giải trình cờ đỏ trước khi lấy công (HD sử dụng – Phần G).
+
+MỚI TRONG 3.54 – ĐỀ XUẤT ĐIỀU CHỈNH LƯƠNG, NÂNG LƯƠNG DUYỆT THEO CẤP
+- Người lập: CBCNV tự đề xuất cho mình (mục Cá nhân → "Đề xuất lương"); Trưởng phòng / Chỉ huy trưởng lập cho người
+  trong bộ phận; TCHC lập cho mọi người (Lương & nâng bậc).
+- Trình tự mặc định: Trưởng phòng / Chỉ huy trưởng xác nhận → TCHC thẩm định → Giám đốc phê duyệt.
+  Cấp mà người duyệt chính là người lập (hoặc người được đề xuất) tự bỏ qua: TP/CHT lập → TCHC → Giám đốc.
+  Bộ phận chưa có TP/CHT → chuyển TCHC. Giám đốc duyệt được ở bất kỳ cấp nào (phê duyệt cuối).
+- Mỗi cấp: Duyệt (kèm ý kiến) hoặc Từ chối (bắt buộc lý do); xem tiến trình + lịch sử từng cấp; thông báo người tới lượt.
+  Lương mới chỉ áp dụng sau khi Giám đốc phê duyệt, từ ngày hiệu lực. Người lập sửa / xóa được khi chưa có cấp nào duyệt.
+- Đổi người duyệt từng cấp: Quy trình & phê duyệt → mục 2b. Đề xuất đang chờ từ bản cũ giữ ở cấp Giám đốc như trước.
+- Cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới (bảng LenLuong tự thêm 3 cột).
+
+MỚI TRONG 3.53 – GOOGLE MAPS CHO CHẤM CÔNG GPS, BẤM BẢN ĐỒ ĐỂ ĐẶT ĐIỂM
+- Chấm công GPS → Cài đặt: ô "Khóa Google Maps". Có khóa → mọi bản đồ dùng Google Maps (Bản đồ / Vệ tinh); không có hoặc
+  khóa bị từ chối → tự dùng OpenStreetMap và báo lý do. Cách lấy và giới hạn khóa: 4_HuongDan/HUONG-DAN-GOOGLE-MAPS.txt.
+- Tab "Điểm chấm công": bấm vào chỗ bất kỳ trên bản đồ → chọn bộ phận / công trình, tên điểm, bán kính → Tiếp tục →
+  bảng điểm mở sẵn điểm mới; bấm bản đồ (kể cả trong vòng tròn) hoặc kéo ghim cam để chỉnh tâm → Lưu.
+- Ghi chú: nền OpenStreetMap không tải được thường do mở app từ ổ đĩa hoặc mạng chặn; dùng link https hoặc Google Maps.
+- Cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới.
+
+MỚI TRONG 3.52 – LÝ LỊCH TẢI LÊN TỰ ĐIỀN QUÁ TRÌNH CÔNG TÁC
+- Tải "Sơ yếu lý lịch" (Word .docx, PDF, ảnh chụp/scan) vào Tài liệu của CBCNV → app tự đọc mục "Tóm tắt quá trình công tác"
+  → hiện bảng các dòng (từ ngày, đến ngày, đơn vị, chức vụ, nội dung) đã tích sẵn → người soát sửa nếu cần → "Lưu vào lý lịch".
+- Word đọc ngay trên máy; PDF/ảnh đọc bằng OCR như 3.37 (Google Drive OCR hoặc trên máy). KHÔNG gửi AI bên ngoài.
+- Nhận các dạng: 08/2009 - 12/2014 | …; bảng 2 cột Từ / Đến; "tháng 5 năm 2010 – nay"; "2018 – nay"; nội dung xuống dòng.
+- Lưu thành loại mới "Theo lý lịch" trong Quá trình công tác: KHÔNG đổi phòng ban, chức vụ hiện tại, không khép quá trình đang mở.
+- Dòng đã có, hoặc trùng thời gian làm tại Công ty (từ ngày vào làm – đã có quyết định), không tích sẵn; lưu lại lần 2 tự bỏ trùng.
+- Tài liệu đã tải trước đây: bấm nút đọc chữ trên tài liệu đó để lấy quá trình. CBCNV tự tải lý lịch: TCHC soát và lưu.
+- Bản .doc đời cũ chưa đọc được – mở bằng Word, lưu thành .docx hoặc PDF.
+- PHẢI cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới.
 
 MỚI TRONG 3.51 – TỰ NHẬN ĐỊA CHỈ MÁY CHỦ (/exec) TỪ GITHUB
 - App tự đọc URL máy chủ theo thứ tự: (1) https://raw.githubusercontent.com/vuhuylong1976-maker/HCNS/refs/heads/main/webapp.txt

@@ -1,11 +1,11 @@
-APP ĐIỆN THOẠI TAPACO NHÂN SỰ – PHIÊN BẢN 3.52
+APP ĐIỆN THOẠI TAPACO NHÂN SỰ – PHIÊN BẢN 3.54
 ==============================================
 
 SỬA LỖI 3.49: tệp .apk bản 3.43–3.48 bị máy Android 11 trở lên từ chối ("Ứng dụng chưa được
 cài đặt" / "Gói không hợp lệ") do đóng gói thiếu chuẩn (resources.arsc bị nén, chưa căn thẳng hàng).
 Bản 3.49 đã sửa và có bước tự kiểm khi đóng gói. Hãy xóa tệp .apk cũ trên Drive/Zalo, phát tệp 3.49.
 
-ANDROID (tệp TAPACO-NhanSu-3.52.apk)
+ANDROID (tệp TAPACO-NhanSu-3.54.apk)
 - Phát hành: tải tệp .apk lên Google Drive của Công ty, chia sẻ "Bất kỳ ai có đường liên kết"
   (hoặc gửi qua Zalo nhóm). Dán link vào Cài đặt → "Link tải app Android (.apk)".
   CBCNV xem hướng dẫn ở menu tài khoản → "📱 Cài app điện thoại".

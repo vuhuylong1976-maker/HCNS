@@ -920,7 +920,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.52';
+  var VERSION = '3.54';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1063,6 +1063,13 @@ var HRCORE = (function () {
   var QT_NGHI_MD = [
     { id: 'tbp', ten: 'Trưởng phòng / Chỉ huy trưởng duyệt', nguoi: ['tbp'], tren: 0, loai: [] },
     { id: 'tchc', ten: 'TCHC duyệt', nguoi: ['r:tchc'], tren: 0, loai: [] }
+  ];
+  /* v3.54: đề xuất điều chỉnh lương / nâng lương: cá nhân hoặc người phụ trách lập → Trưởng phòng / CHT → TCHC → Giám đốc.
+     Cấp mà người duyệt chính là người lập (hoặc người được đề xuất) được bỏ qua; cấp cuối (Giám đốc) luôn giữ. */
+  var QT_LL_MD = [
+    { id: 'tbp', ten: 'Trưởng phòng / Chỉ huy trưởng xác nhận', nguoi: ['tbp'] },
+    { id: 'tchc', ten: 'TCHC thẩm định', nguoi: ['r:tchc'] },
+    { id: 'gd', ten: 'Giám đốc phê duyệt', nguoi: ['r:giamdoc'] }
   ];
   var QT_YKIEN_MD = [
     { chuDe: 'Ngày công, nghỉ, làm thêm giờ', nguoi: ['r:tchc'] },
@@ -1238,7 +1245,7 @@ var HRCORE = (function () {
       'noiDung', 'taoBoi', 'taoLuc'],
     LenLuong: ['id', 'maNV', 'loai', 'hieuLuc', 'ngachCu', 'bacCu', 'luongCu', 'luongBHCu', 'ngachMoi', 'bacMoi',
       'luongMoi', 'luongBHMoi', 'lyDo', 'soQD', 'trangThai', 'apDung', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet',
-      'ngayDuyet', 'ghiChuDuyet'],
+      'ngayDuyet', 'ghiChuDuyet', 'luongDuyet', 'capDuyet', 'lichSu'],
     KhenThuong: ['id', 'maNV', 'loai', 'hinhThuc', 'ngay', 'soTien', 'chiuThue', 'kyLuong', 'noiDung', 'soQD',
       'trangThai', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet', 'ngayDuyet'],
     ChamCong: ['id', 'ky', 'maNV', 'ngayCong', 'nghiHuongLuong', 'nghiKhongLuong', 'nghiOm', 'ot150', 'ot200', 'ot300',
@@ -1358,6 +1365,7 @@ var HRCORE = (function () {
     ngayPhepCoBan: 12,                // Điều 113 BLLĐ 2019 (công việc bình thường)
     thamNienCongPhep: 5,              // Điều 114: cứ đủ 5 năm làm việc được thêm 1 ngày phép
     quyTrinhLuong: QT_LUONG_MD,       // các bước lập & duyệt lương
+    quyTrinhLenLuong: QT_LL_MD,      // v3.54: các cấp duyệt đề xuất điều chỉnh lương, nâng lương
     quyTrinhNghi: QT_NGHI_MD,         // các cấp duyệt đơn nghỉ (áp dụng khi số ngày > tren, cho các loại nghỉ trong 'loai', trống = mọi loại)
     quyTrinhYKien: QT_YKIEN_MD,       // chủ đề ý kiến về lương → người tiếp nhận
     nhomDeXuat: NHOM_DX_MD,           // nhóm loại đề xuất (Quản trị tạo)
@@ -1410,7 +1418,7 @@ var HRCORE = (function () {
     chucVu: ['Chủ tịch HĐQT', 'Tổng Giám đốc', 'Phó Tổng Giám đốc', 'Kế toán trưởng', 'Trưởng phòng', 'Phó phòng',
       'Chỉ huy trưởng', 'Kỹ sư', 'Kế toán viên', 'Chuyên viên', 'Nhân viên', 'Công nhân', 'Lái xe', 'Thủ kho'],
     donVi: ['Văn phòng Công ty'],
-    gps: { bat: true, doChinhXac: 50, hieuChuanGiay: 25, nguongKM: 0.5, gioVao: '07:30', gioRa: '17:00', phutTre: 10, gioDuCong: 6, gioLamDuCong: 8, nghiTruaTu: '12:00', nghiTruaDen: '13:30', khoaThietBi: true, batBuocKM: true, nhanAnhNgoaiVung: true, banKinhCT: 300, banDo: '' },
+    gps: { bat: true, doChinhXac: 50, hieuChuanGiay: 25, nguongKM: 0.5, gioVao: '07:30', gioRa: '17:00', phutTre: 10, gioDuCong: 6, gioLamDuCong: 8, nghiTruaTu: '12:00', nghiTruaDen: '13:30', khoaThietBi: true, batBuocKM: true, nhanAnhNgoaiVung: true, banKinhCT: 300, banDo: '', ggKey: '' },
     // v3.3: kiểm tra vị trí khi nhắn tin – ngoài phạm vi điểm chấm công thì ghi sheet KiemTraCong, báo TCHC, Ban Giám đốc, Kế toán
     viTriTN: { bat: true, chiGioLam: true, chuKyPhut: 15, doChinhXacToiDa: 100, dungSai: 50, baoLaiPhut: 60, boQuaVaiTro: ['admin', 'giamdoc'] },
     push: { bat: false, firebase: {}, vapid: '' },   // thông báo đẩy (Firebase Cloud Messaging); khóa bí mật lưu trong Thuộc tính tập lệnh
@@ -2526,7 +2534,7 @@ var HRCORE = (function () {
     if (!Array.isArray(c.loaiTamUng) || !c.loaiTamUng.length) c.loaiTamUng = LOAI_TU_MD.slice();
     c.danhMucViPham = (c.danhMucViPham || []).map(function (d) { var x = clone(d); if (NHOM_VP.indexOf(x.nhom) < 0) x.nhom = x.loai === 'Bồi thường thiệt hại' ? 'Mất mát, hư hỏng tài sản' : 'Vi phạm nội quy – an toàn'; return x; });
     // tên vai trò cũ trong quy trình
-    ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhYKien'].forEach(function (k) {
+    ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien'].forEach(function (k) {
       if (Array.isArray(c[k])) c[k] = c[k].map(function (b) { var x = clone(b); x.nguoi = (x.nguoi || []).map(function (a) { return /^r:/.test(a) ? 'r:' + normRole(a.slice(2)) : a; }); return x; });
     });
     if (!c.congThucDongBH) c.congThucDongBH = CT_DONGBH_MD;
@@ -4683,19 +4691,21 @@ var HRCORE = (function () {
       var cfg = getCfg();
       T('KyLuong').forEach(function (k) { kyRow(k.ky, false); });
       T('NghiPhep').forEach(function (o) { chuanHoaDon(o, cfg); });
+      T('LenLuong').forEach(function (o) { if (!o.luongDuyet && o.trangThai === 'Chờ duyệt') { chuanHoaLL(o, cfg); D('LenLuong'); } });   // v3.54
       cfg = trangTriQT(cfg);
       var ma = 'u:' + s.username;
       var giaoNP = function (o) { return parseJSON(o.luongDuyet, []).some(function (c) { return c.nguoi.indexOf(ma) >= 0; }); };
       var giaoYK = function (o) { return ykXuLy(o).indexOf(ma) >= 0; };
+      var giaoLL = function (o) { return parseJSON(o.luongDuyet, []).some(function (c) { return (c.nguoi || []).indexOf(ma) >= 0 || (c.nguoi || []).indexOf('r:' + s.role) >= 0; }); };
       if (!can(s.role, 'view_all')) {
         var me = s.maNV, bpQL = bpXem(s);
         var nvBP = bpQL ? T('NhanVien').filter(function (n) { return n.phongBan === bpQL && n.trangThai !== 'Đã nghỉ việc'; }).map(function (n) { return n.maNV; }) : [];
         var kyDuyet = T('KyLuong').filter(function (k) { return k.trangThai === 'Đã duyệt'; }).map(function (k) { return k.ky; });
         return {
-          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
+          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
           nv: T('NhanVien').filter(function (r) { return r.maNV === me; }),
           qt: T('QuaTrinh').filter(function (r) { return r.maNV === me; }),
-          ll: T('LenLuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
+          ll: T('LenLuong').filter(function (r) { return (r.maNV === me && (r.trangThai === 'Đã duyệt' || r.nguoiDeXuat === s.username)) || (r.maNV !== me && (r.nguoiDeXuat === s.username || giaoLL(r))); }),   // v3.54: đề xuất tự lập / lập cho nhân viên / được giao duyệt
           mh: T('MucHuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Hiệu lực'; }),
           kt: T('KhenThuong').filter(function (r) { return r.maNV === me && r.trangThai === 'Đã duyệt'; }),
           bl: T('BangLuong').filter(function (r) { return r.maNV === me && kyDuyet.indexOf(r.ky) >= 0; }),
@@ -5419,38 +5429,87 @@ var HRCORE = (function () {
     };
 
     /* ---- lên lương ---- */
+    function llLaQL(s, maNV) { var nv = findNV(maNV); return !!nv && quanLyCua(nv.phongBan).some(function (u) { return u.username === s.username; }); }
+    function capDuyetLL(o, cfg) {                    // v3.54: các cấp duyệt của một đề xuất lương
+      var qt = cfg.quyTrinhLenLuong || QT_LL_MD, bo = ['u:' + o.nguoiDeXuat].concat(T('Users').filter(function (u) { return u.maNV === o.maNV; }).map(function (u) { return 'u:' + u.username; }));
+      var nguoiLap = T('Users').filter(function (u) { return u.username === o.nguoiDeXuat; })[0];
+      var caps = qt.map(function (c, i) { var ng = quyTbp(c.nguoi, o.maNV, cfg); return { id: c.id, ten: c.ten, nguoi: ng, nguoiTen: tenNguoi(ng), cuoi: i === qt.length - 1 }; });
+      caps = caps.filter(function (c) {
+        if (c.cuoi) return true;                       // cấp cuối (Giám đốc) luôn giữ
+        var conNguoi = c.nguoi.filter(function (a) { return bo.indexOf(a) < 0 && !(nguoiLap && a === 'r:' + nguoiLap.role && ['tchc', 'truongphong', 'cht'].indexOf(nguoiLap.role) >= 0 && c.nguoi.length === 1); });
+        return conNguoi.length > 0;                    // bỏ cấp mà người duyệt chính là người lập / người được đề xuất
+      });
+      caps = caps.filter(function (c, i) { return i === caps.length - 1 || JSON.stringify(c.nguoi) !== JSON.stringify(caps[i + 1].nguoi); });   // 2 cấp liền nhau cùng người: giữ cấp sau (VD bộ phận chưa có TP → TCHC)
+      return caps;
+    }
+    function chuanHoaLL(o, cfg) {                    // đề xuất lập từ bản cũ (1 cấp duyệt): đưa thẳng tới cấp cuối như trước
+      if (o.luongDuyet) return;
+      var caps = capDuyetLL(o, cfg); o.luongDuyet = JSON.stringify(caps); o.capDuyet = o.trangThai === 'Chờ duyệt' ? caps.length - 1 : 0; o.lichSu = o.lichSu || '[]';
+    }
+    function llBao(o, s) {
+      var cap = parseJSON(o.luongDuyet, [])[num(o.capDuyet)]; if (!cap) return;
+      var nv = findNV(o.maNV) || {};
+      bao(nguoiCo(cap.nguoi, s.username).filter(function (u) { return u !== userCuaNV(o.maNV); }), { loai: 'duyet', t: 'Đề xuất lương chờ bạn duyệt', b: (nv.hoTen || o.maNV) + ': ' + o.loai + ', hiệu lực ' + ngayVN(o.hieuLuc), tag: 'll_' + o.id, mo: '#v=' + (cap.nguoi.some(function (a) { return a === 'r:tchc' || a === 'r:giamdoc'; }) ? 'll' : 'myll') });
+    }
     H['ll.save'] = function (req, s) {
-      need(s, 'propose');
       var r = req.row || {}, nv = findNV(r.maNV);
       if (!nv) err('Không tìm thấy nhân viên.');
+      var tuDX = r.maNV === s.maNV, laQL = llLaQL(s, r.maNV);
+      if (!can(s.role, 'propose') && !tuDX && !laQL) err('Chỉ cá nhân (cho chính mình), Trưởng phòng / Chỉ huy trưởng của bộ phận, hoặc người có quyền lập đề xuất mới lập được.');
       if (LOAI_LL.indexOf(r.loai) < 0) err('Loại điều chỉnh không hợp lệ.');
       if (!parseD(r.hieuLuc)) err('Thiếu ngày hiệu lực.');
       if (num(r.luongMoi) <= 0) err('Mức lương mới phải lớn hơn 0.');
       var rows = T('LenLuong'), o = r.id ? rows.filter(function (x) { return x.id === r.id; })[0] : null;
       if (o && o.trangThai !== 'Chờ duyệt') err('Đề xuất đã được xử lý, không sửa được.');
+      var cfg = getCfg();
+      if (o) {
+        chuanHoaLL(o, cfg);
+        if (o.nguoiDeXuat !== s.username && !can(s.role, 'propose')) err('Chỉ người lập đề xuất được sửa.');
+        if (parseJSON(o.lichSu, []).length && !can(s.role, 'propose')) err('Đề xuất đã qua cấp duyệt, không sửa được.');
+        if (o.maNV !== r.maNV) err('Không đổi người được đề xuất.');
+      }
+      if (!String(r.lyDo || '').trim() && !can(s.role, 'propose')) err('Nhập lý do / căn cứ đề xuất.');
       if (!o) {
         o = { id: newId(), trangThai: 'Chờ duyệt', apDung: '', nguoiDeXuat: s.username, ngayDeXuat: env.now(),
           ngachCu: nv.ngach || '', bacCu: nv.bac || '', luongCu: num(nv.luongChinh), luongBHCu: num(nv.luongBH) };
         rows.push(o);
       }
-      ['maNV', 'loai', 'hieuLuc', 'ngachMoi', 'bacMoi', 'lyDo', 'soQD'].forEach(function (c) { o[c] = String(r[c] == null ? '' : r[c]).trim(); });
+      ['maNV', 'loai', 'hieuLuc', 'ngachMoi', 'bacMoi', 'lyDo'].forEach(function (c) { o[c] = String(r[c] == null ? '' : r[c]).trim(); });
+      if (can(s.role, 'propose') || can(s.role, 'approve')) o.soQD = String(r.soQD == null ? '' : r.soQD).trim();
       o.luongMoi = num(r.luongMoi); o.luongBHMoi = num(r.luongBHMoi);
+      var moiLap = !o.luongDuyet;
+      if (moiLap || !parseJSON(o.lichSu, []).length) { o.luongDuyet = JSON.stringify(capDuyetLL(o, cfg)); o.capDuyet = 0; o.lichSu = o.lichSu || '[]'; }
       D('LenLuong');
+      if (moiLap) llBao(o, s);
       log(s, 'll.save', o.maNV + ' → ' + o.luongMoi);
       return o;
     };
 
-    H['ll.decide'] = function (req, s) {
-      need(s, 'approve');
+    H['ll.decide'] = function (req, s) {               // v3.54: duyệt theo từng cấp (TP/CHT → TCHC → Giám đốc); Giám đốc duyệt vượt cấp được
       var o = T('LenLuong').filter(function (x) { return x.id === req.id; })[0];
       if (!o) err('Không tìm thấy đề xuất.');
+      var cfg = getCfg(); chuanHoaLL(o, cfg);
       if (o.trangThai !== 'Chờ duyệt') err('Đề xuất đã được xử lý.');
-      o.trangThai = req.approve ? 'Đã duyệt' : 'Từ chối';
-      o.nguoiDuyet = s.username; o.ngayDuyet = env.now(); o.ghiChuDuyet = String(req.note || '');
-      if (req.approve && req.soQD) o.soQD = String(req.soQD);
+      var caps = parseJSON(o.luongDuyet, []), ci = num(o.capDuyet), cap = caps[ci];
+      if (!cap) err('Đề xuất không còn cấp duyệt.');
+      var note = String(req.note || '').trim(), duocGiao = laNguoiXuLy(s, cap.nguoi) && s.role !== 'admin' || (s.role === 'admin' && cap.nguoi.indexOf('u:' + s.username) >= 0);
+      var vuotCap = !duocGiao && (s.role === 'giamdoc' || s.role === 'admin');
+      if (o.maNV === s.maNV && s.role !== 'admin') err('Không tự duyệt đề xuất lương của chính mình.');
+      if (!duocGiao && !vuotCap) err('Đề xuất đang chờ "' + cap.ten + '" (' + (cap.nguoiTen || tenNguoi(cap.nguoi)) + ').');
+      var ls = parseJSON(o.lichSu, []);
+      ls.push({ cap: cap.ten, nguoi: s.hoTen || s.username, luc: env.now(), ketQua: req.approve ? (vuotCap && ci < caps.length - 1 ? 'Duyệt (vượt cấp)' : 'Duyệt') : 'Từ chối', ghiChu: note });
+      if (!req.approve) { if (!note) err('Nhập lý do từ chối.'); o.trangThai = 'Từ chối'; }
+      else if (vuotCap || ci + 1 >= caps.length) o.trangThai = 'Đã duyệt';
+      else o.capDuyet = ci + 1;
+      if (req.soQD && (can(s.role, 'propose') || can(s.role, 'approve'))) o.soQD = String(req.soQD).trim();
+      if (note) o.ghiChuDuyet = (o.ghiChuDuyet ? o.ghiChuDuyet + ' | ' : '') + (s.hoTen || s.username) + ': ' + note;
+      if (o.trangThai !== 'Chờ duyệt') { o.nguoiDuyet = s.username; o.ngayDuyet = env.now(); }
+      o.lichSu = JSON.stringify(ls);
       D('LenLuong');
-      if (req.approve) applyDueRaises();
-      log(s, 'll.' + (req.approve ? 'approve' : 'reject'), o.maNV);
+      if (o.trangThai === 'Đã duyệt') applyDueRaises();
+      log(s, 'll.decide', o.maNV + ' → ' + (o.trangThai === 'Chờ duyệt' ? 'chuyển ' + caps[o.capDuyet].ten : o.trangThai));
+      if (o.trangThai === 'Chờ duyệt') llBao(o, s);
+      else bao([o.nguoiDeXuat, userCuaNV(o.maNV)].filter(function (u, i, a) { return u && u !== s.username && a.indexOf(u) === i; }), { loai: 'duyet', t: 'Đề xuất lương ' + (o.trangThai === 'Đã duyệt' ? 'đã được duyệt' : 'bị từ chối'), b: ((findNV(o.maNV) || {}).hoTen || o.maNV) + ': ' + o.loai + (note ? ' · ' + note : ''), tag: 'll_' + o.id, mo: '#v=myll' });
       return { row: o, nv: findNV(o.maNV) };
     };
 
@@ -5458,7 +5517,7 @@ var HRCORE = (function () {
       var a = T('LenLuong');
       for (var i = a.length - 1; i >= 0; i--) if (a[i].id === req.id) {
         if (a[i].trangThai === 'Đã duyệt' && s.role !== 'admin') err('Chỉ Quản trị được xóa quyết định đã duyệt.');
-        if (a[i].trangThai !== 'Đã duyệt') need(s, 'propose');
+        if (a[i].trangThai !== 'Đã duyệt' && !can(s.role, 'propose') && !(a[i].nguoiDeXuat === s.username && a[i].trangThai === 'Chờ duyệt' && !parseJSON(a[i].lichSu, []).length)) err('Chỉ người lập (khi chưa có cấp nào duyệt) hoặc TCHC được xóa đề xuất.');
         var nvX = findNV(a[i].maNV);
         if (nvX && a[i].trangThai === 'Đã duyệt') {
           var cuX = {}; if (num(a[i].luongCu) > 0) cuX.luongChinh = num(a[i].luongCu); if (num(a[i].luongBHCu) > 0) cuX.luongBH = num(a[i].luongBHCu);
@@ -7459,8 +7518,9 @@ var HRCORE = (function () {
       ['bat', 'khoaThietBi', 'batBuocKM', 'nhanAnhNgoaiVung'].forEach(function (k) { if (o[k] != null) c[k] = !!o[k]; });
       if (o.banKinhCT != null) { if (!(+o.banKinhCT >= 50 && +o.banKinhCT <= 5000)) err('Bán kính điểm công tác từ 50 đến 5.000 m.'); c.banKinhCT = Math.round(+o.banKinhCT); }
       if (o.banDo != null) { var bd = String(o.banDo || '').trim(); if (bd && !/^https:\/\/[^\s]+\{z\}[^\s]*\{x\}[^\s]*\{y\}/.test(bd)) err('Địa chỉ lớp bản đồ phải dạng https://…/{z}/{x}/{y}…'); c.banDo = bd.slice(0, 300); }
+      if (o.ggKey != null) { var gk = String(o.ggKey || '').trim(); if (gk && !/^[A-Za-z0-9_\-]{30,60}$/.test(gk)) err('Khóa Google Maps không đúng dạng (thường bắt đầu bằng AIza…, 39 ký tự).'); c.ggKey = gk; }   // v3.53
       if (c.doChinhXac < 10 || c.doChinhXac > 300) err('Độ chính xác tối đa từ 10 đến 300 m.');
-      setCfg({ gps: c }); log(s, 'gps.caidat', JSON.stringify(c));
+      setCfg({ gps: c }); log(s, 'gps.caidat', JSON.stringify(Object.assign({}, c, { ggKey: c.ggKey ? '(đã đặt)' : '' })));
       return { gps: c };
     };
     /* công theo ngày từ chấm công GPS hợp lệ: có vào và ra đủ giờ → X, thiếu ra hoặc chưa đủ giờ → ½ */
@@ -9182,7 +9242,7 @@ var HRCORE = (function () {
       return out;
     }
     function trangTriQT(cfg) {               // gắn tên người xử lý để hiển thị
-      ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhYKien'].forEach(function (k) {
+      ['quyTrinhLuong', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien'].forEach(function (k) {
         cfg[k] = (cfg[k] || []).map(function (b) { var c = clone(b); c.nguoiTen = tenNguoi(b.nguoi); return c; });
       });
       var nhDX = {};
@@ -9766,6 +9826,12 @@ var HRCORE = (function () {
         qn.forEach(function (c) { if (!c.ten) err('Có cấp duyệt nghỉ chưa đặt tên.'); kiemNguoi(c.nguoi, true, c.ten); });
         out.quyTrinhNghi = qn; ghi.push('nghỉ phép');
       }
+      if (req.quyTrinhLenLuong) {                      // v3.54
+        var qll = req.quyTrinhLenLuong.map(function (c) { return { id: String(c.id || newId()), ten: String(c.ten || '').trim(), nguoi: c.nguoi || [] }; });
+        if (!qll.length) err('Quy trình duyệt đề xuất lương cần ít nhất 1 cấp.');
+        qll.forEach(function (c) { if (!c.ten) err('Có cấp duyệt đề xuất lương chưa đặt tên.'); if (!c.nguoi.length) err('Cấp "' + c.ten + '" chưa có người duyệt.'); kiemNguoi(c.nguoi, true, c.ten); });
+        out.quyTrinhLenLuong = qll; ghi.push('đề xuất lương');
+      }
       if (req.quyTrinhYKien) {
         var qy = req.quyTrinhYKien.map(function (c) { return { chuDe: String(c.chuDe || '').trim(), nguoi: c.nguoi || [] }; });
         if (!qy.length) err('Cần ít nhất 1 chủ đề ý kiến.');
@@ -10283,7 +10349,7 @@ var HRCORE = (function () {
     CV_CS: CV_CS, CV_CS_OK: CV_CS_OK,
     DX_TT: DX_TT, DX_MO: DX_MO, DX_XONG: DX_XONG, QT_DX_MD: QT_DX_MD, NHOM_DX_MD: NHOM_DX_MD, DX_CACH: DX_CACH,
     kiemTraLoaiDX: kiemTraLoaiDX, kiemTraNhomDX: kiemTraNhomDX, dxBuocDay: dxBuocDay,
-    QT_LUONG_MD: QT_LUONG_MD, QT_NGHI_MD: QT_NGHI_MD, QT_YKIEN_MD: QT_YKIEN_MD, LOAI_VP: LOAI_VP, YK_TT: YK_TT, LOAI_NGHI: LOAI_NGHI, NGHI_COT: NGHI_COT, NP_TT: NP_TT,
+    QT_LUONG_MD: QT_LUONG_MD, QT_NGHI_MD: QT_NGHI_MD, QT_LL_MD: QT_LL_MD, QT_YKIEN_MD: QT_YKIEN_MD, LOAI_VP: LOAI_VP, YK_TT: YK_TT, LOAI_NGHI: LOAI_NGHI, NGHI_COT: NGHI_COT, NP_TT: NP_TT,
     laNgayNghiLe: laNgayNghiLe, soNgayDon: soNgayDon, ngayNghiTheoKy: ngayNghiTheoKy, quyPhepNam: quyPhepNam, phepNamDaDung: phepNamDaDung, normBuoc: normBuoc, SCHEMA: SCHEMA, isNumCol: isNumCol,
     DEFAULT_CFG: DEFAULT_CFG, LOAI_HD: LOAI_HD, LOAI_LUONG: LOAI_LUONG, LY_DO_KHONG_BH: LY_DO_KHONG_BH, loaiLuongNV: loaiLuongNV, TRANG_THAI_NV: TRANG_THAI_NV, LOAI_QT: LOAI_QT,
     LOAI_LL: LOAI_LL, LOAI_KT: LOAI_KT, HT_KYLUAT: HT_KYLUAT,
