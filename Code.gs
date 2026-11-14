@@ -165,6 +165,11 @@ function env_(db) {
         .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
     },
     uuid: function () { return Utilities.getUuid(); },
+    dem: {                                              // v3.55: bộ đệm nhanh (CacheService, ≤ 6 giờ, mỗi mục ≤ 95.000 ký tự)
+      lay: function (k) { try { return cache.get('d_' + k); } catch (e) { return null; } },
+      cat: function (k, v, giay) { try { v = String(v); if (v.length <= 95000) cache.put('d_' + k, v, Math.min(21600, giay || 21600)); } catch (e) { } },
+      xoa: function (k) { try { cache.remove('d_' + k); } catch (e) { } }
+    },
     now: function () { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'); },
     today: function () { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); },
     sessions: {
@@ -920,7 +925,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.54';
+  var VERSION = '3.57';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -10007,6 +10012,20 @@ var HRCORE = (function () {
       BOT_NHOM.join('" hoặc "') + '","thieu":"nếu daTraLoi=false thì nêu ngắn gọn quy định công ty cần bổ sung, nếu không thì để rỗng"}. ' +
       'nguon phải là tên có thật trong NGUỒN. Nếu không dùng được nguồn nào thì daTraLoi=false và nguon=[].';
     var BOT_ROLES_QD = { indexOf: function (r) { return can(r, 'botqd') ? 0 : -1; } };
+    var BOT_ND_MAX = 40000;
+    /* đoạn liên quan nhất của nội dung dài (giữ thứ tự gốc) */
+    function botDoanLQ(t, tuHoi, max) {
+      t = String(t || ''); if (t.length <= max) return t;
+      var doan = t.split(/\n\s*\n|\n(?=\s*(?:Điều|Chương|Mục|Khoản|\d+[.)])\s)/), xp = doan.map(function (p, k) { return { p: p, k: k, d: botDiem(tuHoi, p) }; })
+        .sort(function (a, b) { return b.d - a.d || a.k - b.k; }), lay = [], n = 0;
+      for (var i = 0; i < xp.length; i++) {
+        if (!xp[i].d && lay.length) break;
+        var p = lay.length ? xp[i].p : xp[i].p.slice(0, max);        // đoạn liên quan nhất luôn có mặt
+        if (lay.length && n + p.length + 3 > max) continue;
+        lay.push({ p: p, k: xp[i].k }); n += p.length + 3;
+      }
+      return lay.sort(function (a, b) { return a.k - b.k; }).map(function (o) { return o.p; }).join('\n…\n');
+    }
     var BOT_TMUC = '_QUY ĐỊNH CÔNG TY (KHÔNG CHIA SẺ)';
     /* âm tiết không mang chủ đề — bỏ khi so khớp, nếu không "công ty", "không", "thế nào"
        sẽ khớp với mọi quy định và trợ lý lấy nhầm căn cứ */
@@ -10016,6 +10035,7 @@ var HRCORE = (function () {
       em: 1, anh: 1, chi: 1, xin: 1, hoi: 1, khong: 1, ty: 1, ra: 1, vao: 1, lam: 1, nguoi: 1, muon: 1 };
 
     function botQuyen(s) { if (BOT_ROLES_QD.indexOf(s.role) < 0) err('Chỉ Giám đốc, TCHC hoặc Quản trị được sửa quy định của trợ lý.'); }
+    function botSD(v, n) { return String(v == null ? '' : v).replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/[ \t\u00a0]+/g, ' ').trim(); }).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, n); }   // v3.57: giữ xuống dòng
     function botS(v, n) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n || 300); }
     function botHieuLuc(x) { return String(x.trangThai || 'hieuluc') !== 'het'; }
     /* bỏ dấu tiếng Việt để so khớp từ khóa (người hỏi hay gõ không dấu) */
@@ -10083,22 +10103,42 @@ var HRCORE = (function () {
       if (/^text\/|json|csv|markdown/.test(String(mime))) return env.luuTru.doc(fileId);
       return botChuyenDoc(fileId);
     }
+    /* v3.55: bộ đệm nhanh cho chữ văn bản (chia khúc 90.000 ký tự) và câu trả lời */
+    function botDemGhi(k, txt) {
+      if (!env.dem) return; txt = String(txt || ''); var n = Math.ceil(txt.length / 90000) || 1; if (n > 8) return;
+      for (var i = 0; i < n; i++) env.dem.cat(k + '_' + i, txt.slice(i * 90000, (i + 1) * 90000));
+      env.dem.cat(k + '_n', String(n));
+    }
+    function botDemDoc(k) {
+      if (!env.dem) return null; var n = num(env.dem.lay(k + '_n')); if (!n) return null;
+      var a = []; for (var i = 0; i < n; i++) { var p = env.dem.lay(k + '_' + i); if (p == null) return null; a.push(p); }
+      return a.join('');
+    }
+    function botPhienBan() {                  // đổi khi TCHC sửa quy định / văn bản → câu trả lời đệm cũ tự bỏ
+      var f = function (x) { return x.id + ':' + (x.capNhat || '') + ':' + (x.trangThai || '') + ':' + (x.textLuc || ''); };
+      return env.hash(T('BotQuyDinh').map(f).join('|') + '#' + T('BotVanBan').map(f).join('|') + '#' + JSON.stringify(getCfg().ai || '')).slice(0, 16);
+    }
     function botNapChu(v, buoc) {            // buoc = true: bắt trích lại dù đã có đệm
       if (!env.luuTru) err('Máy chủ chưa bật lưu trữ Drive.');
+      var kD = 'bvt_' + v.id + '_' + String(v.textLuc || '').replace(/\D/g, '');
+      if (!buoc && v.textLuc && num(v.soChu) > 0) {
+        var tuDem = botDemDoc(kD); if (tuDem != null) return tuDem;        // v3.55: đọc từ bộ đệm nhanh, khỏi dò thư mục Drive
+      }
       var tm = env.luuTru.thuMuc('', BOT_TMUC), dem = env.luuTru.thuMuc(tm, '_trich-xuat');
       var ten = 'vb-' + v.id + '.txt';
       if (!buoc && v.textLuc && num(v.soChu) > 0) {
         var co = env.luuTru.ds(dem).filter(function (f) { return f.ten === ten; })[0];
-        if (co) { try { return env.luuTru.doc(co.id); } catch (e) { } }
+        if (co) { try { var t0 = env.luuTru.doc(co.id); botDemGhi(kD, t0); return t0; } catch (e) { } }
       }
       var txt = botTrichChu(v.fileId, v.mime) || '';
       txt = String(txt).replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
       env.luuTru.ghi(dem, ten, txt, 'text/plain');
       v.soChu = txt.length; v.textLuc = env.now(); v.loi = '';
+      botDemGhi('bvt_' + v.id + '_' + String(v.textLuc).replace(/\D/g, ''), txt);
       return txt;
     }
 
-    H['bot.ds'] = function (req, s) {
+    H['bot.ds'] = function (req, s) {   // (bot.kiem ở dưới)
       var qd = T('BotQuyDinh'), vb = T('BotVanBan'), qt = BOT_ROLES_QD.indexOf(s.role) >= 0;
       var tt = env.ai ? env.ai.trangThai() : null;
       return {
@@ -10121,7 +10161,10 @@ var HRCORE = (function () {
         return { daTraLoi: false, nguon: [], nhom: '', dungAI: false, thieu: 'Chưa nhập bất kỳ quy định nào',
           traLoi: 'Hệ thống chưa có quy định nào được nhập. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời, và đề nghị TCHC nhập quy chế công ty vào mục "Quy định công ty" của trợ lý.' };
       }
-      var tuHoi = botTu(hoi);
+      var tuHoi = botTu(hoi), tg0 = Date.now();
+      var kTL = env.dem ? 'bh_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan()).slice(0, 40) : '';
+      if (kTL) { var daCo = env.dem.lay(kTL); if (daCo) { try { var kq0 = JSON.parse(daCo); kq0.daDem = true; return kq0; } catch (e) { } } }   // v3.55: câu hỏi đã trả lời → trả ngay
+      var luuTL = function (kq) { if (kTL && kq && kq.daTraLoi) env.dem.cat(kTL, JSON.stringify(kq), 21600); kq.ms = Date.now() - tg0; return kq; };
 
       /* chọn nguồn liên quan: toàn bộ mục quy định ngắn (xếp theo điểm), và tối đa 3 văn bản gốc liên quan nhất */
       var qdXep = qd.map(function (x) {
@@ -10133,13 +10176,13 @@ var HRCORE = (function () {
       var txtQD = dungQD.map(function (o, i) {
         return (i + 1) + ') [' + (o.x.nhom || 'Khác') + '] ' + o.x.tieuDe +
           (o.x.vanBan ? '\n   Căn cứ: ' + o.x.vanBan : '') + (o.x.hieuLuc ? '\n   Hiệu lực từ: ' + o.x.hieuLuc : '') +
-          '\n   Nội dung: ' + botS(o.x.noiDung, 3000) + (o.x.lienKet ? '\n   Liên kết: ' + o.x.lienKet : '');
+          '\n   Nội dung: ' + botDoanLQ(o.x.noiDung, tuHoi, Math.min(6000, Math.max(1500, Math.floor(30000 / dungQD.length)))) + (o.x.lienKet ? '\n   Liên kết: ' + o.x.lienKet : '');
       }).join('\n\n');
 
       var txtVB = '', dsVBDung = [];
       if (vb.length) {
         var vbXep = vb.map(function (x) { return { x: x, d: botDiem(tuHoi, botVBNhan(x) + ' ' + x.nhom) * 2 }; });
-        var con = 52000 - txtQD.length; if (con < 4000) con = 4000;
+        var con = 30000 - txtQD.length; if (con < 4000) con = 4000;   // v3.55: 52.000 → 30.000 ký tự cho AI trả lời nhanh hơn
         vbXep.sort(function (a, b) { return b.d - a.d; });
         for (var i = 0; i < vbXep.length && dsVBDung.length < 3 && con > 1500; i++) {
           var v = vbXep[i].x, t = '';
@@ -10159,7 +10202,7 @@ var HRCORE = (function () {
       }
 
       /* chưa cấu hình AI: tra cứu trực tiếp, trả nguyên văn mục quy định khớp nhất (an toàn, không sinh nội dung mới) */
-      if (!env.ai || !env.ai.trangThai().coKhoa) {
+      var traCuuTuKhoa = function (ghiChu) {
         /* Chưa bật AI thì chỉ tra cứu máy móc, nên phải chặt: so câu hỏi với TIÊU ĐỀ mục quy định
            (TCHC viết tiêu đề đúng như câu CBCNV hay hỏi), yêu cầu phủ ≥ 60% và ít nhất 2 âm tiết khớp.
            So với toàn bộ nội dung sẽ lọt những khớp vô nghĩa ("quy", "lao", "động", "công ty")
@@ -10169,20 +10212,26 @@ var HRCORE = (function () {
         }).filter(function (o) {
           return o.k.phu >= BOT_PHU_MIN && o.k.d >= BOT_KHOP_MIN * 2;
         }).sort(function (a, b) { return b.k.d - a.k.d; }).slice(0, 3);
-        if (!khop.length) return { daTraLoi: false, dungAI: false, nguon: [], nhom: '', thieu: hoi,
-          traLoi: 'Trợ lý chưa tìm thấy quy định nào phù hợp với câu hỏi này (máy chủ chưa bật AI nên chỉ tra cứu theo từ khóa). Đề nghị Anh/Chị liên hệ phòng TCHC.' };
-        return { daTraLoi: true, dungAI: false, nhom: khop[0].x.nhom,
+        if (!khop.length) return { daTraLoi: false, dungAI: false, nguon: [], nhom: '', thieu: hoi, ms: Date.now() - tg0,
+          traLoi: 'Trợ lý chưa tìm thấy quy định nào phù hợp với câu hỏi này (' + ghiChu + ' nên chỉ tra cứu theo từ khóa). Đề nghị Anh/Chị liên hệ phòng TCHC hoặc thử hỏi bằng tên mục quy định.' };
+        return { daTraLoi: true, dungAI: false, nhom: khop[0].x.nhom, ms: Date.now() - tg0,
           nguon: khop.map(function (o) { return o.x.tieuDe; }),
-          traLoi: khop.map(function (o) { return '• ' + o.x.tieuDe + '\n' + o.x.noiDung + (o.x.vanBan ? '\n(Căn cứ: ' + o.x.vanBan + ')' : ''); }).join('\n\n') +
-            '\n\n(Máy chủ chưa bật AI – đây là nội dung quy định được trích nguyên văn theo từ khóa.)' };
-      }
+          traLoi: khop.map(function (o) { return '• ' + o.x.tieuDe + '\n' + botDoanLQ(o.x.noiDung, tuHoi, 2500) + (o.x.vanBan ? '\n(Căn cứ: ' + o.x.vanBan + ')' : ''); }).join('\n\n') +
+            '\n\n(' + ghiChu.charAt(0).toUpperCase() + ghiChu.slice(1) + ' – đây là nội dung quy định được trích nguyên văn theo từ khóa.)' };
+      };
+      if (!env.ai || !env.ai.trangThai().coKhoa) return traCuuTuKhoa('máy chủ chưa bật AI');
 
       var nd = 'CÂU HỎI CỦA CBCNV: ' + hoi +
         '\n\n=== NGUỒN: MỤC QUY ĐỊNH DO PHÒNG TCHC NHẬP ===\n' + (txtQD || '(không có)') +
         (txtVB ? '\n\n=== NGUỒN: VĂN BẢN GỐC CỦA CÔNG TY ===\n' + txtVB : '') +
         '\n\n=== YÊU CẦU ===\n' + BOT_P;
-      var o = aiGoi({ he: BOT_HE, nd: nd, anh: [], maxTok: 2000, loai: 'bot',
-        duLieu: { hoi: hoi, soQD: dungQD.length, vb: dsVBDung } });
+      var o;
+      try {
+        o = aiGoi({ he: BOT_HE, nd: nd, anh: [], maxTok: 1500, loai: 'bot', duLieu: { hoi: hoi, soQD: dungQD.length, vb: dsVBDung } });
+      } catch (e) {                                    // v3.55: AI lỗi / quá 60 giây → vẫn trả lời bằng tra cứu từ khóa, kèm lý do
+        var kqTK = traCuuTuKhoa('AI tạm thời không trả lời được: ' + botS(e && e.message || e, 160));
+        kqTK.loiAI = botS(e && e.message || e, 300); return kqTK;
+      }
 
       /* ---- Chốt an toàn chống bịa (bắt buộc: CBCNV sẽ làm theo câu trả lời) ----
          1) Căn cứ AI nêu phải có thật trong NGUỒN đã cấp – loại mọi tên văn bản AI tự đặt.
@@ -10199,8 +10248,33 @@ var HRCORE = (function () {
       var tl = botS(o && o.traLoi, 4000), dtl = !!(o && o.daTraLoi) && !!nguon.length && !!tl;
       var thieu = botS(o && o.thieu, 300) || hoi;
       if (!dtl) tl = 'Công ty chưa có quy định về nội dung này trong hệ thống của trợ lý. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời chính thức.';
-      return { daTraLoi: dtl, traLoi: tl, nguon: dtl ? nguon : [], dungAI: true,
-        nhom: dtl ? aiChon(o && o.nhom, BOT_NHOM, '') : '', thieu: dtl ? '' : thieu };
+      return luuTL({ daTraLoi: dtl, traLoi: tl, nguon: dtl ? nguon : [], dungAI: true,
+        nhom: dtl ? aiChon(o && o.nhom, BOT_NHOM, '') : '', thieu: dtl ? '' : thieu });
+    };
+
+    /* v3.55: tự kiểm trợ lý – đo thời gian từng bước để tìm chỗ chậm / lỗi */
+    H['bot.kiem'] = function (req, s) {
+      botQuyen(s);
+      var kq = [], t = Date.now(), buoc = function (ten, fn) {
+        var t0 = Date.now(), r = { ten: ten };
+        try { r.kq = fn(); r.ok = true; } catch (e) { r.ok = false; r.loi = botS(e && e.message || e, 300); }
+        r.ms = Date.now() - t0; kq.push(r); return r;
+      };
+      var qd = [], vb = [];
+      buoc('Đọc bảng quy định, văn bản', function () { qd = T('BotQuyDinh').filter(botHieuLuc); vb = T('BotVanBan').filter(botHieuLuc); return qd.length + ' mục quy định, ' + vb.length + ' văn bản'; });
+      vb.forEach(function (v) {
+        buoc('Đọc chữ văn bản "' + botVBNhan(v) + '"', function () {
+          var coDem = botDemDoc('bvt_' + v.id + '_' + String(v.textLuc || '').replace(/\D/g, '')) != null;
+          if (!v.textLuc || !num(v.soChu)) return 'CHƯA trích chữ (' + (v.loi || 'chưa đăng ký lại') + ') – mỗi câu hỏi phải chuyển đổi lại, rất chậm. Vào Văn bản công ty → Sửa → Lưu để trích lại.';
+          var x = botNapChu(v, false); return x.length.toLocaleString('vi-VN') + ' ký tự' + (coDem ? ' (từ bộ đệm nhanh)' : ' (từ Drive, đã đưa vào bộ đệm)');
+        });
+      });
+      buoc('Gọi AI thử', function () {
+        if (!env.ai || !env.ai.trangThai().coKhoa) return 'Chưa bật AI – trợ lý chỉ tra cứu theo từ khóa.';
+        var tt = env.ai.trangThai(), o = env.ai.goi({ he: 'Trả lời đúng một từ.', nd: 'Trả lời: OK', anh: [], maxTok: 20, loai: 'bot' });
+        return tt.ncc + ' / ' + (tt.model || 'mặc định') + ' → ' + botS(typeof o === 'string' ? o : JSON.stringify(o), 60);
+      });
+      return { buoc: kq, tong: Date.now() - t, phienBan: VERSION };
     };
 
     /* ghi nhật ký câu hỏi (trình duyệt gọi ngay sau bot.hoi) – để TCHC biết CBCNV đang vướng gì, thiếu quy định gì */
@@ -10224,7 +10298,8 @@ var HRCORE = (function () {
 
     H['bot.luu'] = function (req, s) {
       botQuyen(s);
-      var tieuDe = botS(req.tieuDe, 200), noiDung = botS(req.noiDung, 6000);
+      var tieuDe = botS(req.tieuDe, 200), noiDung = botSD(req.noiDung, BOT_ND_MAX);   // v3.57: nội dung trích từ tệp (≤ 40.000 ký tự)
+      if (String(req.noiDung || '').length > BOT_ND_MAX) err('Nội dung dài quá ' + BOT_ND_MAX.toLocaleString('vi-VN') + ' ký tự – tách thành nhiều mục, hoặc đăng ký tệp ở tab "Văn bản công ty".');
       if (tieuDe.length < 5) err('Tiêu đề quy định quá ngắn.');
       if (noiDung.length < 10) err('Nội dung quy định quá ngắn.');
       var a = T('BotQuyDinh'), x = req.id ? a.filter(function (z) { return z.id === req.id; })[0] : null;
@@ -10316,7 +10391,7 @@ var HRCORE = (function () {
         soNguoi: Object.keys(nguoi).length };
     };
 
-    var READ_ONLY = ['tl.ocrxem', 'chat.anh', 'chat.khods', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
+    var READ_ONLY = ['bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
       'ping', 'log.list', 'cv.ocr', 'chat.init', 'chat.poll', 'chat.history', 'chat.file', 'chat.files',
       'ai.nhom', 'ai.thu', 'ai.models', 'ai.phantich', 'ai.taifile', 'gps.cuatoi', 'gps.ds', 'gps.anh', 'gps.tonghop', 'gps.ct.ds', 'ai.ds', 'ai.xem', 'ai.tep', 'ai.tepluu', 'ai.doctep', 'chat.nhatky', 'push.cuatoi', 'push.trangthai', 'cckt.ds', 'cckt.ai', 'vitri.ds', 'dgt.ds', 'dgt.xem', 'dgt.ai', 'dgt.cuatoi', 'bot.ds', 'bot.hoi', 'bot.nhatky'];   // phân tích AI chạy lâu: không giữ khóa ghi (chỉ ghi Drive, bộ nhớ đệm)
 

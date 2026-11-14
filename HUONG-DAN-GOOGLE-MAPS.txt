@@ -1,0 +1,28 @@
+DÙNG GOOGLE MAPS CHO CHẤM CÔNG GPS – BẢN 3.53
+==============================================
+App dùng Google Maps khi Quản trị nhập "Khóa Google Maps" ở: Chấm công GPS → Cài đặt. Không có khóa (hoặc khóa lỗi)
+thì app dùng OpenStreetMap như trước. Mọi bản đồ (Điểm chấm công, Bản đồ trong ngày, Công tác, vị trí khi chấm công)
+đổi theo; có chế độ Bản đồ / Vệ tinh.
+
+LẤY KHÓA (người quản trị tài khoản Google của Công ty làm, 1 lần)
+ 1. Vào https://console.cloud.google.com → tạo dự án (vd: tapaco-nhansu).
+ 2. Bật thanh toán cho dự án (Google Maps Platform bắt buộc có tài khoản thanh toán; có hạn mức sử dụng miễn phí
+    hằng tháng – xem mức hiện hành tại https://mapsplatform.google.com/pricing/ ; nên đặt ngân sách + cảnh báo chi phí).
+ 3. APIs & Services → Library → bật "Maps JavaScript API".
+ 4. APIs & Services → Credentials → Create credentials → API key → sao chép khóa (dạng AIza…).
+ 5. BẮT BUỘC giới hạn khóa (Edit API key):
+    - Application restrictions: Websites (HTTP referrers), thêm địa chỉ trang của app, ví dụ:
+        https://<tên-tài-khoản>.github.io/*          (nếu đăng app lên GitHub Pages)
+        https://<tên>.netlify.app/*                  (nếu dùng Netlify)
+        https://appassets.androidplatform.net/*      (app Android .apk)
+    - API restrictions: Restrict key → chỉ chọn "Maps JavaScript API".
+ 6. Dán khóa vào app: Chấm công GPS → Cài đặt → "Khóa Google Maps" → Lưu cài đặt.
+
+LƯU Ý
+- Khóa Google Maps luôn nhìn thấy được trong trình duyệt (đây là cách Google thiết kế); an toàn nhờ giới hạn ở bước 5.
+  Khóa lưu trong cấu hình máy chủ (Google Sheet), không ghi trong mã app.
+- Mở app trực tiếp từ ổ đĩa (file://) thì khóa đã giới hạn theo địa chỉ trang sẽ bị Google từ chối → app báo lỗi và
+  dùng OpenStreetMap. Hãy mở app qua link https (xem 6_DangWeb_iPhone) hoặc app Android.
+- Bấm vào chỗ bất kỳ trên bản đồ ở tab "Điểm chấm công" → chọn bộ phận / công trình, tên điểm, bán kính → Tiếp tục →
+  chỉnh vòng tròn, kéo ghim → Lưu.
+- Chưa thử với khóa Google thật (đang xác minh) – thử trước trên 1 máy.

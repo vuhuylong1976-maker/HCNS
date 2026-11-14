@@ -1,5 +1,5 @@
 /* TAPACO Nhân sự – Service Worker: chỉ cache giao diện; dữ liệu luôn lấy từ Apps Script */
-var CACHE = 'tapaco-hr-v354';
+var CACHE = 'tapaco-hr-v357';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', function (e) { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL).catch(function () {}); })); });
 self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (k) { return Promise.all(k.map(function (x) { if (x !== CACHE && x.indexOf('tapaco-chat-anh') !== 0) return caches.delete(x); })); }).then(function () { return self.clients.claim(); })); });

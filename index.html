@@ -1239,7 +1239,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.54';
+  var VERSION = '3.57';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -10326,6 +10326,20 @@ var HRCORE = (function () {
       BOT_NHOM.join('" hoặc "') + '","thieu":"nếu daTraLoi=false thì nêu ngắn gọn quy định công ty cần bổ sung, nếu không thì để rỗng"}. ' +
       'nguon phải là tên có thật trong NGUỒN. Nếu không dùng được nguồn nào thì daTraLoi=false và nguon=[].';
     var BOT_ROLES_QD = { indexOf: function (r) { return can(r, 'botqd') ? 0 : -1; } };
+    var BOT_ND_MAX = 40000;
+    /* đoạn liên quan nhất của nội dung dài (giữ thứ tự gốc) */
+    function botDoanLQ(t, tuHoi, max) {
+      t = String(t || ''); if (t.length <= max) return t;
+      var doan = t.split(/\n\s*\n|\n(?=\s*(?:Điều|Chương|Mục|Khoản|\d+[.)])\s)/), xp = doan.map(function (p, k) { return { p: p, k: k, d: botDiem(tuHoi, p) }; })
+        .sort(function (a, b) { return b.d - a.d || a.k - b.k; }), lay = [], n = 0;
+      for (var i = 0; i < xp.length; i++) {
+        if (!xp[i].d && lay.length) break;
+        var p = lay.length ? xp[i].p : xp[i].p.slice(0, max);        // đoạn liên quan nhất luôn có mặt
+        if (lay.length && n + p.length + 3 > max) continue;
+        lay.push({ p: p, k: xp[i].k }); n += p.length + 3;
+      }
+      return lay.sort(function (a, b) { return a.k - b.k; }).map(function (o) { return o.p; }).join('\n…\n');
+    }
     var BOT_TMUC = '_QUY ĐỊNH CÔNG TY (KHÔNG CHIA SẺ)';
     /* âm tiết không mang chủ đề — bỏ khi so khớp, nếu không "công ty", "không", "thế nào"
        sẽ khớp với mọi quy định và trợ lý lấy nhầm căn cứ */
@@ -10335,6 +10349,7 @@ var HRCORE = (function () {
       em: 1, anh: 1, chi: 1, xin: 1, hoi: 1, khong: 1, ty: 1, ra: 1, vao: 1, lam: 1, nguoi: 1, muon: 1 };
 
     function botQuyen(s) { if (BOT_ROLES_QD.indexOf(s.role) < 0) err('Chỉ Giám đốc, TCHC hoặc Quản trị được sửa quy định của trợ lý.'); }
+    function botSD(v, n) { return String(v == null ? '' : v).replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/[ \t\u00a0]+/g, ' ').trim(); }).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, n); }   // v3.57: giữ xuống dòng
     function botS(v, n) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n || 300); }
     function botHieuLuc(x) { return String(x.trangThai || 'hieuluc') !== 'het'; }
     /* bỏ dấu tiếng Việt để so khớp từ khóa (người hỏi hay gõ không dấu) */
@@ -10402,22 +10417,42 @@ var HRCORE = (function () {
       if (/^text\/|json|csv|markdown/.test(String(mime))) return env.luuTru.doc(fileId);
       return botChuyenDoc(fileId);
     }
+    /* v3.55: bộ đệm nhanh cho chữ văn bản (chia khúc 90.000 ký tự) và câu trả lời */
+    function botDemGhi(k, txt) {
+      if (!env.dem) return; txt = String(txt || ''); var n = Math.ceil(txt.length / 90000) || 1; if (n > 8) return;
+      for (var i = 0; i < n; i++) env.dem.cat(k + '_' + i, txt.slice(i * 90000, (i + 1) * 90000));
+      env.dem.cat(k + '_n', String(n));
+    }
+    function botDemDoc(k) {
+      if (!env.dem) return null; var n = num(env.dem.lay(k + '_n')); if (!n) return null;
+      var a = []; for (var i = 0; i < n; i++) { var p = env.dem.lay(k + '_' + i); if (p == null) return null; a.push(p); }
+      return a.join('');
+    }
+    function botPhienBan() {                  // đổi khi TCHC sửa quy định / văn bản → câu trả lời đệm cũ tự bỏ
+      var f = function (x) { return x.id + ':' + (x.capNhat || '') + ':' + (x.trangThai || '') + ':' + (x.textLuc || ''); };
+      return env.hash(T('BotQuyDinh').map(f).join('|') + '#' + T('BotVanBan').map(f).join('|') + '#' + JSON.stringify(getCfg().ai || '')).slice(0, 16);
+    }
     function botNapChu(v, buoc) {            // buoc = true: bắt trích lại dù đã có đệm
       if (!env.luuTru) err('Máy chủ chưa bật lưu trữ Drive.');
+      var kD = 'bvt_' + v.id + '_' + String(v.textLuc || '').replace(/\D/g, '');
+      if (!buoc && v.textLuc && num(v.soChu) > 0) {
+        var tuDem = botDemDoc(kD); if (tuDem != null) return tuDem;        // v3.55: đọc từ bộ đệm nhanh, khỏi dò thư mục Drive
+      }
       var tm = env.luuTru.thuMuc('', BOT_TMUC), dem = env.luuTru.thuMuc(tm, '_trich-xuat');
       var ten = 'vb-' + v.id + '.txt';
       if (!buoc && v.textLuc && num(v.soChu) > 0) {
         var co = env.luuTru.ds(dem).filter(function (f) { return f.ten === ten; })[0];
-        if (co) { try { return env.luuTru.doc(co.id); } catch (e) { } }
+        if (co) { try { var t0 = env.luuTru.doc(co.id); botDemGhi(kD, t0); return t0; } catch (e) { } }
       }
       var txt = botTrichChu(v.fileId, v.mime) || '';
       txt = String(txt).replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
       env.luuTru.ghi(dem, ten, txt, 'text/plain');
       v.soChu = txt.length; v.textLuc = env.now(); v.loi = '';
+      botDemGhi('bvt_' + v.id + '_' + String(v.textLuc).replace(/\D/g, ''), txt);
       return txt;
     }
 
-    H['bot.ds'] = function (req, s) {
+    H['bot.ds'] = function (req, s) {   // (bot.kiem ở dưới)
       var qd = T('BotQuyDinh'), vb = T('BotVanBan'), qt = BOT_ROLES_QD.indexOf(s.role) >= 0;
       var tt = env.ai ? env.ai.trangThai() : null;
       return {
@@ -10440,7 +10475,10 @@ var HRCORE = (function () {
         return { daTraLoi: false, nguon: [], nhom: '', dungAI: false, thieu: 'Chưa nhập bất kỳ quy định nào',
           traLoi: 'Hệ thống chưa có quy định nào được nhập. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời, và đề nghị TCHC nhập quy chế công ty vào mục "Quy định công ty" của trợ lý.' };
       }
-      var tuHoi = botTu(hoi);
+      var tuHoi = botTu(hoi), tg0 = Date.now();
+      var kTL = env.dem ? 'bh_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan()).slice(0, 40) : '';
+      if (kTL) { var daCo = env.dem.lay(kTL); if (daCo) { try { var kq0 = JSON.parse(daCo); kq0.daDem = true; return kq0; } catch (e) { } } }   // v3.55: câu hỏi đã trả lời → trả ngay
+      var luuTL = function (kq) { if (kTL && kq && kq.daTraLoi) env.dem.cat(kTL, JSON.stringify(kq), 21600); kq.ms = Date.now() - tg0; return kq; };
 
       /* chọn nguồn liên quan: toàn bộ mục quy định ngắn (xếp theo điểm), và tối đa 3 văn bản gốc liên quan nhất */
       var qdXep = qd.map(function (x) {
@@ -10452,13 +10490,13 @@ var HRCORE = (function () {
       var txtQD = dungQD.map(function (o, i) {
         return (i + 1) + ') [' + (o.x.nhom || 'Khác') + '] ' + o.x.tieuDe +
           (o.x.vanBan ? '\n   Căn cứ: ' + o.x.vanBan : '') + (o.x.hieuLuc ? '\n   Hiệu lực từ: ' + o.x.hieuLuc : '') +
-          '\n   Nội dung: ' + botS(o.x.noiDung, 3000) + (o.x.lienKet ? '\n   Liên kết: ' + o.x.lienKet : '');
+          '\n   Nội dung: ' + botDoanLQ(o.x.noiDung, tuHoi, Math.min(6000, Math.max(1500, Math.floor(30000 / dungQD.length)))) + (o.x.lienKet ? '\n   Liên kết: ' + o.x.lienKet : '');
       }).join('\n\n');
 
       var txtVB = '', dsVBDung = [];
       if (vb.length) {
         var vbXep = vb.map(function (x) { return { x: x, d: botDiem(tuHoi, botVBNhan(x) + ' ' + x.nhom) * 2 }; });
-        var con = 52000 - txtQD.length; if (con < 4000) con = 4000;
+        var con = 30000 - txtQD.length; if (con < 4000) con = 4000;   // v3.55: 52.000 → 30.000 ký tự cho AI trả lời nhanh hơn
         vbXep.sort(function (a, b) { return b.d - a.d; });
         for (var i = 0; i < vbXep.length && dsVBDung.length < 3 && con > 1500; i++) {
           var v = vbXep[i].x, t = '';
@@ -10478,7 +10516,7 @@ var HRCORE = (function () {
       }
 
       /* chưa cấu hình AI: tra cứu trực tiếp, trả nguyên văn mục quy định khớp nhất (an toàn, không sinh nội dung mới) */
-      if (!env.ai || !env.ai.trangThai().coKhoa) {
+      var traCuuTuKhoa = function (ghiChu) {
         /* Chưa bật AI thì chỉ tra cứu máy móc, nên phải chặt: so câu hỏi với TIÊU ĐỀ mục quy định
            (TCHC viết tiêu đề đúng như câu CBCNV hay hỏi), yêu cầu phủ ≥ 60% và ít nhất 2 âm tiết khớp.
            So với toàn bộ nội dung sẽ lọt những khớp vô nghĩa ("quy", "lao", "động", "công ty")
@@ -10488,20 +10526,26 @@ var HRCORE = (function () {
         }).filter(function (o) {
           return o.k.phu >= BOT_PHU_MIN && o.k.d >= BOT_KHOP_MIN * 2;
         }).sort(function (a, b) { return b.k.d - a.k.d; }).slice(0, 3);
-        if (!khop.length) return { daTraLoi: false, dungAI: false, nguon: [], nhom: '', thieu: hoi,
-          traLoi: 'Trợ lý chưa tìm thấy quy định nào phù hợp với câu hỏi này (máy chủ chưa bật AI nên chỉ tra cứu theo từ khóa). Đề nghị Anh/Chị liên hệ phòng TCHC.' };
-        return { daTraLoi: true, dungAI: false, nhom: khop[0].x.nhom,
+        if (!khop.length) return { daTraLoi: false, dungAI: false, nguon: [], nhom: '', thieu: hoi, ms: Date.now() - tg0,
+          traLoi: 'Trợ lý chưa tìm thấy quy định nào phù hợp với câu hỏi này (' + ghiChu + ' nên chỉ tra cứu theo từ khóa). Đề nghị Anh/Chị liên hệ phòng TCHC hoặc thử hỏi bằng tên mục quy định.' };
+        return { daTraLoi: true, dungAI: false, nhom: khop[0].x.nhom, ms: Date.now() - tg0,
           nguon: khop.map(function (o) { return o.x.tieuDe; }),
-          traLoi: khop.map(function (o) { return '• ' + o.x.tieuDe + '\n' + o.x.noiDung + (o.x.vanBan ? '\n(Căn cứ: ' + o.x.vanBan + ')' : ''); }).join('\n\n') +
-            '\n\n(Máy chủ chưa bật AI – đây là nội dung quy định được trích nguyên văn theo từ khóa.)' };
-      }
+          traLoi: khop.map(function (o) { return '• ' + o.x.tieuDe + '\n' + botDoanLQ(o.x.noiDung, tuHoi, 2500) + (o.x.vanBan ? '\n(Căn cứ: ' + o.x.vanBan + ')' : ''); }).join('\n\n') +
+            '\n\n(' + ghiChu.charAt(0).toUpperCase() + ghiChu.slice(1) + ' – đây là nội dung quy định được trích nguyên văn theo từ khóa.)' };
+      };
+      if (!env.ai || !env.ai.trangThai().coKhoa) return traCuuTuKhoa('máy chủ chưa bật AI');
 
       var nd = 'CÂU HỎI CỦA CBCNV: ' + hoi +
         '\n\n=== NGUỒN: MỤC QUY ĐỊNH DO PHÒNG TCHC NHẬP ===\n' + (txtQD || '(không có)') +
         (txtVB ? '\n\n=== NGUỒN: VĂN BẢN GỐC CỦA CÔNG TY ===\n' + txtVB : '') +
         '\n\n=== YÊU CẦU ===\n' + BOT_P;
-      var o = aiGoi({ he: BOT_HE, nd: nd, anh: [], maxTok: 2000, loai: 'bot',
-        duLieu: { hoi: hoi, soQD: dungQD.length, vb: dsVBDung } });
+      var o;
+      try {
+        o = aiGoi({ he: BOT_HE, nd: nd, anh: [], maxTok: 1500, loai: 'bot', duLieu: { hoi: hoi, soQD: dungQD.length, vb: dsVBDung } });
+      } catch (e) {                                    // v3.55: AI lỗi / quá 60 giây → vẫn trả lời bằng tra cứu từ khóa, kèm lý do
+        var kqTK = traCuuTuKhoa('AI tạm thời không trả lời được: ' + botS(e && e.message || e, 160));
+        kqTK.loiAI = botS(e && e.message || e, 300); return kqTK;
+      }
 
       /* ---- Chốt an toàn chống bịa (bắt buộc: CBCNV sẽ làm theo câu trả lời) ----
          1) Căn cứ AI nêu phải có thật trong NGUỒN đã cấp – loại mọi tên văn bản AI tự đặt.
@@ -10518,8 +10562,33 @@ var HRCORE = (function () {
       var tl = botS(o && o.traLoi, 4000), dtl = !!(o && o.daTraLoi) && !!nguon.length && !!tl;
       var thieu = botS(o && o.thieu, 300) || hoi;
       if (!dtl) tl = 'Công ty chưa có quy định về nội dung này trong hệ thống của trợ lý. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời chính thức.';
-      return { daTraLoi: dtl, traLoi: tl, nguon: dtl ? nguon : [], dungAI: true,
-        nhom: dtl ? aiChon(o && o.nhom, BOT_NHOM, '') : '', thieu: dtl ? '' : thieu };
+      return luuTL({ daTraLoi: dtl, traLoi: tl, nguon: dtl ? nguon : [], dungAI: true,
+        nhom: dtl ? aiChon(o && o.nhom, BOT_NHOM, '') : '', thieu: dtl ? '' : thieu });
+    };
+
+    /* v3.55: tự kiểm trợ lý – đo thời gian từng bước để tìm chỗ chậm / lỗi */
+    H['bot.kiem'] = function (req, s) {
+      botQuyen(s);
+      var kq = [], t = Date.now(), buoc = function (ten, fn) {
+        var t0 = Date.now(), r = { ten: ten };
+        try { r.kq = fn(); r.ok = true; } catch (e) { r.ok = false; r.loi = botS(e && e.message || e, 300); }
+        r.ms = Date.now() - t0; kq.push(r); return r;
+      };
+      var qd = [], vb = [];
+      buoc('Đọc bảng quy định, văn bản', function () { qd = T('BotQuyDinh').filter(botHieuLuc); vb = T('BotVanBan').filter(botHieuLuc); return qd.length + ' mục quy định, ' + vb.length + ' văn bản'; });
+      vb.forEach(function (v) {
+        buoc('Đọc chữ văn bản "' + botVBNhan(v) + '"', function () {
+          var coDem = botDemDoc('bvt_' + v.id + '_' + String(v.textLuc || '').replace(/\D/g, '')) != null;
+          if (!v.textLuc || !num(v.soChu)) return 'CHƯA trích chữ (' + (v.loi || 'chưa đăng ký lại') + ') – mỗi câu hỏi phải chuyển đổi lại, rất chậm. Vào Văn bản công ty → Sửa → Lưu để trích lại.';
+          var x = botNapChu(v, false); return x.length.toLocaleString('vi-VN') + ' ký tự' + (coDem ? ' (từ bộ đệm nhanh)' : ' (từ Drive, đã đưa vào bộ đệm)');
+        });
+      });
+      buoc('Gọi AI thử', function () {
+        if (!env.ai || !env.ai.trangThai().coKhoa) return 'Chưa bật AI – trợ lý chỉ tra cứu theo từ khóa.';
+        var tt = env.ai.trangThai(), o = env.ai.goi({ he: 'Trả lời đúng một từ.', nd: 'Trả lời: OK', anh: [], maxTok: 20, loai: 'bot' });
+        return tt.ncc + ' / ' + (tt.model || 'mặc định') + ' → ' + botS(typeof o === 'string' ? o : JSON.stringify(o), 60);
+      });
+      return { buoc: kq, tong: Date.now() - t, phienBan: VERSION };
     };
 
     /* ghi nhật ký câu hỏi (trình duyệt gọi ngay sau bot.hoi) – để TCHC biết CBCNV đang vướng gì, thiếu quy định gì */
@@ -10543,7 +10612,8 @@ var HRCORE = (function () {
 
     H['bot.luu'] = function (req, s) {
       botQuyen(s);
-      var tieuDe = botS(req.tieuDe, 200), noiDung = botS(req.noiDung, 6000);
+      var tieuDe = botS(req.tieuDe, 200), noiDung = botSD(req.noiDung, BOT_ND_MAX);   // v3.57: nội dung trích từ tệp (≤ 40.000 ký tự)
+      if (String(req.noiDung || '').length > BOT_ND_MAX) err('Nội dung dài quá ' + BOT_ND_MAX.toLocaleString('vi-VN') + ' ký tự – tách thành nhiều mục, hoặc đăng ký tệp ở tab "Văn bản công ty".');
       if (tieuDe.length < 5) err('Tiêu đề quy định quá ngắn.');
       if (noiDung.length < 10) err('Nội dung quy định quá ngắn.');
       var a = T('BotQuyDinh'), x = req.id ? a.filter(function (z) { return z.id === req.id; })[0] : null;
@@ -10635,7 +10705,7 @@ var HRCORE = (function () {
         soNguoi: Object.keys(nguoi).length };
     };
 
-    var READ_ONLY = ['tl.ocrxem', 'chat.anh', 'chat.khods', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
+    var READ_ONLY = ['bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
       'ping', 'log.list', 'cv.ocr', 'chat.init', 'chat.poll', 'chat.history', 'chat.file', 'chat.files',
       'ai.nhom', 'ai.thu', 'ai.models', 'ai.phantich', 'ai.taifile', 'gps.cuatoi', 'gps.ds', 'gps.anh', 'gps.tonghop', 'gps.ct.ds', 'ai.ds', 'ai.xem', 'ai.tep', 'ai.tepluu', 'ai.doctep', 'chat.nhatky', 'push.cuatoi', 'push.trangthai', 'cckt.ds', 'cckt.ai', 'vitri.ds', 'dgt.ds', 'dgt.xem', 'dgt.ai', 'dgt.cuatoi', 'bot.ds', 'bot.hoi', 'bot.nhatky'];   // phân tích AI chạy lâu: không giữ khóa ghi (chỉ ghi Drive, bộ nhớ đệm)
 
@@ -12274,13 +12344,13 @@ async function docxVanBan(buf) {
   }
   throw new Error('Không tìm thấy nội dung văn bản trong tệp Word.');
 }
-async function ocrMay(blob, mime, bao) {
+async function ocrMay(blob, mime, bao, o = {}) {
   let anh = [];
   if (/pdf/.test(mime)) {
     const pdfjs = await napJS(OCR_LIB.pdf, () => window.pdfjsLib); pdfjs.GlobalWorkerOptions.workerSrc = OCR_LIB.pdfw;
-    const doc = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise, n = Math.min(doc.numPages, 6);
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise, nL = Math.min(doc.numPages, o.trangChu || 6), n = Math.min(doc.numPages, o.trangOCR || 6);
     let lop = '';
-    for (let i = 1; i <= n; i++) { const tc = await (await doc.getPage(i)).getTextContent(); lop += tc.items.map(x => x.str + (x.hasEOL ? '\n' : ' ')).join('') + '\n'; }
+    for (let i = 1; i <= nL; i++) { bao && nL > 6 && bao('Đang đọc trang ' + i + '/' + nL + '…'); const tc = await (await doc.getPage(i)).getTextContent(); lop += tc.items.map(x => x.str + (x.hasEOL ? '\n' : ' ')).join('') + '\n'; }
     if (lop.replace(/\s/g, '').length > 80) return lop;                      // PDF có sẵn lớp chữ – không cần OCR
     for (let i = 1; i <= n; i++) { const pg = await doc.getPage(i), vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; anh.push(cv); }
   } else anh = [blob];
@@ -13276,7 +13346,7 @@ function cccdHTML(ma, self) {
    Người tải thấy 4 góc gợi ý, kéo chỉnh nếu lệch, xoay 90°, hoặc dùng ảnh gốc. Chạy hoàn toàn trên máy, không gửi ảnh ra ngoài. */
 const CCCD_TL = 85.6 / 53.98, CAT = {};
 function catMoAnh(file) {
-  return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => { throw new Error('Không đọc được ảnh "' + file.name + '" (định dạng HEIC hãy chuyển sang JPG).'); });
+  return anhMo(file);;
 }
 function catNguon(bmp, max) {           // canvas nguồn ≤ max px
   const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), cv = document.createElement('canvas');
@@ -18624,12 +18694,23 @@ function btAckXls(id) {
 }
 /* soạn bài */
 function btB64(file) { return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('Không đọc được file.')); r.readAsDataURL(file); }); }
+/* v3.56: mở ảnh từ điện thoại – thử lần lượt createImageBitmap (xoay theo EXIF) → createImageBitmap thường → <img>;
+   trả về đối tượng vẽ được có width/height (ImageBitmap hoặc canvas). */
+async function anhMo(file) {
+  try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { }
+  try { return await createImageBitmap(file); } catch (e) { }
+  try {
+    const im = await new Promise((ok, no) => { const u = URL.createObjectURL(file), x = new Image(); x.onload = () => { ok(x); setTimeout(() => URL.revokeObjectURL(u), 1000); }; x.onerror = () => { URL.revokeObjectURL(u); no(new Error('x')); }; x.src = u; });
+    const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight; cv.getContext('2d').drawImage(im, 0, 0); return cv;
+  } catch (e) { }
+  throw new Error('Không đọc được ảnh "' + (file.name || '') + '"' + (/hei[cf]/i.test((file.type || '') + (file.name || '')) ? ' – ảnh định dạng HEIC/HEIF: trên điện thoại vào Camera → Cài đặt → tắt "Ảnh hiệu quả cao" (Samsung) / chọn "Tương thích nhất" (iPhone), hoặc gửi ảnh qua Zalo rồi lưu lại để có JPG.' : ' – tệp không phải ảnh hoặc bị hỏng.'));
+}
 async function btNen(file) {   // thu nhỏ ảnh ≤ 1600px, JPEG 85%
   if (file.type === 'image/gif') return { data: await btB64(file), mime: file.type, name: file.name, w: 0, h: 0 };
-  let bmp;
-  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
-  catch (e) { throw new Error('Không đọc được ảnh "' + file.name + '" (định dạng HEIC hãy chuyển sang JPG).'); }
-  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
+  const bmp = await anhMo(file);
+  const W0 = bmp.width, H0 = bmp.height;
+  if (!W0 || !H0) throw new Error('Ảnh "' + file.name + '" rỗng hoặc hỏng.');
+  const k = Math.min(1, 1600 / Math.max(W0, H0)), w = Math.round(W0 * k), h = Math.round(H0 * k);
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(bmp, 0, 0, w, h);
   // v3.45: ảnh thu nhỏ 640px cho bảng tin (≈ 40–60 KB) — hiện nhanh trong danh sách
@@ -18678,6 +18759,7 @@ function btUpView() {
 }
 async function btAddFiles(inp, kind) {
   const E = APP.btE, files = [...inp.files]; inp.value = '';
+  if (!files.length) return toast('Điện thoại không trả về ảnh / tệp đã chọn. Thử chọn từng ảnh một' + (window.TapacoApp ? ', hoặc cài app Android bản 3.56 trở lên' : '') + '.', 'err');
   for (const file of files) {
     E.dang++; btUpView();
     try {
@@ -19194,7 +19276,7 @@ function botBodyHTML() {
     if (gy.length) h += `<div class="bot-chips"><span class="bot-chips-l">Câu hỏi thường gặp</span>${gy.slice(0, 12).map((g, i) => `<button onclick="botHoiNhanh(${i})">${esc(g.tieuDe)}</button>`).join('')}</div>`;
   }
   h += BOT.tin.map(botTinHTML).join('');
-  if (BOT.cho) h += `<div class="bot-m bot"><span class="cav g bot-av sm">${BOT_AV}</span><div class="bot-bb"><span class="dots"><i></i><i></i><i></i></span> đang tra cứu quy định…</div></div>`;
+  if (BOT.cho) h += `<div class="bot-m bot"><span class="cav g bot-av sm">${BOT_AV}</span><div class="bot-bb"><span class="dots"><i></i><i></i><i></i></span> <span id="botCho">${esc(BOT.choTxt || 'đang tra cứu quy định…')}</span></div></div>`;
   return h;
 }
 function botTinHTML(m, i) {
@@ -19203,7 +19285,7 @@ function botTinHTML(m, i) {
   let h = `<div class="bot-m bot"><span class="cav g bot-av sm">${BOT_AV}</span><div class="bot-bb${kl}">${esc(m.nd).replace(/\n/g, '<br>')}`;
   if (m.daTraLoi && (m.nguon || []).length) h += `<div class="bot-ng"><b>Căn cứ:</b> ${m.nguon.map(n => `<span>${esc(n)}</span>`).join('')}</div>`;
   if (!m.daTraLoi && !m.loi) h += `<div class="bot-ng gh">Câu hỏi đã được ghi nhận để phòng TCHC xem xét bổ sung quy định.</div>`;
-  if (m.daTraLoi && m.dungAI === false) h += `<div class="bot-ng gh">Trích nguyên văn theo từ khóa (máy chủ chưa bật AI).</div>`;
+  if (m.daTraLoi && m.dungAI === false) h += `<div class="bot-ng gh">Trích nguyên văn theo từ khóa (AI chưa bật hoặc tạm lỗi).</div>`;
   if (m.id && m.daTraLoi) h += `<div class="bot-dg">${m.huuIch
     ? `<span class="da">${m.huuIch === 'co' ? 'Cảm ơn Anh/Chị đã đánh giá.' : 'Đã ghi nhận. TCHC sẽ xem lại nội dung này.'}</span>`
     : `Câu trả lời có hữu ích không?<button onclick="botDanhGia(${i},'co')" title="Hữu ích">${BOT_IC.up}</button><button onclick="botDanhGia(${i},'khong')" title="Chưa hữu ích">${BOT_IC.down}</button>`}</div>`;
@@ -19221,10 +19303,20 @@ async function botGui() {
   if (hoi.length < 5) { toast('Xin nhập câu hỏi rõ hơn (ít nhất 5 ký tự).', 'err'); return; }
   el.value = ''; botCao(el);
   BOT.tin.push({ ai: 'toi', nd: hoi });
-  BOT.cho = true; botVe();
+  BOT.cho = true; BOT.choTxt = ''; botVe();
+  /* v3.55: đếm giây khi chờ (AI đọc văn bản dài có thể mất 20–60 giây); mạng rớt giữa chừng thì hỏi lại 1 lần –
+     máy chủ đã làm xong sẽ trả ngay từ bộ đệm câu trả lời */
+  BOT.hoiLai = 0; const t0 = Date.now(), dongHo = setInterval(() => { if (BOT.hoiLai) return; const g = Math.round((Date.now() - t0) / 1000), el2 = $('botCho');
+    BOT.choTxt = g < 8 ? 'đang tra cứu quy định…' : g < 25 ? `AI đang đọc quy định, văn bản… ${g} giây` : `vẫn đang xử lý (${g} giây) – văn bản dài, xin chờ thêm…`; if (el2) el2.textContent = BOT.choTxt; }, 1000);
+  const hoiMC = async () => { try { return await api('bot.hoi', { hoi }, { quiet: true }); }
+    catch (e) { if (!/Không kết nối được máy chủ/.test(e.message)) throw e;
+      const g = Math.round((Date.now() - t0) / 1000); BOT.hoiLai = 1; BOT.choTxt = 'mạng bị ngắt khi chờ (' + g + ' giây) – đang hỏi lại…'; const el2 = $('botCho'); if (el2) el2.textContent = BOT.choTxt;
+      await new Promise(r => setTimeout(r, 2500));
+      try { return await api('bot.hoi', { hoi }, { quiet: true }); }
+      catch (e2) { if (/Không kết nối được máy chủ/.test(e2.message)) throw new Error('Không nhận được trả lời từ máy chủ sau ' + Math.round((Date.now() - t0) / 1000) + ' giây' + (g > 25 ? ' – máy chủ xử lý quá lâu hoặc mạng điện thoại bị ngắt khi chờ (đừng tắt màn hình / chuyển app khi đang hỏi). Thử hỏi ngắn, cụ thể hơn; Quản trị bấm "Kiểm tra trợ lý" ở mục Quản lý để tìm chỗ chậm.' : ' – kiểm tra mạng hoặc địa chỉ máy chủ (Cài đặt → Cấu hình máy chủ).')); throw e2; } } };
   try {
-    const r = await api('bot.hoi', { hoi }, { quiet: true });
-    const m = { ai: 'bot', nd: r.traLoi || '', nguon: r.nguon || [], daTraLoi: !!r.daTraLoi, dungAI: r.dungAI };
+    const r = await hoiMC();
+    const m = { ai: 'bot', nd: r.traLoi || '', nguon: r.nguon || [], daTraLoi: !!r.daTraLoi, dungAI: r.dungAI, ms: r.daDem ? 0 : r.ms };
     BOT.tin.push(m);
     try {
       const g = await api('bot.ghi', { hoi: hoi, traLoi: m.nd, nguon: m.nguon, nhom: r.nhom || '', daTraLoi: m.daTraLoi, dungAI: !!r.dungAI, thieu: r.thieu || '' }, { quiet: true });
@@ -19233,7 +19325,7 @@ async function botGui() {
   } catch (e) {
     BOT.tin.push({ ai: 'bot', nd: 'Không gửi được câu hỏi: ' + e.message, loi: true });
   }
-  BOT.cho = false; botVe();
+  clearInterval(dongHo); BOT.cho = false; BOT.choTxt = ''; botVe();
   if (!BOT.ds || BOT.ds.loi) botNapDS();
 }
 async function botDanhGia(i, v) {
@@ -19243,13 +19335,25 @@ async function botDanhGia(i, v) {
   catch (e) { m.huuIch = cu; botVe(); toast(e.message, 'err'); }
 }
 
+/* v3.55: tự kiểm trợ lý – thời gian từng bước trên máy chủ */
+async function botKiem() {
+  modal('🩺 Kiểm tra trợ lý quy định', '<p id="bkKq" class="muted">Đang kiểm tra trên máy chủ (đọc bảng, đọc văn bản, gọi AI thử)…</p>', { foot: '<button class="btn" onclick="closeModal()">Đóng</button>' });
+  const t0 = Date.now();
+  try {
+    const r = await api('bot.kiem', {}, { quiet: true }), el = $('bkKq'); if (!el) return;
+    const s = ms => ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' giây';
+    el.className = ''; el.innerHTML = `<div class="tw"><table class="t cai"><thead><tr><th>Bước</th><th>Thời gian</th><th>Kết quả</th></tr></thead><tbody>${r.buoc.map(b => `<tr><td>${esc(b.ten)}</td><td style="white-space:nowrap;${b.ms > 15000 ? 'color:#B91C1C;font-weight:700' : ''}">${s(b.ms)}</td><td class="wrap" style="${b.ok ? '' : 'color:#B91C1C'}">${esc(b.ok ? b.kq : 'LỖI: ' + b.loi)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="small">Máy chủ: ${s(r.tong)} · cả đường truyền: ${s(Date.now() - t0)} · Code.gs bản ${esc(r.phienBan)}</p>
+      <p class="small muted">Gọi AI thử > 15 giây: chọn model nhanh hơn ở Cài đặt AI (VD dòng "flash"). Văn bản "CHƯA trích chữ": Sửa → Lưu lại văn bản đó. Câu hỏi đã trả lời được giữ trong bộ đệm 6 giờ – hỏi lại sẽ có ngay.</p>`;
+  } catch (e) { const el = $('bkKq'); if (el) { el.className = 'bot-loi'; el.textContent = 'Không kiểm tra được: ' + e.message + (/Thao tác không hợp lệ/i.test(e.message) ? ' – máy chủ chưa cập nhật Code.gs bản 3.55.' : ''); } }
+}
 /* ============ Màn hình quản lý nội dung quy định (TCHC / Giám đốc / Quản trị) ============ */
 const BQ = { ds: null, nk: null, q: '', nhom: '' };
 function vBotQD() {
   if (!BQ.ds) { setTimeout(bqNap, 0); return `<div class="card"><p class="muted">Đang tải nội dung quy định…</p></div>`; }
   if (BQ.ds.loi) return `<div class="card"><p class="bot-loi">${esc(BQ.ds.loi)}</p><button class="btn" onclick="BQ.ds=null;render()">Thử lại</button></div>`;
   const t = curTab('botqd', 'qd');
-  return tabs('botqd', [['qd', 'Mục quy định'], ['vb', 'Văn bản công ty'], ['nk', 'Câu hỏi của CBCNV']]) +
+  return `<div class="bar" style="justify-content:flex-end;margin-bottom:8px"><button class="btn sm" onclick="botKiem()">🩺 Kiểm tra trợ lý (tốc độ, lỗi)</button></div>` + tabs('botqd', [['qd', 'Mục quy định'], ['vb', 'Văn bản công ty'], ['nk', 'Câu hỏi của CBCNV']]) +
     (t === 'vb' ? bqVBHTML() : t === 'nk' ? bqNKHTML() : bqQDHTML());
 }
 async function bqNap() {
@@ -19285,7 +19389,9 @@ function bqSua(id) {
   modal(id ? 'Sửa mục quy định' : 'Thêm mục quy định', `
     <div class="fg"><label>Nhóm</label><select id="bqNhom">${(d.nhom || []).map(n => `<option${x.nhom === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
     <div class="fg"><label>Tiêu đề — câu hỏi CBCNV hay hỏi</label><input id="bqTieuDe" value="${esc(x.tieuDe || '')}" placeholder="VD: Thủ tục xin nghỉ phép năm"></div>
-    <div class="fg"><label>Nội dung trả lời — ghi đúng theo văn bản công ty</label><textarea id="bqNoiDung" rows="7" placeholder="Trích hoặc tóm đúng nội dung quy chế. Không ghi con số theo phỏng đoán.">${esc(x.noiDung || '')}</textarea></div>
+    <div class="fg"><label>Nội dung trả lời — ghi đúng theo văn bản công ty</label>
+      <div class="bar" style="margin:2px 0 6px;flex-wrap:wrap"><label class="btn sm">📄 Tải tệp để trích nội dung<input type="file" class="hide" accept=".docx,.pdf,.txt,.md,image/*,application/pdf,${MIME_DOCX},text/plain" onchange="bqTaiTep(this)"></label><span id="bqTepTT" class="small muted">Word (.docx), PDF, ảnh chụp, .txt – đọc ngay trên máy, không gửi ra ngoài</span></div>
+      <textarea id="bqNoiDung" rows="9" maxlength="40000" oninput="bqDem()" placeholder="Trích hoặc tóm đúng nội dung quy chế. Không ghi con số theo phỏng đoán.">${esc(x.noiDung || '')}</textarea><div id="bqDem" class="small muted" style="text-align:right">${(x.noiDung || '').length.toLocaleString('vi-VN')} / 40.000 ký tự</div></div>
     <div class="fg"><label>Căn cứ — số hiệu, tên văn bản</label><input id="bqVanBan" value="${esc(x.vanBan || '')}" placeholder="VD: Quy chế lao động số 12/QĐ-TAPACO"></div>
     <div class="two"><div class="fg"><label>Hiệu lực từ</label><input id="bqHieuLuc" type="date" value="${esc(x.hieuLuc || '')}"></div>
       <div class="fg"><label>Trạng thái</label><select id="bqTT"><option value="hieuluc"${x.trangThai !== 'het' ? ' selected' : ''}>Còn hiệu lực</option><option value="het"${x.trangThai === 'het' ? ' selected' : ''}>Hết hiệu lực</option></select></div></div>
@@ -19295,6 +19401,51 @@ function bqSua(id) {
         vanBan: $('bqVanBan').value, hieuLuc: $('bqHieuLuc').value, trangThai: $('bqTT').value, lienKet: $('bqLienKet').value });
       toast('Đã lưu mục quy định.', 'ok'); BQ.ds = null; setTimeout(render, 0);
     } });
+}
+/* v3.57: tải tệp quy chế → trích chữ trên máy → điền ô Nội dung (và Tiêu đề / Căn cứ / Hiệu lực nếu còn trống) */
+function bqDem() { const t = $('bqNoiDung'), d = $('bqDem'); if (t && d) d.textContent = t.value.length.toLocaleString('vi-VN') + ' / 40.000 ký tự' + (t.value.length >= 40000 ? ' – đã đầy: tách thành nhiều mục hoặc đăng ký tệp ở tab "Văn bản công ty"' : ''); }
+function vbLamSach(t) {                   // ghép dòng bị ngắt giữa câu (PDF / OCR), bỏ khoảng trắng thừa
+  const L = String(t || '').replace(/\r/g, '').replace(/\u00a0/g, ' ').split('\n').map(x => x.replace(/[ \t]+/g, ' ').trim());
+  const out = [];
+  L.forEach(x => {
+    if (!x) { if (out.length && out[out.length - 1] !== '') out.push(''); return; }
+    const tr = out[out.length - 1];
+    const dauMuc = /^(Điều|Chương|Mục|Phần|Khoản|Phụ lục|[IVXLC]+[.)]|\d+(\.\d+)*[.)]|[a-zđ][)]|[-–•+*])\s?/i.test(x);
+    if (tr && !dauMuc && !/[.:;!?]$/.test(tr) && /^[a-zà-ỹđ(“"0-9]/.test(x) && tr.length > 15) out[out.length - 1] = tr + ' ' + x;
+    else out.push(x);
+  });
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+async function bqTaiTep(inp) {
+  const f = inp.files && inp.files[0]; inp.value = ''; const tt = $('bqTepTT'); if (!f) return;
+  const bao = m => { if (tt) tt.textContent = m; };
+  try {
+    if (f.size > 25 * 1048576) throw new Error('Tệp lớn quá 25 MB.');
+    const ten = f.name || '', mime = f.type || '';
+    let t = '';
+    bao('Đang đọc "' + ten + '"…');
+    if (mime === MIME_DOCX || /\.docx$/i.test(ten)) t = await docxVanBan(await f.arrayBuffer());
+    else if (/\.doc$/i.test(ten)) throw new Error('Tệp .doc đời cũ: mở bằng Word → Lưu thành .docx hoặc PDF rồi tải lại.');
+    else if (/^text\//.test(mime) || /\.(txt|md)$/i.test(ten)) t = await f.text();
+    else if (/pdf/.test(mime) || /\.pdf$/i.test(ten)) t = await ocrMay(f, 'application/pdf', bao, { trangChu: 60, trangOCR: 10 });
+    else if (/^image\//.test(mime) || /\.(jpe?g|png|webp)$/i.test(ten)) t = await ocrMay(f, mime || 'image/jpeg', bao);
+    else throw new Error('Chưa đọc được loại tệp này – dùng Word (.docx), PDF, ảnh hoặc .txt.');
+    t = vbLamSach(t);
+    if (t.replace(/\s/g, '').length < 20) throw new Error('Không đọc được chữ trong tệp (bản scan mờ hoặc tệp trống).');
+    const o = $('bqNoiDung'); if (!o) return;
+    let ghi = t;
+    if (o.value.trim() && !confirm('Ô Nội dung đã có chữ.\nOK = THAY bằng nội dung tệp; Hủy = THÊM vào cuối.')) ghi = o.value.trim() + '\n\n' + t;
+    const cat = ghi.length > 40000; o.value = ghi.slice(0, 40000); bqDem();
+    // điền các ô còn trống từ nội dung văn bản
+    const dong = t.split('\n').filter(Boolean), dau = dong.slice(0, 40);
+    const tdVB = dau.find(x => /^(QUY CHẾ|QUY ĐỊNH|NỘI QUY|QUYẾT ĐỊNH|HƯỚNG DẪN|THÔNG BÁO|CHÍNH SÁCH|QUY TRÌNH)(?=\s|$)/.test(x)) || '';
+    const so = (dau.join(' ').match(/Số\s*[:.]?\s*([0-9]+\s*\/\s*[0-9]{0,4}\s*\/?\s*[A-ZĐ0-9\-–]+)/) || [])[1] || '';
+    const td = $('bqTieuDe'); if (td && !td.value.trim()) td.value = (tdVB ? tdVB.charAt(0) + tdVB.slice(1).toLowerCase() : ten.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')).slice(0, 200);
+    const vb = $('bqVanBan'); if (vb && !vb.value.trim() && (tdVB || so)) vb.value = ((so ? 'Số ' + so.replace(/\s+/g, '') + ' – ' : '') + (tdVB || ten)).slice(0, 300);
+    const hl = $('bqHieuLuc'), m = t.match(/hiệu lực (?:thi hành )?(?:kể )?từ ngày\s*(\d{1,2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*(\d{4})/i);
+    if (hl && !hl.value && m) hl.value = m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
+    bao('✓ Đã trích ' + t.length.toLocaleString('vi-VN') + ' ký tự từ "' + ten + '"' + (cat ? ' – cắt còn 40.000 ký tự đầu; văn bản dài nên đăng ký ở tab "Văn bản công ty"' : '') + '. Kiểm tra, sửa lỗi chính tả (nếu là bản scan) rồi Lưu.');
+  } catch (e) { bao('✗ ' + e.message); toast(e.message, 'err'); }
 }
 function bqXoa(id) {
   const x = (BQ.ds.qd || []).find(z => z.id === id); if (!x) return;
@@ -19802,9 +19953,7 @@ function chDrop(e) { e.preventDefault(); $('chPane').classList.remove('drop'); i
 /* v3.32: ảnh gửi tin nhắn ≤ 1600px JPEG 82% + ảnh thu nhỏ 480px (hiện trong khung chat, tải nhanh); ảnh gốc chỉ tải khi mở xem */
 async function chNen(file) {
   if (file.type === 'image/gif') return { data: await btB64(file), mime: file.type, name: file.name, w: 0, h: 0 };
-  let bmp;
-  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
-  catch (e) { throw new Error('Không đọc được ảnh "' + file.name + '" (định dạng HEIC hãy chuyển sang JPG).'); }
+  const bmp = await anhMo(file);
   const ve = (max, q) => { const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k), cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(bmp, 0, 0, w, h); return { d: cv.toDataURL('image/jpeg', q).split(',')[1], w, h }; };
   const a = ve(1600, 0.82), t = ve(480, 0.7); try { bmp.close && bmp.close(); } catch (e) { }
   return { data: a.d, thumb: t.d, mime: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg', w: a.w, h: a.h };
