@@ -1,0 +1,45 @@
+ĐĂNG APP LÊN WEB HTTPS ĐỂ CÀI TRÊN IPHONE (VÀ ANDROID KHÔNG DÙNG .APK) – BẢN 3.49
+===============================================================================
+
+VÌ SAO CẦN: iPhone chỉ "Thêm vào MH chính" thành app (toàn màn hình, biểu tượng TAPACO,
+thông báo đẩy) khi trang được mở bằng Safari từ một địa chỉ https. Mở index.html từ ổ máy tính,
+từ Google Drive hay gửi tệp qua Zalo đều KHÔNG cài được. Google Drive không còn hỗ trợ
+đăng trang web.
+
+CẦN ĐĂNG GÌ: toàn bộ thư mục 1_UngDung (index.html, sw.js, manifest.webmanifest, icon-*.png,
+webapp.txt). Dữ liệu nhân sự KHÔNG nằm trong thư mục này – vẫn ở Google Sheet/Drive của Công ty,
+chỉ đọc được sau khi đăng nhập. Thư mục chỉ chứa giao diện + địa chỉ máy chủ Apps Script.
+Không đặt mật khẩu, khóa API hay tệp dữ liệu vào thư mục này.
+
+CÁCH 1 – GITHUB PAGES (miễn phí, ổn định, khuyến nghị)
+ 1. Tạo tài khoản tại https://github.com (dùng email Công ty).
+ 2. Bấm "New repository", đặt tên vd: tapaco-nhansu, chọn Public (GitHub Pages miễn phí
+    yêu cầu Public; nội dung chỉ là giao diện, không có dữ liệu) → Create.
+ 3. Trong repository: "Add file" → "Upload files" → kéo thả TẤT CẢ tệp trong 1_UngDung
+    (không kéo cả thư mục) → Commit changes.
+ 4. Settings → Pages → Source: "Deploy from a branch", Branch: main, thư mục / (root) → Save.
+ 5. Đợi 1–3 phút, trang Pages hiện địa chỉ dạng https://<tên-tài-khoản>.github.io/tapaco-nhansu/
+ 6. Mở địa chỉ đó trên máy tính, đăng nhập thử. Được thì dán vào Cài đặt → "Link app web https".
+ Cập nhật bản mới: Upload files đè các tệp mới (giữ nguyên webapp.txt) → Commit.
+
+CÁCH 2 – NETLIFY DROP (nhanh nhất, kéo thả)
+ 1. Vào https://app.netlify.com/drop, đăng ký tài khoản miễn phí.
+ 2. Kéo thả cả thư mục 1_UngDung vào trang → nhận địa chỉ dạng https://<tên-ngẫu-nhiên>.netlify.app
+    (đổi tên ở Site configuration → Change site name).
+ 3. Cập nhật bản mới: mục Deploys → kéo thả thư mục mới.
+
+CÀI TRÊN IPHONE (CBCNV)
+ 1. Mở link https bằng Safari (nếu mở trong Zalo: bấm ⋯ → Mở bằng trình duyệt).
+ 2. Bấm Chia sẻ (ô vuông có mũi tên lên) → "Thêm vào MH chính" → Thêm.
+ 3. Mở biểu tượng TAPACO HR trên màn hình chính → đăng nhập 1 lần.
+ 4. Muốn nhận thông báo: trong app vào menu tài khoản → bật thông báo (iOS 16.4 trở lên).
+
+ANDROID: có 2 cách – (a) cài tệp .apk trong 5_AppDienThoai; (b) mở link https bằng Chrome →
+menu ⋮ → "Cài đặt ứng dụng" / "Thêm vào MH chính" (hoặc nút "Cài app ngay" trong menu tài khoản).
+
+LƯU Ý
+- Các địa chỉ <tên>.github.io / <tên>.netlify.app ở trên là MẪU – địa chỉ thật do dịch vụ cấp
+  sau khi đăng. Chưa kiểm tra cài trên iPhone thật với bản 3.49 (đang xác minh); hãy cài thử
+  1–2 máy trước khi phát toàn Công ty.
+- Sau mỗi lần nâng cấp: đăng lại thư mục 1_UngDung; app trên điện thoại tự nhận bản mới khi mở
+  lại (có thể cần đóng hẳn app rồi mở lại 1–2 lần).

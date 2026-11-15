@@ -925,7 +925,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.57';
+  var VERSION = '3.59';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -10007,7 +10007,15 @@ var HRCORE = (function () {
       'Mỗi câu trả lời phải ghi căn cứ vào nguon (đúng tiêu đề quy định hoặc số hiệu – tên văn bản đã dùng, không tự đặt tên mới). ' +
       'Việc riêng của từng người (lương cá nhân, số ngày phép còn lại, tranh chấp, kỷ luật cụ thể) thì không trả lời bằng số liệu mà hướng dẫn liên hệ TCHC hoặc trưởng bộ phận. ' +
       'Không suy đoán, không bình luận về sức khỏe, đời tư, gia đình, tôn giáo, chính trị của bất kỳ ai. ' +
-      'Giọng lễ phép, ngắn gọn, rõ ràng; xưng "Anh/Chị" với người hỏi. Viết tiếng Việt. Chỉ trả về JSON.';
+      'Giọng lễ phép, ngắn gọn, rõ ràng; xưng "Anh/Chị" với người hỏi. Viết tiếng Việt. Chỉ trả về JSON. ' +
+      /* v3.58: bố cục câu trả lời */
+      'CÁCH TRÌNH BÀY traLoi (bắt buộc): ' +
+      '(1) Dòng đầu: 1 câu trả lời thẳng vào câu hỏi. ' +
+      '(2) Sau đó liệt kê các ý, MỖI Ý MỘT DÒNG, bắt đầu bằng "- "; ý có ý con thì ý con xuống dòng, bắt đầu bằng "  + ". ' +
+      '(3) Nếu có nhiều nhóm nội dung (VD: nguyên tắc, hồ sơ, phân cấp duyệt) thì mỗi nhóm có 1 dòng tiêu đề ngắn kết thúc bằng dấu ":" rồi các ý của nhóm bên dưới. ' +
+      '(4) Dùng ký tự xuống dòng \\n giữa các dòng; để 1 dòng trống giữa các nhóm. KHÔNG viết thành đoạn văn liền. ' +
+      '(5) Ngắn gọn, đủ ý: chỉ nêu điều người hỏi cần, mỗi ý tối đa 2 câu, tổng cộng không quá khoảng 10 ý; không nhắc lại câu hỏi, không chào hỏi dài, không ghi căn cứ trong traLoi (đã có ở nguon). ' +
+      '(6) Không dùng markdown khác (không **, #, bảng).';
     var BOT_P = 'Trả về JSON đúng dạng: {"daTraLoi":true/false,"traLoi":"câu trả lời cho người hỏi","nguon":["tiêu đề quy định hoặc số hiệu – tên văn bản đã dùng"],"nhom":"' +
       BOT_NHOM.join('" hoặc "') + '","thieu":"nếu daTraLoi=false thì nêu ngắn gọn quy định công ty cần bổ sung, nếu không thì để rỗng"}. ' +
       'nguon phải là tên có thật trong NGUỒN. Nếu không dùng được nguồn nào thì daTraLoi=false và nguon=[].';
@@ -10162,7 +10170,7 @@ var HRCORE = (function () {
           traLoi: 'Hệ thống chưa có quy định nào được nhập. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời, và đề nghị TCHC nhập quy chế công ty vào mục "Quy định công ty" của trợ lý.' };
       }
       var tuHoi = botTu(hoi), tg0 = Date.now();
-      var kTL = env.dem ? 'bh_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan()).slice(0, 40) : '';
+      var kTL = env.dem ? 'bh2_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan()).slice(0, 40) : '';
       if (kTL) { var daCo = env.dem.lay(kTL); if (daCo) { try { var kq0 = JSON.parse(daCo); kq0.daDem = true; return kq0; } catch (e) { } } }   // v3.55: câu hỏi đã trả lời → trả ngay
       var luuTL = function (kq) { if (kTL && kq && kq.daTraLoi) env.dem.cat(kTL, JSON.stringify(kq), 21600); kq.ms = Date.now() - tg0; return kq; };
 
@@ -10245,7 +10253,7 @@ var HRCORE = (function () {
           var k = botKhongDau(x);
           return hlK.some(function (h) { return h === k || (k.length >= 6 && (h.indexOf(k) >= 0 || k.indexOf(h) >= 0)); });
         });
-      var tl = botS(o && o.traLoi, 4000), dtl = !!(o && o.daTraLoi) && !!nguon.length && !!tl;
+      var tl = botSD(o && o.traLoi, 4000).replace(/^\s*[*•]\s+/gm, '- ').replace(/\*\*/g, ''), dtl = !!(o && o.daTraLoi) && !!nguon.length && !!tl;
       var thieu = botS(o && o.thieu, 300) || hoi;
       if (!dtl) tl = 'Công ty chưa có quy định về nội dung này trong hệ thống của trợ lý. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời chính thức.';
       return luuTL({ daTraLoi: dtl, traLoi: tl, nguon: dtl ? nguon : [], dungAI: true,
@@ -10281,7 +10289,7 @@ var HRCORE = (function () {
     H['bot.ghi'] = function (req, s) {
       var a = T('BotHoi');
       a.push({ id: newId(), thoiGian: env.now(), username: s.username, hoTen: chatTen(s.username),
-        cauHoi: botS(req.hoi, 500), traLoi: botS(req.traLoi, 1000), nguon: botS((req.nguon || []).join('; '), 400),
+        cauHoi: botS(req.hoi, 500), traLoi: botSD(req.traLoi, 2000), nguon: botS((req.nguon || []).join('; '), 400),
         nhom: botS(req.nhom, 60), daTraLoi: req.daTraLoi ? 'Có' : '', dungAI: req.dungAI ? 'Có' : '',
         thieu: botS(req.thieu, 300), huuIch: '', phanHoi: '' });
       if (a.length > 3000) a.splice(0, a.length - 2500);
