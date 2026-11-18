@@ -970,7 +970,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.65';
+  var VERSION = '3.66';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -6401,6 +6401,44 @@ var HRCORE = (function () {
       chatBao(chatMem(c.h.id).map(function (x) { return x.username; }));
       log(s, 'chat.kho', p.soPhieu + ' (' + c.h.ten + '): ' + dong.length + ' dòng, ' + anh.length + ' ảnh');
       return { msg: m, phieu: khoPub(p) };
+    };
+    /* v3.66: ĐỌC ẢNH PHIẾU KHO (phiếu nhập/xuất, phiếu giao hàng, hóa đơn, biên bản giao nhận – in hoặc viết tay):
+       OCR (Google Drive) + AI đọc trực tiếp ảnh → bóc bảng vật tư và các ô đầu phiếu để điền hộ. Người lập soát lại trước khi gửi. */
+    var KHO_HE = 'Bạn là trợ lý thủ kho công trường của Công ty TAPACO (xây dựng hạ tầng). Nhiệm vụ: đọc ảnh chứng từ kho '
+      + '(phiếu nhập kho, phiếu xuất kho, phiếu giao hàng, hóa đơn, biên bản giao nhận, sổ ghi tay) và CHỮ OCR kèm theo (nếu có), rồi bóc BẢNG VẬT TƯ.\n'
+      + 'NGUYÊN TẮC: 1) Chỉ ghi điều nhìn thấy trên chứng từ, không bịa, không suy đoán số. 2) Giữ đúng thứ tự dòng; mỗi dòng hàng là một phần tử; bỏ dòng tiêu đề, dòng cộng, dòng trống. '
+      + '3) Số kiểu Việt Nam: 1.250 = 1250; 12,5 = 12.5. Ô số ghi số thuần (không đơn vị, không dấu phân cách). 4) Chữ viết tay khó đọc: vẫn ghi cách đọc hợp lý nhất và nêu trong "canKiemTra" (số thứ tự dòng + ô). '
+      + '5) Chữ OCR có thể sai dấu tiếng Việt: đối chiếu với ảnh, sửa tên vật tư cho đúng tiếng Việt thông dụng ngành xây dựng (thép, xi măng, cát, đá, ống, cáp…). '
+      + '6) "quyCach": kích thước, mác, chủng loại (D16, PCB40, 1x2, Ø110…) tách khỏi tên nếu rõ. 7) Đơn giá, thành tiền: chỉ khi chứng từ ghi.\n'
+      + 'Chỉ trả về MỘT đối tượng JSON: {"loaiChungTu":"phiếu nhập kho|phiếu xuất kho|phiếu giao hàng|hóa đơn|biên bản giao nhận|khác","loai":"nhap|xuat|",'
+      + '"ngay":"YYYY-MM-DD hoặc rỗng","soCT":"số chứng từ","doiTac":"nhà cung cấp / bên giao (phiếu nhập) hoặc đơn vị nhận (phiếu xuất)","nguoiGiaoNhan":"","hangMuc":"hạng mục sử dụng (nếu có)",'
+      + '"dong":[{"ten":"","quyCach":"","dv":"","sl":số,"donGia":số|null,"thanhTien":số|null,"ghiChu":""}],"tongTien":số|null,"doTinCay":"cao|trung bình|thấp","canKiemTra":["dòng 3: số lượng mờ"]}';
+    H['chat.khoai'] = function (req, s) {
+      var c = chatCan(s, req.ht);
+      var ids = (Array.isArray(req.fileIds) ? req.fileIds : [req.fileId]).filter(Boolean).slice(0, 4);
+      if (!ids.length) err('Chưa có ảnh phiếu để đọc.');
+      var demo = typeof UrlFetchApp === 'undefined' && !env.ocr, chu = [], anh = [];
+      ids.forEach(function (fid, i) {
+        var t = T('TepChat').filter(function (x) { return x.fileId === String(fid); })[0];
+        if (!t || t.hoiThoai !== c.h.id) err('Ảnh không thuộc nhóm này – tải lại ảnh.');
+        if (!/^image\//.test(t.mime)) err('"' + t.ten + '" không phải ảnh.');
+        var f = env.files.get(t.fileId); if (!f) err('Không đọc được ảnh "' + t.ten + '".');
+        if (!demo && OCR_IMG.test(t.mime)) { var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { x = ''; } if (x.replace(/\s/g, '').length >= 10) chu.push((ids.length > 1 ? '=== ẢNH ' + (i + 1) + ' ===\n' : '') + x.slice(0, 15000)); }
+        anh.push({ nhan: 'Ảnh ' + (i + 1) + ' – chứng từ kho:', mime: t.mime, data: f.data });
+      });
+      var nd = 'Nhóm / công trình: ' + aiTenHT(c.h) + '. Ngày hôm nay: ' + env.today() + '.\n'
+        + (req.loai === 'xuat' ? 'Người dùng đang lập PHIẾU XUẤT KHO.\n' : req.loai === 'nhap' ? 'Người dùng đang lập PHIẾU NHẬP KHO.\n' : '')
+        + (chu.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' + chu.join('\n\n') : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+      var o = aiO(aiGoi({ he: KHO_HE, nd: nd, anh: anh, maxTok: 3000, loai: 'phieukho', duLieu: { demo: demo, loai: req.loai || '' } }));
+      var sNum = function (v) { if (v == null || v === '') return null; if (typeof v === 'number') return isFinite(v) ? v : null; var t = String(v).replace(/[^\d.,-]/g, ''); if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.'); else t = t.replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'); var n = parseFloat(t); return isFinite(n) ? n : null; };
+      var dong = aiDs(o.dong, 60).map(function (d) { d = aiO(d); var ten = aiS(d.ten, 120); if (!ten) return null;
+        var sl = sNum(d.sl), dg = sNum(d.donGia), tt = sNum(d.thanhTien);
+        return { ten: ten, quyCach: aiS(d.quyCach, 120), dv: aiS(d.dv, 20), sl: sl != null && sl > 0 ? Math.round(sl * 1000) / 1000 : '', donGia: dg != null && dg > 0 ? Math.round(dg) : '', thanhTien: tt != null && tt > 0 ? Math.round(tt) : '', ghiChu: aiS(d.ghiChu, 200) }; }).filter(Boolean);
+      var ngay = parseD(o.ngay) && o.ngay <= env.today() ? o.ngay : '';
+      log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + ids.length + ' ảnh → ' + dong.length + ' dòng' + (chu.length ? ' (OCR)' : ''));
+      return { loaiChungTu: aiS(o.loaiChungTu, 40), loai: o.loai === 'nhap' || o.loai === 'xuat' ? o.loai : '', ngay: ngay, soCT: aiS(o.soCT, 80), doiTac: aiS(o.doiTac, 200), nguoiGiaoNhan: aiS(o.nguoiGiaoNhan, 120), hangMuc: aiS(o.hangMuc, 200),
+        dong: dong, tongTien: sNum(o.tongTien), doTinCay: ['cao', 'trung bình', 'thấp'].indexOf(String(o.doTinCay || '').toLowerCase()) >= 0 ? String(o.doTinCay).toLowerCase() : '',
+        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: chu.join('\n\n').slice(0, 20000), demo: !!o.demo || demo };
     };
     H['chat.khods'] = function (req, s) {        // danh sách phiếu của nhóm theo kỳ (thành viên nhóm xem được)
       var c = chatCan(s, req.ht), tu = parseD(req.tu) ? req.tu : '', den = parseD(req.den) ? req.den : '';

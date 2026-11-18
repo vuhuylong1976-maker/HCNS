@@ -902,6 +902,24 @@ Vai trò `nhanvien` chỉ nhận: hồ sơ mình, quá trình mình, lên lươn
 
 ### 5cd. v3.57 – Form mục quy định: tải tệp (docx/pdf/ảnh/txt) → trích chữ trên máy → điền Nội dung (+ Tiêu đề, Căn cứ, Hiệu lực); noiDung ≤ 40.000 ký tự giữ xuống dòng; bot.hoi chỉ gửi đoạn liên quan (botDoanLQ). Test t71, smoke81.
 
+### 5ce. v3.58 – Trợ lý trả lời có bố cục: quy tắc trình bày trong BOT_HE, giữ xuống dòng (botSD), client botBoCuc hiển thị tiêu đề / gạch đầu dòng / ý con, tách câu trả lời cũ viết liền. Test smoke82.
+
+### 5cf. v3.59 – Ảnh bảng tin: ô xem trước khi đang xử lý, tải 2 ảnh song song, ≤ 1280px; APK báo Toast khi chọn ảnh không nhận được tệp; cảnh báo APK cũ. Test smoke80.
+
+### 5cg. v3.60 – Phân tích nhóm AI: đợt cố định theo lịch + đệm kết quả đợt / tổng hợp trên Drive (chỉ gọi AI cho dữ liệu mới, tùy chọn "Phân tích lại từ đầu"), ước tính số lượt AI; gas tự chờ khi 503 / giới hạn phút, chuyển model dự phòng khi hết lượt ngày, báo rõ hạn mức. Test t72_gas, smoke83.
+
+### 5ch. v3.61 – Xuất PDF toàn bộ nội dung nhóm (tin theo ngày + ảnh thu nhỏ + báo cáo định kỳ + thành viên + lời nhắc phân tích mẫu) để tải lên ChatGPT; ai.tep thumb. Test smoke84.
+
+### 5ci. v3.62 – Công văn đến/đi: khi vào sổ chọn "người được xem" + chế độ "Hạn chế" (mặc định bật: chỉ người được chọn, GĐ, người nhập, người được giao xử lý xem); GĐ/văn thư sửa quyền (cv.quyen); GĐ giao xử lý cả văn bản đi; bấm dòng mở hộp thoại có khung trao đổi. Test t73, smoke85.
+
+### 5cj. v3.63 – Xuất nội dung nhóm ra Word (.docx, tạo trên máy) hoặc PDF (in), chia một tệp tổng / mỗi tuần (ISO) / mỗi tháng; nhiều tệp Word gộp .zip; nhiều PDF in lần lượt với tên gợi ý. Test smoke86.
+
+### 5ck. v3.64 – Xuất nội dung nhóm đủ: thành viên + tài khoản, thống kê hệ thống theo khoảng, tin nhắn, ảnh, báo cáo định kỳ, phiếu nhập/xuất kho, hồ sơ (trích chữ), mã chứng từ F…; tệp lời nhắc ChatGPT với mẫu JSON; "Nạp kết quả ChatGPT" (ai.nap) kiểm tra, làm sạch, ghép thống kê, lưu thành báo cáo phân tích nguồn "ngoai". Test smoke87.
+
+### 5cl. v3.65 – Công văn: nhiều tệp / văn bản (chính + kèm), AI đọc tất cả và tóm tắt; người nhận đọc + tình trạng đã đọc; chuyển tiếp (để biết / phối hợp xử lý) do cấp trên trực tiếp người chuyển duyệt (nhân viên → TP/CHT → GĐ). Test t74, smoke88.
+
+### 5cm. v3.66 – Phiếu nhập/xuất kho: chụp / tải ảnh chứng từ (in hoặc viết tay) → OCR + AI (chat.khoai) tự điền bảng vật tư và đầu phiếu, ô AI tô vàng, "Cần kiểm tra", người lập soát trước khi gửi. Test smoke89.
+
 ## 6. API (action)
 
 `ping, login, logout, load, changePassword, nv.save, nv.import, nv.delete, qt.save, qt.delete, ll.save, ll.decide, ll.delete, kt.save (nhiều maNVs), kt.decide (nhiều ids), kt.delete, cc.save, bl.calc, ky.move, yk.create, yk.reply, np.create, np.decide, np.cancel, quytrinh.save, congthuc.save, congthuc.test, tl.upload, tl.update, tl.get, tl.delete, user.save, user.bulk, user.delete, cfg.save, log.list`.

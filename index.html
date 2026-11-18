@@ -1243,7 +1243,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.65';
+  var VERSION = '3.66';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -6675,6 +6675,44 @@ var HRCORE = (function () {
       log(s, 'chat.kho', p.soPhieu + ' (' + c.h.ten + '): ' + dong.length + ' dòng, ' + anh.length + ' ảnh');
       return { msg: m, phieu: khoPub(p) };
     };
+    /* v3.66: ĐỌC ẢNH PHIẾU KHO (phiếu nhập/xuất, phiếu giao hàng, hóa đơn, biên bản giao nhận – in hoặc viết tay):
+       OCR (Google Drive) + AI đọc trực tiếp ảnh → bóc bảng vật tư và các ô đầu phiếu để điền hộ. Người lập soát lại trước khi gửi. */
+    var KHO_HE = 'Bạn là trợ lý thủ kho công trường của Công ty TAPACO (xây dựng hạ tầng). Nhiệm vụ: đọc ảnh chứng từ kho '
+      + '(phiếu nhập kho, phiếu xuất kho, phiếu giao hàng, hóa đơn, biên bản giao nhận, sổ ghi tay) và CHỮ OCR kèm theo (nếu có), rồi bóc BẢNG VẬT TƯ.\n'
+      + 'NGUYÊN TẮC: 1) Chỉ ghi điều nhìn thấy trên chứng từ, không bịa, không suy đoán số. 2) Giữ đúng thứ tự dòng; mỗi dòng hàng là một phần tử; bỏ dòng tiêu đề, dòng cộng, dòng trống. '
+      + '3) Số kiểu Việt Nam: 1.250 = 1250; 12,5 = 12.5. Ô số ghi số thuần (không đơn vị, không dấu phân cách). 4) Chữ viết tay khó đọc: vẫn ghi cách đọc hợp lý nhất và nêu trong "canKiemTra" (số thứ tự dòng + ô). '
+      + '5) Chữ OCR có thể sai dấu tiếng Việt: đối chiếu với ảnh, sửa tên vật tư cho đúng tiếng Việt thông dụng ngành xây dựng (thép, xi măng, cát, đá, ống, cáp…). '
+      + '6) "quyCach": kích thước, mác, chủng loại (D16, PCB40, 1x2, Ø110…) tách khỏi tên nếu rõ. 7) Đơn giá, thành tiền: chỉ khi chứng từ ghi.\n'
+      + 'Chỉ trả về MỘT đối tượng JSON: {"loaiChungTu":"phiếu nhập kho|phiếu xuất kho|phiếu giao hàng|hóa đơn|biên bản giao nhận|khác","loai":"nhap|xuat|",'
+      + '"ngay":"YYYY-MM-DD hoặc rỗng","soCT":"số chứng từ","doiTac":"nhà cung cấp / bên giao (phiếu nhập) hoặc đơn vị nhận (phiếu xuất)","nguoiGiaoNhan":"","hangMuc":"hạng mục sử dụng (nếu có)",'
+      + '"dong":[{"ten":"","quyCach":"","dv":"","sl":số,"donGia":số|null,"thanhTien":số|null,"ghiChu":""}],"tongTien":số|null,"doTinCay":"cao|trung bình|thấp","canKiemTra":["dòng 3: số lượng mờ"]}';
+    H['chat.khoai'] = function (req, s) {
+      var c = chatCan(s, req.ht);
+      var ids = (Array.isArray(req.fileIds) ? req.fileIds : [req.fileId]).filter(Boolean).slice(0, 4);
+      if (!ids.length) err('Chưa có ảnh phiếu để đọc.');
+      var demo = typeof UrlFetchApp === 'undefined' && !env.ocr, chu = [], anh = [];
+      ids.forEach(function (fid, i) {
+        var t = T('TepChat').filter(function (x) { return x.fileId === String(fid); })[0];
+        if (!t || t.hoiThoai !== c.h.id) err('Ảnh không thuộc nhóm này – tải lại ảnh.');
+        if (!/^image\//.test(t.mime)) err('"' + t.ten + '" không phải ảnh.');
+        var f = env.files.get(t.fileId); if (!f) err('Không đọc được ảnh "' + t.ten + '".');
+        if (!demo && OCR_IMG.test(t.mime)) { var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { x = ''; } if (x.replace(/\s/g, '').length >= 10) chu.push((ids.length > 1 ? '=== ẢNH ' + (i + 1) + ' ===\n' : '') + x.slice(0, 15000)); }
+        anh.push({ nhan: 'Ảnh ' + (i + 1) + ' – chứng từ kho:', mime: t.mime, data: f.data });
+      });
+      var nd = 'Nhóm / công trình: ' + aiTenHT(c.h) + '. Ngày hôm nay: ' + env.today() + '.\n'
+        + (req.loai === 'xuat' ? 'Người dùng đang lập PHIẾU XUẤT KHO.\n' : req.loai === 'nhap' ? 'Người dùng đang lập PHIẾU NHẬP KHO.\n' : '')
+        + (chu.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' + chu.join('\n\n') : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+      var o = aiO(aiGoi({ he: KHO_HE, nd: nd, anh: anh, maxTok: 3000, loai: 'phieukho', duLieu: { demo: demo, loai: req.loai || '' } }));
+      var sNum = function (v) { if (v == null || v === '') return null; if (typeof v === 'number') return isFinite(v) ? v : null; var t = String(v).replace(/[^\d.,-]/g, ''); if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.'); else t = t.replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'); var n = parseFloat(t); return isFinite(n) ? n : null; };
+      var dong = aiDs(o.dong, 60).map(function (d) { d = aiO(d); var ten = aiS(d.ten, 120); if (!ten) return null;
+        var sl = sNum(d.sl), dg = sNum(d.donGia), tt = sNum(d.thanhTien);
+        return { ten: ten, quyCach: aiS(d.quyCach, 120), dv: aiS(d.dv, 20), sl: sl != null && sl > 0 ? Math.round(sl * 1000) / 1000 : '', donGia: dg != null && dg > 0 ? Math.round(dg) : '', thanhTien: tt != null && tt > 0 ? Math.round(tt) : '', ghiChu: aiS(d.ghiChu, 200) }; }).filter(Boolean);
+      var ngay = parseD(o.ngay) && o.ngay <= env.today() ? o.ngay : '';
+      log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + ids.length + ' ảnh → ' + dong.length + ' dòng' + (chu.length ? ' (OCR)' : ''));
+      return { loaiChungTu: aiS(o.loaiChungTu, 40), loai: o.loai === 'nhap' || o.loai === 'xuat' ? o.loai : '', ngay: ngay, soCT: aiS(o.soCT, 80), doiTac: aiS(o.doiTac, 200), nguoiGiaoNhan: aiS(o.nguoiGiaoNhan, 120), hangMuc: aiS(o.hangMuc, 200),
+        dong: dong, tongTien: sNum(o.tongTien), doTinCay: ['cao', 'trung bình', 'thấp'].indexOf(String(o.doTinCay || '').toLowerCase()) >= 0 ? String(o.doTinCay).toLowerCase() : '',
+        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: chu.join('\n\n').slice(0, 20000), demo: !!o.demo || demo };
+    };
     H['chat.khods'] = function (req, s) {        // danh sách phiếu của nhóm theo kỳ (thành viên nhóm xem được)
       var c = chatCan(s, req.ht), tu = parseD(req.tu) ? req.tu : '', den = parseD(req.den) ? req.den : '';
       var ds = T('PhieuKho').filter(function (p) { return p.hoiThoai === c.h.id && (!tu || p.ngay >= tu) && (!den || p.ngay <= den) && (!req.loai || p.loai === req.loai) && (req.coHuy || p.trangThai !== 'Đã hủy'); })
@@ -11337,6 +11375,9 @@ const DEMO_AI = {
     if (o.loai === 'cckt') return JSON.stringify(demoCCKT(d));
     if (o.loai === 'bot') return JSON.stringify(demoBot(o));
     if (o.loai === 'congvan') return JSON.stringify(demoCV(o));
+    if (o.loai === 'phieukho') return JSON.stringify({ demo: true, loaiChungTu: 'phiếu giao hàng', loai: d.loai || 'nhap', ngay: todayS(), soCT: 'GH-0123 (mẫu)', doiTac: 'Cty VLXD Minh Phát (mẫu)', nguoiGiaoNhan: '', hangMuc: '',
+      dong: [{ ten: 'Thép cuộn (mẫu)', quyCach: 'D8 CB240', dv: 'kg', sl: 1250, donGia: 15200 }, { ten: 'Xi măng (mẫu)', quyCach: 'PCB40', dv: 'tấn', sl: 12.5, donGia: 1450000 }, { ten: 'Đá dăm (mẫu)', quyCach: '1x2', dv: 'm3', sl: 24 }],
+      doTinCay: 'thấp', canKiemTra: ['BẢN DÙNG THỬ: AI mô phỏng không đọc ảnh thật – các dòng là DỮ LIỆU MẪU để minh họa cách điền.'] });
     if (o.loai === 'cccd') { const n = (APP.D.nv || []).find(x => x.maNV === (o.duLieu || {}).maNV) || {}, sau = ((o.duLieu || {}).mat || []).includes('sau');   // bản dùng thử: không đọc ảnh thật
       return JSON.stringify({ demo: true, hoTen: n.hoTen || '', soCCCD: n.cccd && /^\d{12}$/.test(n.cccd) ? n.cccd : '', ngaySinh: n.ngaySinh || '', gioiTinh: n.gioiTinh || '', queQuan: '', noiThuongTru: '',
         ngayCap: sau ? (n.ngayCapCCCD || '') : '', noiCap: sau ? 'Cục Cảnh sát quản lý hành chính về trật tự xã hội (MẪU)' : '', coGiaTriDen: '', doTinCay: 'thấp',
@@ -13401,6 +13442,9 @@ function chKhoForm(loai) {
     <button class="btn sm" type="button" style="margin-top:6px" onclick="$('khoTbl').querySelector('tbody').insertAdjacentHTML('beforeend',khoDongRow())">+ Thêm dòng</button>
     <div class="sec">Ảnh hàng hóa, biên bản, hóa đơn</div>
     <div class="bar"><label class="btn pri sm">📷 Chụp ảnh<input type="file" accept="image/*" capture="environment" class="hide" onchange="khoAnhChon(this)"></label><label class="btn sm">🖼 Tải ảnh lên<input type="file" accept="image/*" multiple class="hide" onchange="khoAnhChon(this)"></label><span class="muted small" id="khoAnhSt">Tối đa 12 ảnh; ảnh được nén trước khi gửi.</span></div>
+    <div class="bar" style="margin-top:4px"><label class="ck small"><input type="checkbox" id="khoAIon" ${KHO.aiTat ? '' : 'checked'} onchange="KHO.aiTat=!this.checked"> ${typeof AI_IC !== 'undefined' ? AI_IC : '🤖'} Ảnh phiếu / hóa đơn / biên bản: tự đọc (OCR + AI) và <b>điền bảng vật tư</b></label>
+      <button class="btn sm" type="button" id="khoAIbtn" onclick="khoAIDoc(null,true)" style="display:none">Đọc lại tất cả ảnh → điền bảng</button></div>
+    <div id="khoAIst" class="small"></div>
     <div id="khoAnh" class="kho-anh"></div>
     <label class="f wf" style="margin-top:8px"><span>Ghi chú</span><textarea id="khoGC" rows="2"></textarea></label>`, { size: 'lg', okText: 'Gửi phiếu vào nhóm', onOk: khoGui, noFocus: true });
   khoLoaiDoi(); khoGoiY(h.id);
@@ -13424,7 +13468,43 @@ async function khoAnhChon(inp) {
     } catch (e) { toast(e.message, 'err'); KHO.anh = KHO.anh.filter(y => y !== x); }
     KHO.dang--; khoAnhVe();
   }
+  const moi = KHO.anh.filter(x => x.fileId && !x.daDocAI);
+  if (moi.length && !KHO.aiTat && $('khoAIon') && $('khoAIon').checked) khoAIDoc(moi.map(x => x.fileId));
 }
+/* v3.66: ĐỌC ẢNH PHIẾU KHO → ĐIỀN BẢNG VẬT TƯ (OCR + AI trên máy chủ; người lập soát lại, ô vàng = AI điền) */
+async function khoAIDoc(ids, tatCa) {
+  const st = $('khoAIst'); if (!st) return;
+  if (!ids) ids = KHO.anh.filter(x => x.fileId).map(x => x.fileId);
+  ids = ids.slice(0, 4); if (!ids.length) return toast('Chưa có ảnh.', 'err');
+  const loai = (document.querySelector('input[name=khoLoai]:checked') || {}).value || 'nhap';
+  st.innerHTML = `<span>${typeof AI_IC !== 'undefined' ? AI_IC : ''} Đang nhận dạng chữ (OCR) và đọc ${ids.length} ảnh chứng từ, điền bảng vật tư…</span>`;
+  try {
+    const r = await api('chat.khoai', { ht: CH.sel, fileIds: ids, loai }, { quiet: true });
+    KHO.anh.forEach(x => { if (ids.includes(x.fileId)) x.daDocAI = true; });
+    if (!$('khoTbl')) return;
+    const n = khoAIDien(r, tatCa);
+    st.innerHTML = n ? `<div class="note" style="margin:4px 0"><b>Đã đọc ${esc(r.loaiChungTu || 'chứng từ')} → điền ${n} dòng vật tư</b>${r.doTinCay ? ' · độ tin cậy: ' + esc(r.doTinCay) : ''}${r.tongTien ? ' · tổng tiền trên chứng từ: ' + money(r.tongTien) : ''}.
+        Ô <span class="aifill" style="padding:0 4px">tô vàng</span> do AI điền – đề nghị soát lại với chứng từ trước khi gửi.${(r.canKiemTra || []).length ? `<div style="color:var(--bad);margin-top:4px">Cần kiểm tra: ${r.canKiemTra.map(esc).join(' · ')}</div>` : ''}
+        ${r.ocr ? ` <a href="#" onclick="event.preventDefault();this.nextElementSibling.classList.toggle('hide')">Xem chữ OCR</a><pre class="hide small" style="white-space:pre-wrap;max-height:180px;overflow:auto;background:var(--soft);padding:6px">${esc(r.ocr)}</pre>` : ''}</div>`
+      : '<span class="muted">AI không tìm thấy bảng vật tư trong ảnh – nhập tay, hoặc chụp lại rõ, thẳng, đủ sáng.</span>';
+    $('khoAIbtn').style.display = '';
+  } catch (e) { st.innerHTML = `<span style="color:var(--bad)">Không đọc được ảnh tự động: ${esc(e.message)}. Nhập tay bảng vật tư.</span>`; $('khoAIbtn').style.display = ''; }
+}
+function khoAIDien(r, thay) {
+  const tb = $('khoTbl').querySelector('tbody'), g = (tr, k) => tr.querySelector(`[data-k=${k}]`);
+  const trong = tr => ['ten', 'sl'].every(k => !g(tr, k).value.trim());
+  const dong = r.dong || []; if (!dong.length) return 0;
+  if (thay) [...tb.querySelectorAll('tr')].filter(tr => [...tr.querySelectorAll('input')].some(i => i.classList.contains('aifill'))).forEach(tr => tr.remove());
+  [...tb.querySelectorAll('tr')].filter(trong).forEach(tr => tr.remove());
+  dong.forEach(d => { tb.insertAdjacentHTML('beforeend', khoDongRow({ ten: d.ten, quyCach: d.quyCach, dv: d.dv, sl: d.sl, donGia: d.donGia, ghiChu: d.ghiChu }));
+    const tr = tb.lastElementChild; tr.querySelectorAll('input').forEach(i => { if (i.value) { i.classList.add('aifill'); i.addEventListener('input', () => i.classList.remove('aifill'), { once: true }); } }); });
+  const dien = (id, v) => { const e = $(id); if (e && v && !e.value.trim()) { e.value = v; e.classList.add('aifill'); } };
+  dien('khoCT', r.soCT); dien('khoDT', r.doiTac);
+  if (r.hangMuc) dien('khoHM', r.hangMuc);
+  if (r.ngay && $('khoNgay') && $('khoNgay').value === todayS() && r.ngay !== todayS()) { $('khoNgay').value = r.ngay; $('khoNgay').classList.add('aifill'); }
+  return dong.length;
+}
+
 function khoAnhVe() {
   const b = $('khoAnh'); if (!b) return;
   b.innerHTML = KHO.anh.map((x, i) => `<div class="kho-th">${x.url ? `<img src="${x.url}" alt="${esc(x.ten)}">` : '<span class="muted small">Đang tải…</span>'}<input placeholder="Mô tả ảnh" value="${esc(x.moTa || '')}" oninput="KHO.anh[${i}].moTa=this.value"><button type="button" onclick="KHO.anh.splice(${i},1);khoAnhVe()" aria-label="Bỏ ảnh">×</button></div>`).join('');

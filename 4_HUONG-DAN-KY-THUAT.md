@@ -1775,6 +1775,49 @@ Cài đặt → Mẫu phiếu lương & bảng lương → **Bảng lương**: d
 - Client `bqTaiTep(input)`: docx → `docxVanBan`; pdf → `ocrMay(f,'application/pdf',bao,{trangChu:60,trangOCR:10})`; ảnh → `ocrMay` (Tesseract trên máy); txt → `f.text()`; `vbLamSach` ghép dòng; điền bqNoiDung (Thay/Thêm), bqTieuDe, bqVanBan (Số …), bqHieuLuc ("hiệu lực từ ngày dd/mm/yyyy"); `bqDem` đếm ký tự.
 - Core: `BOT_ND_MAX` 40.000, `botSD` (giữ xuống dòng) cho noiDung; `botDoanLQ(t, tuHoi, max)` chọn đoạn (theo dòng trống / Điều, Chương, Khoản…) liên quan nhất, giữ thứ tự gốc; prompt mỗi mục ≤ min(6000, 30000/số mục); tra cứu không AI trích ≤ 2.500 ký tự. Test t71, smoke81 (test/mau_quyche.docx).
 
+## 4m35. v3.58 – Bố cục câu trả lời trợ lý
+- BOT_HE thêm "CÁCH TRÌNH BÀY traLoi" (dòng mở đầu, nhóm có tiêu đề ":", ý "- ", ý con "  + ", \n, ≤ ~10 ý). `bot.hoi` dùng `botSD` (giữ xuống dòng), đổi "* "/"• " → "- ", bỏ "**"; khóa đệm `bh2_`. `bot.ghi` lưu traLoi ≤ 2.000 ký tự giữ xuống dòng.
+- Client `botBoCuc(nd)`: "- " → ul.bot-ul, "+ " → ul.bot-ul2, dòng ≤ 60 ký tự kết thúc ":" → .bot-td, dòng trống → .bot-gian; câu cũ không xuống dòng có ≥ 2 " - " được tách. Test t71, smoke82.
+
+## 4m36. v3.59 – Tải ảnh bảng tin
+- APK `onActivityResult`: RESULT_OK nhưng không có Uri (data / ClipData / ảnh camera) → `Toast` báo (nhãn :khong), rồi trả null.
+- Client: `btAddFiles` tạo `E.cho` (xem trước bằng objectURL, trạng thái Đang nén / Đang tải lên), hàng đợi 2 luồng; `btNen(file, toiDa=1280)` JPEG 0,82 (CCCD gọi 1600); `apkPB()/apkCu(v)` – form bảng tin cảnh báo APK < 3.59. Test smoke80.
+
+## 4m37. v3.60 – Phân tích nhóm AI: đệm kết quả, model dự phòng
+- `aiDot`: đợt theo khối lịch cố định (floor(ngày UTC / toiDa)). `aiDotKhoa` → khóa = băm(AI_DOT_PB, ncc, model, thành viên, nhật ký các ngày, ảnh chọn). `aiDemDoc/aiDemGhi` (env.dem + Drive `<thư mục AI>/_dem-ai/dot-<khóa>.json`). `aiPhanDot(..., boDem)` trả `tuDem`. tong1/tong2 cũng đệm theo băm đầu vào (`t1-…`, `t2-…`). batdau nhận `boDem`, trả `dot[].daCo`, `soGoiAI`.
+- gas `aiEnv_`: `goiHttp` thử lại 2 lần cho 429/5xx (chờ theo retryDelay/"retry in", tối đa 30 s), 429 theo ngày (`laHetNgay_`) trả ngay; `goi` khi lỗi 429/5xx → `duPhongGemini_` (model2, Flash, Flash-Lite khác; danh sách model đệm 6 giờ) → nhà cung cấp khác có khóa; khi dự phòng `KHONG_CHO_LAI`, tối đa 3 phút; `lanCuoi()`. `loi()` báo hết hạn mức ngày (lượt/ngày, thời gian chờ, cách xử lý). Client: 2 luồng, thử lại 1 lần (15 s khi quá tải), không thử lại khi hết hạn mức. Test t72_gas, smoke83.
+
+## 4m38. v3.61 – PDF nội dung nhóm cho AI bên ngoài
+- `chat.nhatky` thêm `dong[].fid` (ảnh chưa thu hồi) và `thanhVien`. `ai.tep` nhận `thumb` (thumbId → env.files.thumb → gốc).
+- Client `aiPdfNhom()` (hộp thoại: kèm ảnh, số ảnh tối đa, lời nhắc `AI_LOINHAC_NGOAI`, lưu ý bảo mật) → tải ảnh 4 luồng qua ai.tep → `aiPdfNhomHTML` vào #print → window.print (APK: TapacoApp.inAn). Test smoke84.
+
+## 4m39. v3.62 – Công văn: phân quyền xem, hạn chế
+- Bảng CongVan thêm cột `nguoiXem` (JSON mã u:/r:) và `hanChe` ('1' = hạn chế).
+- `cvXem(s,o)`: hạn chế → chỉ admin, giamdoc, người nhập, người xử lý/phối hợp, người được xem, người được chia sẻ (nguoiDoc). Không hạn chế → như cũ (quyền `congvan`) + người được xem.
+- `cv.save` nhận `nguoiXem`, `hanChe` (cấp request); thiếu cả hai → không hạn chế (tương thích API cũ). Ghi "Phân quyền xem" vào CongVanXL, báo người mới.
+- `cv.quyen {id,nguoiXem,hanChe}`: Giám đốc/văn thư/QT (phải xem được văn bản). `cv.giao/upload/chot/delete` cũng kiểm `cvXem`. Giao xử lý áp dụng cả `huong='di'`.
+- Giao diện: mục "Phân quyền xem văn bản" trong cvForm (APP.cvQX), cvQuyenForm, bấm dòng mở cvChiTiet (có khung trao đổi). Test t73, smoke85.
+
+## 4m40. v3.63 – Xuất nội dung nhóm PDF / Word theo tuần, tháng, tổng
+- Client: `XN` (lựa chọn), `xnPhan(r,o)` chia khoảng (tổng / tháng / tuần ISO Thứ Hai–CN, bỏ khoảng không hoạt động), `xnCat` cắt dữ liệu `chat.nhatky`, `xnChonAnh` chọn đều ảnh / tệp, `xnKhoi` → khối cho `khoiSangDocx` (khối `anh` có `w`), `zipGoi` (zip lưu thẳng, CRC32), `xnIn`/`xnDsPdf` (in từng PDF, đặt `document.title` = tên tệp).
+- Lấy dữ liệu 1 lần, tải ảnh thu nhỏ 1 lần (`ai.tep` thumb, 4 luồng). Không đổi máy chủ. Test smoke86 (smoke84 chỉnh theo hộp thoại mới).
+
+## 4m41. v3.64 – Xuất đủ nội dung cho ChatGPT, tệp lời nhắc, nạp kết quả (ai.nap)
+- `chat.nhatky` thêm: `kho` (phiếu nhập/xuất trong khoảng, không gồm phiếu hủy), `tep` (hồ sơ không phải ảnh, có `ma`), `dong[].ma` (mã chứng từ `ctMa(fileId)` = 'F' + 8 ký tự cuối), `tv` (tài khoản), `tkKy` (thống kê `ltThongKe` cho từng khoảng `req.khoang`).
+- Core: `aiLoiNhacNgoai(nhom, tv, them)` – tệp lời nhắc + mẫu JSON `loai: TAPACO-KQ-PHANTICH`. `aiLapKQ(...)` tách từ bước `lap` (dùng chung). `aiSachDot(..., lon)` nới giới hạn khi nạp.
+- `ai.nap {ht, kq, tu, den}`: ltQuyen + nhóm đã lưu trữ; ánh xạ họ tên/[tài khoản] → username, mã F… → fileId; làm sạch bằng aiSachDot/aiSachT1/aiSachT2; aiBuBC bù từ báo cáo định kỳ; thống kê tính lại; lưu `PhanTich_tu_den_nhan_GPT.json` + Docs/PDF báo cáo và nhật ký; trả `napKiem`. `ai.ncc = 'ngoai'`.
+- Client: `xnKhoi` (thêm thành viên, thống kê, kho, hồ sơ), `xnDocTep` (docx/pdf lớp chữ/xlsx/txt), PDF in qua `khoiSangHTML`, `xnTepNhac`, `aiNapGPT/aiNapTep/aiNapXem`, `xnDocJSON` (khối ```json, chú thích //, dấu phẩy thừa). Test smoke87 (smoke84, smoke86 chỉnh).
+
+## 4m42. v3.65 – Công văn: nhiều tệp, AI đọc nhiều tệp, đã đọc, chuyển tiếp có cấp trên duyệt
+- CongVan thêm `tepKem` (JSON [{fileId,ten,mime,kichThuoc,nguoi,luc}]), `daDoc` ({username: giờ}), `nguoiCT` (người nhận chuyển tiếp đã duyệt – được xem), `ctCho` (cấp trên đang duyệt – được xem). Bảng mới `CongVanCT`.
+- `cv.upload {them:true}` thêm tệp kèm (văn thư hoặc người vào sổ); `cv.get {kemId}`; `cv.tepxoa`; `cv.ai {files:[]}` (≤8 tệp, ≤40 MB) qua `cvDocNhieu` + `cvGoiAI`; `cv.tomtat {id}` đọc lại mọi tệp đã lưu, cập nhật tomTat + noiDungOCR; `cv.doc` ghi đã đọc.
+- `cv.chuyen {id, den[u:], muc:'xem'|'xuly', noiDung}` → `cvCapTren(s)`: nhân viên → quanLyCua(bộ phận); TP/CHT → r:giamdoc; giamdoc/admin → hiệu lực ngay. `cv.duyetct {ctId, dongY, ghiChu, den?}` (cấp trên hoặc Giám đốc; không tự duyệt). Duyệt: xem → nguoiCT, xuly → phoiHop. `cv.ds` trả thêm `ct`, `danhBa`.
+- Client: `cvDropNhieuHTML/cvTepsThem/cvTepsDoi`, `cvTepHTML/cvTepThem/cvTepXoa/cvTomTatLai`, `cvDocHTML`, `cvCTHTML/cvChuyenForm/cvCTDuyet/cvCTChoToi`. Test t74, smoke88 (smoke52, smoke85 chỉnh).
+
+## 4m43. v3.66 – Phiếu kho: đọc ảnh chứng từ, điền bảng vật tư
+- `chat.khoai {ht, fileIds[≤4], loai}`: ảnh phải là TepChat của nhóm; OCR `ocrDrive` (JPG/PNG…) + ảnh gửi AI (`KHO_HE`, loai 'phieukho'); chuẩn hóa số kiểu VN; trả {loaiChungTu, loai, ngay, soCT, doiTac, nguoiGiaoNhan, hangMuc, dong[], tongTien, doTinCay, canKiemTra[], ocr}. Không ghi dữ liệu – chỉ gợi ý điền.
+- Client: `khoAIDoc(ids, thay)` gọi sau `khoAnhChon` (nếu bật `khoAIon`), `khoAIDien` thay dòng trống / dòng AI cũ, ô `.aifill`. Demo trả dữ liệu "(mẫu)". Test smoke89.
+
 ## 8. Bảo mật
 
 - Mật khẩu lưu dạng băm SHA-256 kèm chuỗi muối riêng từng tài khoản; không ai đọc được mật khẩu gốc.

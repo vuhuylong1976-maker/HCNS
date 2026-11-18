@@ -1,4 +1,4 @@
-TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.54 (11/2026)
+TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN BẢN 3.66 (11/2026)
 ===========================================================================
 
 1_UngDung/              Giao diện app (PWA): index.html, sw.js, manifest.webmanifest, icon-180.png, icon-192.png, icon-512.png, webapp.txt
@@ -16,7 +16,7 @@ TAPACO NHÂN SỰ – TIỀN LƯƠNG · GÓI TRIỂN KHAI TRỌN BỘ · PHIÊN 
                         2_Huong_dan_su_dung (Word + PDF)  – cho toàn thể CBCNV và từng chức danh
                         3_Bien_ban_kiem_tra_cham_cong_dien_thoai (Word + PDF)
                         4_HUONG-DAN-KY-THUAT.md, 5_PROMPT-TAO-LAI-APP.md – tài liệu kỹ thuật chi tiết
-5_AppDienThoai/          TAPACO-NhanSu-3.54.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
+5_AppDienThoai/          TAPACO-NhanSu-3.66.apk (Android 7+) + HUONG-DAN-CAI-APP.txt
 6_DangWeb_iPhone/        HUONG-DAN-DANG-WEB.txt – đăng 1_UngDung lên https (GitHub Pages / Netlify) để cài trên iPhone
 
 THỨ TỰ LÀM
@@ -26,6 +26,128 @@ THỨ TỰ LÀM
   4. Mục 9: chạy thử 1 tuần, rồi phát "2_Huong_dan_su_dung" cho CBCNV.
   5. Cuối mỗi kỳ: TCHC / Kế toán vào Chấm công GPS -> tab "Kiểm tra AI" để quét sai phạm vi,
      sai người, sai thời gian; nhắc bộ phận giải trình cờ đỏ trước khi lấy công (HD sử dụng – Phần G).
+
+MỚI TRONG 3.66 – PHIẾU KHO: CHỤP / TẢI ẢNH PHIẾU → TỰ ĐỌC (OCR + AI) VÀ ĐIỀN BẢNG VẬT TƯ
+- Trong "Phiếu nhập / xuất kho" (tin nhắn nhóm): chụp hoặc tải ảnh phiếu nhập/xuất, phiếu giao hàng, hóa đơn, biên bản giao nhận,
+  sổ ghi tay → máy chủ nhận dạng chữ (OCR Google Drive) và AI đọc trực tiếp ảnh → tự điền bảng VẬT TƯ (tên, quy cách, ĐVT,
+  số lượng, đơn giá, ghi chú) và các ô đầu phiếu còn trống (số chứng từ, nhà cung cấp / đơn vị nhận, ngày, hạng mục).
+- Ô do AI điền tô vàng; dòng / ô AI chưa chắc chắn ghi trong "Cần kiểm tra"; xem được chữ OCR. Người lập SOÁT LẠI với chứng từ rồi mới gửi.
+- Tùy chọn bật / tắt tự đọc; nút "Đọc lại tất cả ảnh → điền bảng" (thay các dòng AI cũ, giữ dòng đã sửa tay). Mỗi lần đọc tối đa 4 ảnh.
+- Cần máy chủ đã bật AI (khóa Gemini / OpenAI…). Máy chủ: dán Code.gs mới, Triển khai -> Quản lý bản triển khai -> Phiên bản mới.
+
+MỚI TRONG 3.65 – CÔNG VĂN: NHIỀU TỆP, AI TÓM TẮT, NGƯỜI NHẬN ĐỌC, CHUYỂN TIẾP CÓ CẤP TRÊN DUYỆT
+- Vào sổ chọn được NHIỀU tệp (tối đa 8: văn bản chính + phụ lục, bản vẽ, hồ sơ…). AI đọc tất cả (OCR bản quét, Word), điền hộ các ô
+  theo văn bản chính và TÓM TẮT cả văn bản lẫn từng tài liệu kèm. Đổi tệp chính bằng nút ↑, bỏ tệp bằng nút Bỏ.
+- Trong hộp thoại văn bản: xem từng tệp, "+ Thêm tệp", gỡ tệp kèm, "AI đọc tất cả tệp & tóm tắt lại".
+- "Người nhận, đọc văn bản" chọn ngay khi vào sổ (cùng chế độ Hạn chế của 3.62); dòng "Tình trạng đọc": ai ĐÃ ĐỌC (giờ mở) / CHƯA ĐỌC.
+- Giám đốc vẫn bút phê, giao người xử lý như trước.
+- "↪ Chuyển tiếp": người nhận / người xử lý chuyển văn bản cho người liên quan (Để biết, hoặc Phối hợp xử lý) kèm lý do.
+  Đề nghị gửi CẤP TRÊN TRỰC TIẾP của người chuyển duyệt: nhân viên → Trưởng phòng / Chỉ huy trưởng bộ phận (không có thì Giám đốc);
+  Trưởng phòng, CHT → Giám đốc; Giám đốc, Quản trị chuyển thì có hiệu lực ngay. Người duyệt được xem văn bản trong lúc chờ,
+  có thông báo, duyệt / không duyệt (nhập lý do). Duyệt xong người nhận mới đọc được; "Phối hợp xử lý" thì trao đổi, báo cáo được.
+- Máy chủ: dán Code.gs mới, Triển khai -> Quản lý bản triển khai -> Phiên bản mới (bảng CongVanCT và các cột mới tự thêm).
+
+MỚI TRONG 3.64 – PHÂN TÍCH NHÓM BẰNG CHATGPT: XUẤT ĐỦ NỘI DUNG + TỆP LỜI NHẮC + NẠP KẾT QUẢ VỀ APP
+- "📄 Xuất nội dung nhóm + lời nhắc ChatGPT": mỗi tệp (Word / PDF; tổng, tuần, tháng) nay gồm: thành viên kèm TÀI KHOẢN,
+  THỐNG KÊ DO HỆ THỐNG TÍNH (tin, ảnh, ngày tương tác, nghỉ có đơn, báo cáo nộp/đúng hạn, điểm tham gia), tin nhắn từng ngày,
+  ảnh, báo cáo định kỳ, PHIẾU NHẬP / XUẤT KHO (số phiếu, vật tư, SL, đơn giá, thành tiền), HỒ SƠ (trích nội dung tệp Word, PDF
+  có lớp chữ, Excel, txt – máy tách chữ, chưa tóm tắt; bản quét ảnh chưa đọc). Ảnh / hồ sơ có MÃ CHỨNG TỪ dạng F… để trích dẫn.
+- Kèm TỆP LỜI NHẮC "LoiNhac_ChatGPT….txt": vai trò, nguyên tắc, bảng tài khoản, mẫu JSON kết quả (nhật ký từng ngày, vật tư,
+  sự kiện, tóm tắt hồ sơ, 18 khía cạnh, cá nhân, đối tác, giải pháp, kiến nghị BGĐ). Ô "Yêu cầu thêm" ghi vào tệp lời nhắc.
+- Quy trình: tải lên ChatGPT 1 tệp nội dung + tệp lời nhắc → ChatGPT trả KetQua_….json → "📥 Nạp kết quả ChatGPT" (chọn tệp
+  hoặc dán). App KHÔNG tin nguyên văn: bỏ ngày không có hoạt động, tài khoản không phải thành viên (họ tên tự đổi ra tài khoản),
+  mã chứng từ không có; mức đánh giá ngoài danh mục đưa về mặc định; thống kê cá nhân do hệ thống tính lại; số liệu báo cáo
+  định kỳ được đối chiếu, bù. Lưu thành báo cáo (nhãn "ChatGPT") – xem, xuất Word / PDF / Excel, Google Docs như phân tích AI trong app.
+- Yêu cầu: nhóm đã "Lưu trữ". Máy chủ: dán Code.gs mới, Triển khai -> Quản lý bản triển khai -> Phiên bản mới.
+- Nội dung nhóm, hồ sơ, giá vật tư là thông tin nội bộ: chỉ tải lên ChatGPT khi Công ty cho phép (tài khoản doanh nghiệp / tắt huấn luyện).
+
+MỚI TRONG 3.63 – XUẤT NỘI DUNG NHÓM RA PDF / WORD, CHIA THEO TUẦN – THÁNG – TỔNG
+- Phân tích nhóm (AI) -> "📄 Xuất nội dung nhóm": chọn định dạng Word (.docx) hoặc PDF; chọn một hoặc nhiều cách chia:
+  một tệp tổng, mỗi tuần một tệp (Thứ Hai – Chủ nhật, số tuần ISO), mỗi tháng một tệp. Tuần / tháng không có hoạt động bỏ qua.
+- Mỗi tệp: thành viên, lời nhắc phân tích (tùy chọn), tin nhắn từng ngày (giờ – người – nội dung), ảnh thu nhỏ ngay sau tin,
+  báo cáo định kỳ trong khoảng. Tối đa ảnh tính theo từng tệp.
+- Word: tạo ngay trên máy; nhiều tệp gộp một .zip (hoặc tải từng tệp). PDF: một tệp in ngay; nhiều tệp hiện danh sách,
+  bấm "In / Lưu PDF" lần lượt (tên tệp gợi ý sẵn, ví dụ "Nhom X - Tuan 46-2026 (09.11-15.11)").
+- Không gửi dữ liệu đi đâu từ app. Chỉ tải lên AI bên ngoài khi Công ty cho phép. Không cần cập nhật máy chủ cho tính năng này.
+
+MỚI TRONG 3.62 – CÔNG VĂN ĐẾN / ĐI: PHÂN QUYỀN NGƯỜI ĐƯỢC XEM
+- Khi vào sổ (đến hoặc đi) có mục "Phân quyền xem văn bản": chọn người / vai trò được xem. Mặc định "Hạn chế":
+  chỉ người được chọn, Giám đốc, người nhập và người được giao xử lý xem được (TCHC khác cũng không xem được).
+  Bỏ "Hạn chế" thì như trước: Giám đốc, TCHC (quyền xem toàn bộ sổ) cùng người được chọn xem được.
+- Giám đốc / văn thư sửa người được xem bất cứ lúc nào: nút "🔒 Người được xem" (ghi vào quá trình xử lý, báo cho người mới).
+- Giám đốc bút phê, giao xử lý cho cán bộ cụ thể – nay áp dụng cả công văn ĐI. Người được giao tự xem được nội dung,
+  bản quét, trao đổi và báo cáo kết quả.
+- Bấm vào một dòng trong sổ là mở hộp thoại văn bản; phía dưới là khung "Trao đổi xử lý văn bản" (nhắn tin, đính kèm).
+- Máy chủ: dán Code.gs mới, Triển khai -> Quản lý bản triển khai -> Phiên bản mới (cột nguoiXem, hanChe tự thêm).
+
+MỚI TRONG 3.61 – XUẤT PDF NỘI DUNG NHÓM ĐỂ PHÂN TÍCH BẰNG CHATGPT
+- Phân tích nhóm (AI) → "📄 Xuất PDF toàn bộ nội dung + ảnh": tin nhắn từng ngày (giờ, người, nội dung), ảnh thu nhỏ
+  ngay dưới dòng tin (tối đa 400, mặc định 150, chọn đều theo thời gian), báo cáo định kỳ, danh sách thành viên và
+  LỜI NHẮC PHÂN TÍCH mẫu (sửa được, nút Sao chép). Trong hộp in chọn "Lưu dưới dạng PDF".
+- Dùng: tải PDF lên ChatGPT + dán lời nhắc. Kết quả của ChatGPT không tự lưu vào app.
+- Lưu ý: nội dung nhóm là thông tin nội bộ / dữ liệu cá nhân CBCNV – chỉ tải lên AI bên ngoài khi Công ty cho phép, nên dùng
+  tài khoản doanh nghiệp hoặc tắt chia sẻ dữ liệu huấn luyện. Cách tự động hơn: nhập khóa OpenAI (GPT) ở Cài đặt AI.
+- Cập nhật máy chủ: dán Code.gs mới → Phiên bản mới (ảnh thu nhỏ cho bản PDF).
+
+MỚI TRONG 3.60 – PHÂN TÍCH NHÓM (AI) NHANH HƠN, ÍT LỖI HƠN
+- NGUYÊN NHÂN LỖI: (1) khóa Gemini gói miễn phí chỉ ~20 lượt/ngày cho mỗi model, mỗi lần phân tích 7 ngày tốn ≈ 5 lượt
+  (3 đợt nhật ký + 2 bước tổng hợp) cộng lượt thử lại → hết lượt sau vài lần chạy; (2) lỗi 503 "high demand" là máy chủ
+  Google quá tải tạm thời.
+- Dùng lại kết quả: nhật ký từng đợt và 2 bước tổng hợp được lưu (thư mục AI của nhóm trên Drive / _dem-ai). Chạy lại cùng
+  khoảng ngày, hoặc khoảng ngày chồng lên nhau, chỉ gọi AI cho đợt có dữ liệu mới → nhanh hơn, tiết kiệm lượt, kết quả nhất quán.
+  Đợt chia CỐ ĐỊNH theo lịch (khối 3 ngày) để tái sử dụng tối đa. Muốn làm mới hoàn toàn: tích "Phân tích lại từ đầu".
+- Trước khi chạy hiện: số đợt, số đợt dùng lại, ƯỚC TÍNH SỐ LƯỢT GỌI AI.
+- Máy chủ tự xử lý lỗi: 503 quá tải → chờ, thử lại 2 lần; 429 giới hạn theo phút → chờ đúng thời gian Google yêu cầu;
+  429 HẾT LƯỢT NGÀY → không chờ vô ích, tự chuyển model dự phòng (Flash khác / Flash-Lite – mỗi model có hạn mức riêng),
+  rồi nhà cung cấp khác nếu đã nhập khóa (Claude / GPT). Không đổi model đã cài. Bước nào dùng dự phòng thì ghi rõ tên model.
+- Hết lượt mọi model: báo rõ "HẾT HẠN MỨC TRONG NGÀY", số lượt/ngày, giờ dùng lại được và cách xử lý.
+- 2 đợt chạy song song (trước 3) để giảm lỗi quá tải; các đợt đã xong luôn được giữ, bấm "Chạy lại từ đợt lỗi" để chạy tiếp.
+- KHUYẾN NGHỊ: bật thanh toán cho khóa Gemini (Google AI Studio → Billing) để có hạn mức trả phí; và/hoặc nhập thêm khóa
+  Claude hoặc GPT ở Cài đặt AI làm dự phòng.
+- Cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới.
+
+MỚI TRONG 3.59 – TẢI ẢNH BẢNG TIN NHANH VÀ RÕ TRẠNG THÁI
+- App Android cũ (≤ 3.55) chọn ảnh qua Google Photos / thư viện ảnh trả về rỗng → ảnh không lên. Từ 3.56 đã sửa; 3.59 thêm:
+  chọn xong mà không nhận được tệp thì app báo ngay (trước đây im lặng). Form đăng bài báo khi app Android đang là bản cũ
+  → cài lại TAPACO-NhanSu-3.59.apk (cài đè, giữ dữ liệu).
+- Ảnh vừa chọn hiện ngay ô xem trước "Đang nén… / Đang tải lên…"; tải 2 ảnh song song; ảnh bảng tin thu nhỏ ≤ 1280px
+  (trước 1600px) để tải lên nhanh hơn trên 4G. Ảnh CCCD vẫn giữ 1600px cho rõ chữ.
+
+MỚI TRONG 3.58 – TRỢ LÝ QUY ĐỊNH TRẢ LỜI CÓ BỐ CỤC, NGẮN GỌN
+- AI được yêu cầu trình bày: 1 câu trả lời thẳng → các nhóm có tiêu đề ngắn ("Nguyên tắc:", "Hồ sơ:", "Phân cấp duyệt:")
+  → mỗi ý một dòng gạch đầu dòng, ý con thụt vào; tối đa khoảng 10 ý, mỗi ý ≤ 2 câu; không nhắc lại câu hỏi, không ghi căn cứ
+  trong thân câu trả lời (căn cứ hiện ở dòng CĂN CỨ).
+- Máy chủ giữ nguyên xuống dòng (trước đây bị nối thành một đoạn); app hiển thị tiêu đề in đậm, gạch đầu dòng, ý con.
+- Câu trả lời cũ viết liền ("…: - ý 1 - ý 2") được tự tách dòng khi hiển thị. Bộ đệm câu trả lời cũ bỏ, hỏi lại sẽ có bố cục mới.
+- Cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới.
+
+MỚI TRONG 3.57 – THÊM MỤC QUY ĐỊNH TỪ TỆP
+- Quy định công ty (trợ lý) → Thêm / Sửa mục quy định → "📄 Tải tệp để trích nội dung": Word (.docx), PDF (≤ 60 trang có chữ;
+  bản scan đọc OCR ≤ 10 trang), ảnh chụp, .txt. Đọc ngay trên máy, không gửi ra ngoài.
+- Chữ trích được điền vào ô Nội dung (giữ xuống dòng, bảng dạng "ô | ô", tự ghép dòng PDF bị ngắt giữa câu); ô đã có chữ
+  thì hỏi Thay hay Thêm vào cuối. Ô còn trống tự điền: Tiêu đề (tên văn bản), Căn cứ (Số … – tên văn bản), Hiệu lực từ.
+- Nội dung mỗi mục tối đa 40.000 ký tự (trước: 6.000) và giữ xuống dòng. Khi hỏi, trợ lý chỉ gửi AI các đoạn liên quan
+  nhất của mục dài (các Điều khớp câu hỏi) nên vẫn nhanh. Văn bản dài hơn: đăng ký ở tab "Văn bản công ty".
+- Bản scan / ảnh: kiểm tra lỗi chính tả trước khi Lưu. Cập nhật máy chủ: dán Code.gs mới → Phiên bản mới.
+
+MỚI TRONG 3.56 – SỬA LỖI TẢI ẢNH TỪ ĐIỆN THOẠI (BẢNG TIN, TIN NHẮN, CCCD)
+- App Android (.apk): chọn NHIỀU ảnh trong thư viện ảnh trước đây không nhận được ảnh nào (máy trả danh sách ảnh dạng
+  ClipData, app cũ chỉ đọc 1 ảnh) → đã sửa, nhận đủ các ảnh đã chọn. Cài lại tệp TAPACO-NhanSu-3.56.apk (cài đè, giữ dữ liệu).
+- Trình duyệt / WebView đời cũ không đọc được ảnh bằng cách cũ → tự thử cách dự phòng; ảnh HEIC/HEIF (iPhone, Samsung
+  "Ảnh hiệu quả cao") báo rõ cách đổi sang JPG; điện thoại không trả tệp → báo, không im lặng.
+- Áp dụng chung cho ảnh bảng tin, ảnh tin nhắn, ảnh CCCD / ảnh thẻ.
+
+MỚI TRONG 3.55 – TRỢ LÝ QUY ĐỊNH NHANH HƠN, KHÔNG CÒN BÁO "KHÔNG KẾT NỐI ĐƯỢC MÁY CHỦ" VÔ CỚ
+- Câu hỏi đã trả lời được giữ trong bộ đệm máy chủ 6 giờ: hỏi lại (kể cả người khác hỏi cùng câu) có ngay, không gọi AI.
+  TCHC sửa quy định / văn bản → bộ đệm tự làm mới.
+- Chữ của văn bản công ty giữ trong bộ đệm nhanh, không phải dò thư mục Drive mỗi lần hỏi; lượng chữ gửi AI giảm
+  52.000 → 30.000 ký tự để AI trả lời nhanh hơn.
+- AI lỗi / quá 60 giây / hết hạn mức → vẫn trả lời bằng trích nguyên văn quy định theo từ khóa, kèm lý do.
+- Điện thoại: đếm giây khi chờ; mạng rớt giữa chừng tự hỏi lại 1 lần (máy chủ đã làm xong sẽ trả ngay); vẫn lỗi thì báo
+  rõ đã chờ bao lâu và cách xử lý thay cho "Không kết nối được máy chủ".
+- Quản lý → "🩺 Kiểm tra trợ lý": đo thời gian từng bước trên máy chủ (đọc bảng, đọc từng văn bản, gọi AI thử, tên model)
+  để tìm chỗ chậm / lỗi. Văn bản "CHƯA trích chữ" → Sửa → Lưu lại; gọi AI > 15 giây → chọn model "flash".
+- Cập nhật máy chủ: dán Code.gs mới → Quản lý các bản triển khai → Sửa → Phiên bản mới.
 
 MỚI TRONG 3.54 – ĐỀ XUẤT ĐIỀU CHỈNH LƯƠNG, NÂNG LƯƠNG DUYỆT THEO CẤP
 - Người lập: CBCNV tự đề xuất cho mình (mục Cá nhân → "Đề xuất lương"); Trưởng phòng / Chỉ huy trưởng lập cho người
