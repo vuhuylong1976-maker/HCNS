@@ -1243,7 +1243,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.59';
+  var VERSION = '3.65';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1614,7 +1614,10 @@ var HRCORE = (function () {
     CongVan: ['id', 'huong', 'nam', 'so', 'soHieu', 'ngayVB', 'ngayVaoSo', 'noiGui', 'noiNhan', 'loai', 'doKhan', 'trichYeu',
       'nguoiKy', 'soBan', 'fileId', 'tenFile', 'mime', 'kichThuoc', 'butPhe', 'nguoiXuLy', 'phoiHop', 'hanXuLy', 'trangThai',
       'ketQua', 'hoanThanhLuc', 'lienKet', 'ghiChu', 'nguoiNhap', 'taoLuc', 'capNhat',
-      'hanTraLoi', 'tomTat', 'aiLuc', 'aiTinCay', 'csTrangThai', 'csDeXuat', 'nguoiDoc', 'nguoiDuyetCS', 'csLuc', 'csGhiChu', 'soTN', 'noiDungOCR'],
+      'hanTraLoi', 'tomTat', 'aiLuc', 'aiTinCay', 'csTrangThai', 'csDeXuat', 'nguoiDoc', 'nguoiDuyetCS', 'csLuc', 'csGhiChu', 'soTN', 'noiDungOCR',
+      'nguoiXem', 'hanChe',
+      'tepKem', 'daDoc', 'nguoiCT', 'ctCho'],          // v3.65: nhiều tệp / văn bản · ai đã đọc {username: giờ} · người nhận qua chuyển tiếp đã duyệt · người đang duyệt chuyển tiếp
+    CongVanCT: ['id', 'cvId', 'nguoi', 'tenNguoi', 'den', 'muc', 'noiDung', 'nguoiDuyet', 'tenDuyet', 'trangThai', 'duyetBoi', 'duyetLuc', 'ghiChu', 'taoLuc'],   // v3.65: chuyển tiếp công văn, cấp trên người chuyển duyệt          // v3.62: người được xem (chọn khi vào sổ) · hanChe='1': chỉ những người này + Giám đốc + người nhập + người xử lý
     CongVanXL: ['id', 'cvId', 'hanhDong', 'nguoi', 'tenNguoi', 'noiDung', 'hanXuLy', 'fileId', 'tenTep', 'thoiGian'],
     CongVanTN: ['id', 'cvId', 'username', 'hoTen', 'noiDung', 'fileId', 'tenTep', 'mime', 'thoiGian'],
     DeXuat: ['id', 'ma', 'tienTo', 'so', 'loai', 'tenLoai', 'nhom', 'tenNhom', 'tieuDe', 'noiDung', 'soTien', 'donVi', 'maNV', 'hoTen', 'boPhan', 'doKhan',
@@ -4642,6 +4645,66 @@ var HRCORE = (function () {
     '}\n' +
     'Đánh giá đủ mọi thành viên trong bảng cá nhân. Căn cứ trước hết vào số liệu do hệ thống tính (ngày tương tác, ngày không tương tác trừ ngày nghỉ có đơn, tỷ lệ nộp báo cáo đúng hạn, điểm tham gia), rồi đến đóng góp, kiến nghị cụ thể. ' +
     'Người có ít dữ liệu xếp "Ít hoạt động", không suy diễn. Giải pháp sắp xếp theo mức ưu tiên, tối đa 15 mục.';
+  /* v3.64: TỆP LỜI NHẮC cho AI bên ngoài (ChatGPT…) – yêu cầu trả về JSON mà app nạp lại được (H['ai.nap']).
+     Cấu trúc khớp với các bước AI trong app (nhật ký từng ngày + bức tranh tổng thể + đánh giá cá nhân, đối tác, giải pháp). */
+  function aiLoiNhacNgoai(nhom, tv, them) {
+    var L = [];
+    L.push('TỆP LỜI NHẮC PHÂN TÍCH NHÓM – APP TAPACO NHÂN SỰ (dùng cho ChatGPT hoặc AI tương tự)',
+      'Nhóm: ' + nhom, '',
+      'CÁCH DÙNG',
+      '1. Mở ChatGPT, tải lên MỘT tệp "Nội dung nhóm" (PDF hoặc Word, xuất từ app) cùng tệp lời nhắc này, rồi gửi: "Làm đúng theo tệp lời nhắc".',
+      '2. ChatGPT trả về tệp KetQua_….json (hoặc một khối JSON). Tải tệp đó về (hoặc sao chép khối JSON).',
+      '3. Trong app: Phân tích nhóm (AI) → chọn nhóm → "📥 Nạp kết quả ChatGPT" → chọn tệp / dán JSON. App kiểm tra, ghép với thống kê do hệ thống tính và lưu thành báo cáo.',
+      'Mỗi tệp nội dung (tổng, tuần hoặc tháng) phân tích riêng → một tệp kết quả → nạp riêng.', '',
+      '=== VAI TRÒ VÀ NGUYÊN TẮC ===', AI_HE.replace(/5\. Chỉ trả về[^\n]*$/, '5. Kết quả cuối cùng là MỘT đối tượng JSON hợp lệ theo mẫu dưới đây.'),
+      '6. Đọc HẾT tệp: thành viên, thống kê do hệ thống tính, tin nhắn từng ngày, ảnh, báo cáo định kỳ, phiếu nhập/xuất kho, hồ sơ tệp đính kèm.',
+      '7. Số liệu ưu tiên: (1) phiếu nhập/xuất kho và bảng báo cáo định kỳ (do thành viên nộp theo mẫu) → (2) tin nhắn. Khác nhau thì lấy theo (1), ghi chênh lệch vào "ghiChu".',
+      '8. "username" PHẢI là tài khoản trong bảng thành viên (ghi trong ngoặc vuông [ ] sau họ tên). "ma" chứng từ PHẢI là mã dạng F… ghi trong tệp. Không tự tạo tài khoản, mã, ngày.',
+      '9. Không suy đoán: mục nào tệp không nêu thì để "", [] hoặc null.', '');
+    if (tv && tv.length) { L.push('=== THÀNH VIÊN (tài khoản = họ tên) ==='); tv.forEach(function (t) { L.push('- ' + t.username + ' = ' + t.hoTen + (t.chucDanh ? ' – ' + t.chucDanh : '') + ' (' + t.vaiTro + ')'); }); L.push(''); }
+    L.push('=== YÊU CẦU ĐẦU RA ===',
+      'Tạo tệp tải xuống tên "KetQua_<tên nhóm không dấu>_<tu>_<den>.json" chứa đúng MỘT đối tượng JSON dưới đây (UTF-8, không chú thích, không dấu phẩy thừa). Nếu không tạo được tệp, trả nguyên JSON trong MỘT khối ```json.',
+      'Sau JSON có thể viết thêm tóm tắt ngắn cho người đọc, nhưng app chỉ đọc JSON.', '',
+      '{',
+      ' "loai": "TAPACO-KQ-PHANTICH", "phienBan": 1, "nhom": "' + String(nhom).replace(/"/g, "'") + '",',
+      ' "tu": "YYYY-MM-DD (ngày đầu khoảng ghi ở đầu tệp nội dung)", "den": "YYYY-MM-DD (ngày cuối khoảng)", "model": "tên mô hình AI đã dùng",',
+      ' "ngay": [ {',
+      '   "ngay": "YYYY-MM-DD", "tomTat": "≤ 50 từ",',
+      '   "thoiTiet": { "sang": "", "chieu": "", "anhHuong": "" },',
+      '   "nhanLuc": { "tong": số|null, "banChiHuy": số|null, "congNhan": số|null, "thauPhu": [ { "ten": "", "soNguoi": số|null } ], "ghiChu": "" },',
+      '   "thietBi": [ { "ten": "", "soLuong": số|null, "tinhTrang": "hoạt động|hỏng|chờ sửa|thay thế|khác", "ghiChu": "" } ],',
+      '   "thiCong": [ { "hangMuc": "", "viTri": "", "khoiLuong": số|null, "dvt": "", "keHoach": số|null, "soVoiKH": "đạt|vượt|chậm|chưa rõ", "ghiChu": "", "trich": "nguyên văn ≤ 80 ký tự" } ],',
+      '   "vatTuNhap": [ { "ten": "", "dvt": "", "soLuong": số|null, "nhaCungCap": "", "trich": "số phiếu PN-… hoặc nguyên văn" } ],',
+      '   "vatTuXuat": [ { "ten": "", "dvt": "", "soLuong": số|null, "choHangMuc": "", "trich": "số phiếu PX-… hoặc nguyên văn" } ],',
+      '   "yeuCauVatTu": [ { "ten": "", "dvt": "", "soLuong": số|null, "username": "", "trich": "" } ],',
+      '   "nghiemThu": [ { "noiDung": "", "ketQua": "đạt|không đạt|chờ", "thanhPhan": "" } ],',
+      '   "kienNghi": [ { "username": "", "noiDung": "", "trich": "" } ],',
+      '   "anToan": { "tinhHinh": "", "baoHo": "", "viPham": [""] }, "anNinh": "", "suCo": [""], "tonTai": [""], "keHoachMai": [""]',
+      ' } ],',
+      ' "doiTac": [ { "ten": "thầu phụ / nhà cung cấp", "loai": "thầu phụ|nhà cung cấp", "ngay": "YYYY-MM-DD", "noiDung": "", "danhGia": "tích cực|tiêu cực|trung tính", "trich": "" } ],',
+      ' "suKien": [ { "ngay": "YYYY-MM-DD", "loai": "an toàn|an ninh|chất lượng|tiến độ|thiết bị|vật tư|tài chính|định mức|phối hợp|khác", "mucDo": "thấp|trung bình|cao", "noiDung": "", "trich": "" } ],',
+      ' "chungTu": [ { "ma": "mã F… của ảnh / hồ sơ", "moTa": "ẢNH: thể hiện gì (chỉ điều nhìn thấy). HỒ SƠ: TÓM TẮT nội dung ≤ 80 từ (loại văn bản, số hiệu, nội dung chính, số liệu, thời hạn)", "lienQuan": "hạng mục, vật tư liên quan" } ],',
+      ' "caNhanGhiNhan": [ { "username": "", "dongGop": ["việc làm cụ thể"], "canLuuY": [""] } ],',
+      ' "tongThe": "250–350 từ: tình hình chung, kết quả, vấn đề nổi bật, xu hướng",',
+      ' "mucRuiRo": "Thấp|Trung bình|Cao", "lyDoRuiRo": "≤ 60 từ",',
+      ' "danhGia": [ { "khia": "tên khía cạnh", "muc": "' + AI_MUC.join('|') + '", "nhanXet": "≤ 90 từ", "danChung": ["dd/mm: dẫn chứng"], "giaiPhap": [""] } ],',
+      ' "caNhan": [ { "username": "", "xepLoai": "' + AI_HANG.join('|') + '", "nhanXet": "≤ 60 từ", "deXuat": "≤ 25 từ" } ],',
+      ' "doiTacDanhGia": [ { "ten": "", "loai": "thầu phụ|nhà cung cấp", "danhGia": "Tốt|Đạt|Cần chú ý|Kém", "nhanXet": "≤ 50 từ", "deXuat": "" } ],',
+      ' "diemManh": [""], "tonTai": [""],',
+      ' "giaiPhap": [ { "vanDe": "", "giaiPhap": "", "phuTrach": "bộ phận / chức danh", "thoiHan": "ngay|trong tuần|trong tháng", "uuTien": "Cao|Trung bình|Thấp" } ],',
+      ' "kienNghiBGD": ["việc Giám đốc cần chỉ đạo, quyết định"]',
+      '}', '',
+      '=== QUY ƯỚC ===',
+      '- "ngay": MỖI ngày có hoạt động trong tệp là một phần tử (đủ các ngày, không bỏ ngày).',
+      '- "danhGia" có ĐỦ và ĐÚNG THỨ TỰ ' + AI_KHIA.length + ' khía cạnh: ' + AI_KHIA.join('; ') + '. Khía cạnh không có dữ liệu ghi "Chưa đủ dữ liệu" và nêu thiếu thông tin gì.',
+      '- "caNhan": đánh giá ĐỦ mọi thành viên; căn cứ trước hết vào bảng "Thống kê do hệ thống tính" (ngày tương tác, ngày không tương tác trừ ngày nghỉ có đơn, báo cáo nộp/đúng hạn, điểm tham gia), rồi đến đóng góp cụ thể. Ít dữ liệu → "Ít hoạt động".',
+      '- Mỗi việc trong ô khối lượng của báo cáo định kỳ là MỘT phần tử "thiCong" (không gộp). Phiếu nhập kho → "vatTuNhap", phiếu xuất kho → "vatTuXuat" của đúng ngày phiếu.',
+      '- "chungTu": ghi cho MỌI hồ sơ (tệp) trong mục "Hồ sơ, tệp đính kèm" (tóm tắt nội dung) và các ảnh quan trọng.',
+      '- Số dùng dấu chấm thập phân (12.5), không ghi đơn vị trong ô số. Ngày dạng YYYY-MM-DD. Giải pháp sắp theo ưu tiên, tối đa 15.',
+      '- Không nhận xét đời tư, sức khỏe, tôn giáo, chính trị, ngoại hình. Không đưa thông tin không có trong tệp.');
+    if (them && String(them).trim()) L.push('', '=== YÊU CẦU THÊM CỦA NGƯỜI XUẤT ===', String(them).trim().slice(0, 3000));
+    return L.join('\n');
+  }
   var AI_TRUONG_NK = [['thoiTiet', 'Thời tiết'], ['nhanLuc', 'Nhân lực'], ['thietBi', 'Thiết bị'], ['thiCong', 'Công tác thi công'], ['vatTuNhap', 'Vật tư nhập'], ['vatTuXuat', 'Vật tư xuất'],
     ['yeuCauVatTu', 'Yêu cầu vật tư'], ['nghiemThu', 'Nghiệm thu'], ['kienNghi', 'Kiến nghị, đề xuất'], ['anToan', 'An toàn, bảo hộ'], ['anNinh', 'An ninh'], ['suCo', 'Sự cố'], ['tonTai', 'Tồn tại, vướng mắc'], ['keHoachMai', 'Kế hoạch ngày mai']];
   function aiSL(v, dvt) { return v == null || v === '' ? '' : aiSoTxt(v) + (dvt ? ' ' + dvt : ''); }
@@ -7068,10 +7131,13 @@ var HRCORE = (function () {
         theoNgay: theoNgay, caNhan: caNhan, baoCao: baoCao };
     }
     function aiDot(ngays, txt, toiDa) {      // chia đợt: ≤ toiDa ngày và ≤ 45.000 ký tự để mỗi lần gọi AI kịp trong 60 giây
+      /* v3.60: đợt CỐ ĐỊNH theo lịch (khối toiDa ngày tính từ mốc chung) → chạy lại / chạy khoảng ngày chồng lên nhau
+         ra đúng các đợt cũ và dùng lại kết quả đã lưu, chỉ gọi AI cho đợt có dữ liệu mới */
+      var khoi = function (d) { var p = String(d).split('-'); return Math.floor(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000 / toiDa); };
       var dot = [], cur = null;
       ngays.forEach(function (d) {
-        var n = Math.min(txt[d].length, 45000);
-        if (!cur || cur.ngay.length >= toiDa || (cur.kt + n > 45000 && cur.ngay.length)) { cur = { ngay: [], kt: 0 }; dot.push(cur); }
+        var n = Math.min(txt[d].length, 45000), kd = khoi(d);
+        if (!cur || cur.k !== kd || cur.ngay.length >= toiDa || (cur.kt + n > 45000 && cur.ngay.length)) { cur = { ngay: [], kt: 0, k: kd }; dot.push(cur); }
         cur.ngay.push(d); cur.kt += n;
       });
       return dot.map(function (c) { return { tu: c.ngay[0], den: c.ngay[c.ngay.length - 1], ngay: c.ngay }; });
@@ -7124,23 +7190,47 @@ var HRCORE = (function () {
       kq.ngay.sort(function (a, b) { return a.ngay < b.ngay ? -1 : 1; });
       return bu;
     }
-    function aiPhanDot(h, r, ctx, d, xemAnh) {
-      var tn = ltTheoNgay(r.ds), tv = aiTV(h), ncc = env.ai.trangThai().ncc;
+    /* v3.60: khóa đệm của một đợt = băm (nội dung nhật ký các ngày + thành viên + ảnh chọn + nhà cung cấp/model + phiên bản lời nhắc).
+       Nội dung không đổi → dùng lại kết quả đã lưu trên Drive (thư mục AI của nhóm / _dem-ai), không gọi AI. */
+    var AI_DOT_PB = 'dot-v1';
+    function aiDotKhoa(h, r, ctx, d, xemAnh) {
+      var tn = ltTheoNgay(r.ds), tv = aiTV(h), st = env.ai.trangThai();
       var nk = d.ngay.map(function (n) { return ltRutGon(ltNhatKy(h, n, tn[n] || [], ctx), 45000); }).join('\n\n');
-      var ct = ltChungTu(r.ds, d.tu, d.den), anh = [];
+      var ct = ltChungTu(r.ds, d.tu, d.den), chon = [];
       if (xemAnh && env.luuTru && env.luuTru.anh) {
         var ds = ct.filter(function (c) { return /^image\//.test(c.mime); }), buoc = Math.max(1, ds.length / 4);
-        for (var i = 0; i < ds.length && anh.length < 4; i += buoc) {
-          var c = ds[Math.floor(i)];
-          try { var a = env.luuTru.anh(c.fileId, 1500000); if (a) anh.push({ mime: a.mime, data: a.data, nhan: 'Ảnh mã tệp ' + c.fileId + ' – ' + ngayVN(c.ngay) + ' ' + c.gio + ' – ' + c.hoTen + (c.ghiChu ? ' – ' + c.ghiChu : '') }); } catch (e) { }
-        }
+        for (var i = 0; i < ds.length && chon.length < 6; i += buoc) chon.push(ds[Math.floor(i)]);
       }
+      var khoa = env.hash ? env.hash([AI_DOT_PB, st.ncc, st.model, aiTVTxt(tv), nk, chon.map(function (c) { return c.fileId; }).join(',')].join('\n#\n')).slice(0, 24) : '';
+      return { tn: tn, tv: tv, nk: nk, ct: ct, chon: chon, khoa: khoa };
+    }
+    function aiDemTM(h) { var c = ltCay(h, false); if (!c || !c.ai || !env.luuTru) return ''; try { return env.luuTru.thuMuc(c.ai, '_dem-ai'); } catch (e) { return ''; } }
+    function aiDemDoc(h, khoa, tm) {
+      if (!khoa) return null;
+      if (env.dem) { var x = env.dem.lay('aid_' + khoa); if (x) { try { return JSON.parse(x); } catch (e) { } } }
+      tm = tm || aiDemTM(h); if (!tm) return null;
+      try { var f = env.luuTru.ds(tm).filter(function (f) { return f.ten === 'dot-' + khoa + '.json'; })[0]; if (f) { var t = env.luuTru.doc(f.id); if (env.dem) env.dem.cat('aid_' + khoa, t); return JSON.parse(t); } } catch (e) { }
+      return null;
+    }
+    function aiDemGhi(h, khoa, kq) {
+      if (!khoa) return; var t = JSON.stringify(kq); if (env.dem) env.dem.cat('aid_' + khoa, t);
+      var tm = aiDemTM(h); if (tm) { try { env.luuTru.ghi(tm, 'dot-' + khoa + '.json', t, 'application/json'); } catch (e) { } }
+    }
+    function aiPhanDot(h, r, ctx, d, xemAnh, boDem) {
+      var K = aiDotKhoa(h, r, ctx, d, xemAnh);
+      if (!boDem) { var cu = aiDemDoc(h, K.khoa); if (cu && cu.ngay) { cu.tuDem = true; return cu; } }
+      var tn = K.tn, tv = K.tv, ncc = env.ai.trangThai().ncc, nk = K.nk, ct = K.ct, anh = [];
+      K.chon.forEach(function (c) {
+        if (anh.length >= 4) return;
+        try { var a = env.luuTru.anh(c.fileId, 1500000); if (a) anh.push({ mime: a.mime, data: a.data, nhan: 'Ảnh mã tệp ' + c.fileId + ' – ' + ngayVN(c.ngay) + ' ' + c.gio + ' – ' + c.hoTen + (c.ghiChu ? ' – ' + c.ghiChu : '') }); } catch (e) { }
+      });
       var nd = aiNhanHT(h) + '\nTHÀNH VIÊN (tài khoản = họ tên, vai trò, chức danh):\n' + aiTVTxt(tv) +
         '\nKHOẢNG NGÀY CỦA ĐỢT NÀY: ' + ngayVN(d.tu) + ' – ' + ngayVN(d.den) + (anh.length ? '\nKèm ' + anh.length + ' ảnh chứng từ (nhãn ghi mã tệp).' : '') +
         '\n\n=== NHẬT KÝ ===\n' + nk + '\n\n=== YÊU CẦU ===\n' + AI_P_DOT;
       var o = aiGoi({ he: AI_HE, nd: nd, anh: anh, maxTok: ncc === 'claude' ? 6000 : 8000, loai: 'phan', duLieu: { ngay: d.ngay, tin: r.ds.filter(function (m) { var x = m.thoiGian.slice(0, 10); return x >= d.tu && x <= d.den; }), chungTu: ct, tv: tv, ctx: { tl: ctx.tl.filter(function (x) { return x.ky >= d.tu && x.ky <= d.den; }), bc: ctx.bc } } });
       var kq = aiSachDot(o, d, ct, tv);
       aiBuBC(kq, ctx, d, tv);                 // bù lại những gì AI bỏ sót so với báo cáo định kỳ
+      if (kq.ngay.length) aiDemGhi(h, K.khoa, kq);
       return kq;
     }
     function aiS(v, n) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n || 300); }
@@ -7172,16 +7262,16 @@ var HRCORE = (function () {
       };
     }
     var AI_SK = ['an toàn', 'an ninh', 'chất lượng', 'tiến độ', 'thiết bị', 'vật tư', 'tài chính', 'định mức', 'phối hợp', 'khác'];
-    function aiSachDot(o, d, ct, tv) {
-      o = aiO(o);
+    function aiSachDot(o, d, ct, tv, lon) {      // lon: nạp kết quả ngoài (v3.64) – cả khoảng nhiều ngày, nới giới hạn danh sách
+      o = aiO(o); var L = lon ? 12 : 1;
       var ngayOK = {}, tep = {}, da = {}; d.ngay.forEach(function (x) { ngayOK[x] = 1; }); ct.forEach(function (c) { tep[c.fileId] = c; });
       var uOK = function (u) { u = aiS(u, 60); return tv[u] ? u : ''; }, nOK = function (x) { x = aiS(x, 10); return ngayOK[x] ? x : ''; };
       var lst = function (a, n) { return aiDs(a, n || 10).map(function (x) { return aiS(x, 300); }).filter(Boolean); };
       return {
-        ngay: aiDs(o.ngay, 10).map(function (x) { return aiSachNgay(x, uOK); }).filter(function (x) { if (!ngayOK[x.ngay] || da[x.ngay]) return false; da[x.ngay] = 1; return true; }),
-        doiTac: aiDs(o.doiTac, 30).map(function (x) { x = aiO(x); var t = aiS(x.ten, 100); return t ? { ten: t, loai: /cung c|ncc|cung ứng/i.test(aiS(x.loai, 30)) ? 'nhà cung cấp' : 'thầu phụ', ngay: nOK(x.ngay) || d.tu, noiDung: aiS(x.noiDung, 300), danhGia: aiChon(x.danhGia, ['tích cực', 'tiêu cực', 'trung tính'], 'trung tính'), trich: aiS(x.trich, 160) } : null; }).filter(Boolean),
-        suKien: aiDs(o.suKien, 30).map(function (x) { x = aiO(x); var t = aiS(x.noiDung, 300); return t ? { ngay: nOK(x.ngay) || d.tu, loai: aiChon(x.loai, AI_SK, 'khác'), mucDo: aiChon(x.mucDo, ['thấp', 'trung bình', 'cao'], 'trung bình'), noiDung: t, trich: aiS(x.trich, 160) } : null; }).filter(Boolean),
-        chungTu: aiDs(o.chungTu, 80).map(function (x) { x = aiO(x); return { fileId: aiS(x.fileId, 80), moTa: aiS(x.moTa, 300), lienQuan: aiS(x.lienQuan, 160) }; }).filter(function (x) { return tep[x.fileId]; }),
+        ngay: aiDs(o.ngay, lon ? 400 : 10).map(function (x) { return aiSachNgay(x, uOK); }).filter(function (x) { if (!ngayOK[x.ngay] || da[x.ngay]) return false; da[x.ngay] = 1; return true; }),
+        doiTac: aiDs(o.doiTac, 30 * L).map(function (x) { x = aiO(x); var t = aiS(x.ten, 100); return t ? { ten: t, loai: /cung c|ncc|cung ứng/i.test(aiS(x.loai, 30)) ? 'nhà cung cấp' : 'thầu phụ', ngay: nOK(x.ngay) || d.tu, noiDung: aiS(x.noiDung, 300), danhGia: aiChon(x.danhGia, ['tích cực', 'tiêu cực', 'trung tính'], 'trung tính'), trich: aiS(x.trich, 160) } : null; }).filter(Boolean),
+        suKien: aiDs(o.suKien, 30 * L).map(function (x) { x = aiO(x); var t = aiS(x.noiDung, 300); return t ? { ngay: nOK(x.ngay) || d.tu, loai: aiChon(x.loai, AI_SK, 'khác'), mucDo: aiChon(x.mucDo, ['thấp', 'trung bình', 'cao'], 'trung bình'), noiDung: t, trich: aiS(x.trich, 160) } : null; }).filter(Boolean),
+        chungTu: aiDs(o.chungTu, 80 * L).map(function (x) { x = aiO(x); return { fileId: aiS(x.fileId, 80), moTa: aiS(x.moTa, 300), lienQuan: aiS(x.lienQuan, 160) }; }).filter(function (x) { return tep[x.fileId]; }),
         caNhan: aiDs(o.caNhan, 60).map(function (x) { x = aiO(x); return { username: uOK(x.username), dongGop: lst(x.dongGop, 6), canLuuY: lst(x.canLuuY, 4) }; }).filter(function (x) { return x.username; })
       };
     }
@@ -7361,8 +7451,10 @@ var HRCORE = (function () {
         if (!ngays.length) err('Không có hoạt động nào trong khoảng ngày đã chọn.');
         ngays.forEach(function (d) { txt[d] = ltNhatKy(h, d, tn[d] || [], ctx); });
         var dot = aiDot(ngays, txt, env.ai.trangThai().ncc === 'claude' ? 2 : 3), job = newId();
-        env.tam.put('ai_' + job, { ht: h.id, tu: tu, den: den, dot: dot, xemAnh: !!req.xemAnh, u: s.username, nhan: env.now().replace(/[-:]/g, '').replace(' ', '-').slice(0, 13) }, 21600);
-        return { job: job, dot: dot.map(function (d) { return { tu: d.tu, den: d.den, soNgay: d.ngay.length }; }), ai: env.ai.trangThai() };
+        env.tam.put('ai_' + job, { ht: h.id, tu: tu, den: den, dot: dot, xemAnh: !!req.xemAnh, boDem: !!req.boDem, u: s.username, nhan: env.now().replace(/[-:]/g, '').replace(' ', '-').slice(0, 13) }, 21600);
+        var tmD = req.boDem ? '' : aiDemTM(h), coDem = dot.map(function (d) { if (req.boDem) return false; try { return !!aiDemDoc(h, aiDotKhoa(h, r, ctx, d, !!req.xemAnh).khoa, tmD); } catch (e) { return false; } });
+        return { job: job, dot: dot.map(function (d, k) { return { tu: d.tu, den: d.den, soNgay: d.ngay.length, daCo: coDem[k] }; }), ai: env.ai.trangThai(),
+          soGoiAI: coDem.filter(function (x) { return !x; }).length + 2 };   // ước tính số lượt gọi AI của lần chạy này
       }
       var J = 'ai_' + String(req.job || ''), j = env.tam.get(J);
       if (!j || j.u !== s.username) err('Phiên phân tích đã hết hạn, hãy chạy lại.');
@@ -7370,10 +7462,10 @@ var HRCORE = (function () {
       var r2 = ltTin(h2.id), ctx2 = ltCtx(h2, r2.ds), tv = aiTV(h2);
       if (req.buoc === 'phan') {
         var i = num(req.i), d = j.dot[i]; if (!d) err('Đợt không hợp lệ.');
-        var kq = aiPhanDot(h2, r2, ctx2, d, j.xemAnh);
+        var kq = aiPhanDot(h2, r2, ctx2, d, j.xemAnh, j.boDem);
         env.tam.put(J + '_' + i, kq, 21600);
         var dem = function (k) { return kq.ngay.reduce(function (s, n) { return s + n[k].length; }, 0); };
-        return { i: i, soNgay: kq.ngay.length, soThiCong: dem('thiCong'), soVatTu: dem('vatTuNhap') + dem('vatTuXuat') + dem('yeuCauVatTu'), soKienNghi: dem('kienNghi'), soSuKien: kq.suKien.length };
+        return { i: i, tuDem: !!kq.tuDem, model: env.ai.lanCuoi ? env.ai.lanCuoi() : '', soNgay: kq.ngay.length, soThiCong: dem('thiCong'), soVatTu: dem('vatTuNhap') + dem('vatTuXuat') + dem('yeuCauVatTu'), soKienNghi: dem('kienNghi'), soSuKien: kq.suKien.length };
       }
       var parts = j.dot.map(function (d, k) { var p = env.tam.get(J + '_' + k); if (!p) err('Thiếu kết quả đợt ' + (k + 1) + ' (' + ngayVN(d.tu) + '), hãy chạy lại phân tích.'); return p; });
       var tk = ltThongKe(h2, r2.ds, ctx2, j.tu, j.den), g = aiGopDot(parts, tk, r2, j);
@@ -7398,24 +7490,35 @@ var HRCORE = (function () {
         return kqC;
       }
       if (req.buoc === 'tong1') {
-        var t1 = aiSachT1(aiGoi({ he: AI_HE, nd: dau + aiTongHopTxt(tk, g) + '\n\n=== YÊU CẦU ===\n' + AI_P_TONG1, anh: [], maxTok: st2.ncc === 'claude' ? 6000 : 8000, loai: 'tong1', duLieu: { thongKe: tk, gop: g } }));
+        var nd1 = dau + aiTongHopTxt(tk, g) + '\n\n=== YÊU CẦU ===\n' + AI_P_TONG1, k1 = j.boDem || !env.hash ? '' : 't1-' + env.hash(['t1v1', st2.ncc, st2.model, st2.model2, nd1].join('#')).slice(0, 24);   // v3.60: dữ liệu tổng hợp không đổi → dùng lại
+        var t1 = k1 && aiDemDoc(h2, k1);
+        if (!t1) { t1 = aiSachT1(aiGoi({ he: AI_HE, nd: nd1, anh: [], maxTok: st2.ncc === 'claude' ? 6000 : 8000, loai: 'tong1', duLieu: { thongKe: tk, gop: g } })); if (k1) aiDemGhi(h2, k1, t1); }
         env.tam.put(J + '_t1', t1, 21600);
-        return { mucRuiRo: t1.mucRuiRo, soKhia: t1.danhGia.filter(function (x) { return x.muc !== 'Chưa đủ dữ liệu'; }).length };
+        return { model: env.ai.lanCuoi ? env.ai.lanCuoi() : '', mucRuiRo: t1.mucRuiRo, soKhia: t1.danhGia.filter(function (x) { return x.muc !== 'Chưa đủ dữ liệu'; }).length };
       }
       var t1b = env.tam.get(J + '_t1'); if (!t1b) err('Thiếu bước tổng hợp 1, hãy chạy lại.');
       if (req.buoc === 'tong2') {
-        var t2 = aiSachT2(aiGoi({ he: AI_HE, nd: dau + aiTong2Txt(tk, g, t1b) + '\n\n=== YÊU CẦU ===\n' + AI_P_TONG2, anh: [], maxTok: st2.ncc === 'claude' ? 6000 : 8000, loai: 'tong2', duLieu: { thongKe: tk, gop: g, t1: t1b } }), tv);
+        var nd2 = dau + aiTong2Txt(tk, g, t1b) + '\n\n=== YÊU CẦU ===\n' + AI_P_TONG2, k2 = j.boDem || !env.hash ? '' : 't2-' + env.hash(['t2v1', st2.ncc, st2.model, st2.model2, nd2].join('#')).slice(0, 24);
+        var t2 = k2 && aiDemDoc(h2, k2);
+        if (!t2) { t2 = aiSachT2(aiGoi({ he: AI_HE, nd: nd2, anh: [], maxTok: st2.ncc === 'claude' ? 6000 : 8000, loai: 'tong2', duLieu: { thongKe: tk, gop: g, t1: t1b } }), tv); if (k2) aiDemGhi(h2, k2, t2); }
         env.tam.put(J + '_t2', t2, 21600);
-        return { soGiaiPhap: t2.giaiPhap.length };
+        return { model: env.ai.lanCuoi ? env.ai.lanCuoi() : '', soGiaiPhap: t2.giaiPhap.length };
       }
       if (req.buoc !== 'lap') err('Bước không hợp lệ.');
       var t2b = env.tam.get(J + '_t2'); if (!t2b) err('Thiếu bước tổng hợp 2, hãy chạy lại.');
+      var kq2 = aiLapKQ(h2, c2, s, j, tk, g, t1b, t2b, { ncc: st2.ncc, model: st2.model, xemAnh: !!j.xemAnh }, '');
+      env.tam.put(J + '_kq', kq2, 21600);
+      log(s, 'ai.phantich', aiTenHT(h2) + ' ' + j.tu + '→' + j.den + ' (' + st2.ncc + ')');
+      return kq2;
+    };
+    /* ghép kết quả cuối (thống kê máy tính + nhật ký + tổng hợp + đánh giá), lập Google Docs/PDF, ghi tệp JSON PhanTich_… */
+    function aiLapKQ(h2, c2, s, j, tk, g, t1b, t2b, aiTT, duoi) {
       var xl = {}; t2b.caNhan.forEach(function (c) { xl[c.username] = c; });
       g.caNhan.forEach(function (p) { var a = xl[p.username] || {}; p.xepLoai = a.xepLoai || (p.soTin + p.soAnh + p.soTep + p.bcNop ? 'Đạt' : 'Ít hoạt động'); p.nhanXet = a.nhanXet || ''; p.deXuat = a.deXuat || ''; });
       var dt = {}; t2b.doiTac.forEach(function (x) { dt[aiKhoaTen(x.ten)] = x; });
       g.doiTac.forEach(function (x) { var a = dt[aiKhoaTen(x.ten)]; if (a) { x.danhGia = a.danhGia; x.nhanXet = a.nhanXet; x.deXuat = a.deXuat; } });
-      var kq2 = Object.assign(dauKQ(), { taoBoi: s.username, taoBoiTen: s.hoTen || chatTen(s.username), taoLuc: env.now(),
-        ai: { ncc: st2.ncc, model: st2.model, xemAnh: !!j.xemAnh }, thongKe: tk,
+      var kq2 = Object.assign({ phienBan: 2, congTy: getCfg().congTy || '', nhom: { id: h2.id, loai: h2.loai, ten: aiTenHT(h2), moTa: h2.moTa, soTV: tk.tong.soTV }, tu: j.tu, den: j.den },
+        { taoBoi: s.username, taoBoiTen: s.hoTen || chatTen(s.username), taoLuc: env.now(), ai: aiTT, thongKe: tk,
         tong: { tongThe: t1b.tongThe, mucRuiRo: t1b.mucRuiRo, lyDoRuiRo: t1b.lyDoRuiRo, danhGia: t1b.danhGia, diemManh: t2b.diemManh, tonTai: t2b.tonTai, giaiPhap: t2b.giaiPhap, kienNghiBGD: t2b.kienNghiBGD } }, g);
       if (c2 && env.luuTru) {
         var anhDoc = [];
@@ -7423,12 +7526,10 @@ var HRCORE = (function () {
           try { var a = env.luuTru.anh(c.fileId, 900000); if (a) anhDoc.push({ mime: a.mime, data: a.data, fileId: c.fileId, nhan: ngayVN(c.ngay) + ' ' + c.gio + ' – ' + c.hoTen + ' – ' + (c.moTa || c.ghiChu || c.ten) }); } catch (e) { }
         });
         try { var dc = env.luuTru.taoDoc(c2.ai, 'Báo cáo phân tích ' + aiTenHT(h2) + ' ' + aiTenNgan(j.tu) + '–' + ngayVN(j.den) + ' (lập ' + j.nhan + ')', aiKhoi(kq2, anhDoc), { pdf: true }); kq2.docId = dc.id; kq2.docUrl = dc.url; kq2.pdfId = dc.pdfId || ''; } catch (e) { kq2.loiDoc = String(e.message || e); }
-        kq2.jsonId = env.luuTru.ghi(c2.ai, 'PhanTich_' + j.tu + '_' + j.den + '_' + j.nhan + '.json', JSON.stringify(kq2), 'application/json');
+        kq2.jsonId = env.luuTru.ghi(c2.ai, 'PhanTich_' + j.tu + '_' + j.den + '_' + j.nhan + (duoi || '') + '.json', JSON.stringify(kq2), 'application/json');
       }
-      env.tam.put(J + '_kq', kq2, 21600);
-      log(s, 'ai.phantich', aiTenHT(h2) + ' ' + j.tu + '→' + j.den + ' (' + st2.ncc + ')');
       return kq2;
-    };
+    }
     /* Lưu tệp kết quả (Excel) vào thư mục "4. Phân tích AI" của nhóm. Trình duyệt dựng tệp
        (thư viện Excel chạy ở trình duyệt), máy chủ chỉ nhận base64 và ghi vào Drive.
        jsonId: ghi thêm mã tệp vào JSON của đợt phân tích để mở lại báo cáo cũ vẫn tải được. */
@@ -7475,6 +7576,10 @@ var HRCORE = (function () {
     H['ai.tep'] = function (req, s) {         // ảnh chứng từ cho người xem báo cáo (Giám đốc có thể không ở trong nhóm)
       var h = ltQuyen(s, req.ht), t = T('TepChat').filter(function (x) { return x.fileId === String(req.fileId || '') && x.hoiThoai === h.id; })[0];
       if (!t) err('Tệp không còn (có thể đã thu hồi).');
+      if (req.thumb && /^image\//.test(t.mime || '')) {            // v3.61: ảnh thu nhỏ cho bản PDF nội dung nhóm
+        try { if (t.thumbId) { var dt = env.files.get(t.thumbId); if (dt && dt.data) return { data: dt.data, mime: 'image/jpeg', name: t.ten, thumb: 1 }; } } catch (e) { }
+        try { if (env.files.thumb) { var d1 = env.files.thumb(t.fileId); if (d1 && d1.data) return { data: d1.data, mime: d1.mime || 'image/png', name: t.ten, thumb: 1 }; } } catch (e) { }
+      }
       var d = env.files.get(t.fileId); if (!d) err('Tệp không còn trên máy chủ.');
       return { data: d.data, mime: t.mime, name: t.ten };
     };
@@ -7485,7 +7590,8 @@ var HRCORE = (function () {
       var ngay = ltNgays(r.ds, ctx).filter(function (d) { return d >= tu && d <= den; }).map(function (d) {
         return { ngay: d, thu: THU_VN[thu(d)], dong: (tn[d] || []).map(function (m) {
           var line = ltDong(m, ctx).replace(/^- \d\d:\d\d · /, ''); if (m.hoTen && line.indexOf(m.hoTen + ': ') === 0) line = line.slice(m.hoTen.length + 2);
-          return { gio: m.thoiGian.slice(11, 16), hoTen: m.loai === 'hethong' || m.loai === 'nhac' || m.loai === 'baocao' ? '' : m.hoTen, loai: m.thuHoi ? 'Đã thu hồi' : (LOAI[m.loai] || m.loai), noiDung: line, tep: m.tep && m.tep.ten ? m.tep.ten : '' };
+          var coTep = !m.thuHoi && m.tep && m.tep.fileId && (m.loai === 'anh' || m.loai === 'tep');
+          return { gio: m.thoiGian.slice(11, 16), hoTen: m.loai === 'hethong' || m.loai === 'nhac' || m.loai === 'baocao' ? '' : m.hoTen, loai: m.thuHoi ? 'Đã thu hồi' : (LOAI[m.loai] || m.loai), noiDung: coTep ? line.replace(/,? ?mã tệp: [^)]*\)/, ')').replace(/ \(\)/, '') : line, tep: m.tep && m.tep.ten ? m.tep.ten : '', fid: coTep && /^image\//.test(m.tep.mime || '') ? m.tep.fileId : '', ma: coTep ? ctMa(m.tep.fileId) : '' };
         }) };
       });
       var bc = ctx.bc.map(function (m) {
@@ -7495,7 +7601,62 @@ var HRCORE = (function () {
             var gv = parseJSON(x.giaTri, {}); return [x.ky, chatTen(x.username), x.thoiGian, ltDungHan(ch, x.ky, x.thoiGian) ? 'Có' : 'Trễ'].concat(mau.map(function (f) { var v = gv[f.id]; return v == null ? '' : v; }));
           }) };
       });
-      return { nhom: aiTenHT(h), tu: tu, den: den, ngay: ngay, bc: bc };
+      // v3.64: phiếu nhập / xuất kho, hồ sơ (tệp không phải ảnh), mã chứng từ ngắn, tài khoản thành viên, thống kê hệ thống theo từng khoảng (tuần / tháng / tổng)
+      var tv = aiTV(h);
+      var kho = T('PhieuKho').filter(function (p) { return p.hoiThoai === h.id && p.ngay >= tu && p.ngay <= den && p.trangThai !== 'Đã hủy'; })
+        .sort(function (a, b) { return a.ngay < b.ngay ? -1 : a.ngay > b.ngay ? 1 : (a.taoLuc < b.taoLuc ? -1 : 1); })
+        .map(function (p) { var k = khoPub(p); return { soPhieu: k.soPhieu, loai: KHO_LOAI[k.loai] || k.loai, ngay: k.ngay, kho: k.kho, doiTac: k.doiTac, hangMuc: k.hangMuc, nguoiGiaoNhan: k.nguoiGiaoNhan, soCT: k.soCT, hoTenLap: k.hoTenLap, ghiChu: k.ghiChu, soAnh: (k.anh || []).length, dong: (k.dong || []).map(function (d) { return { ten: d.ten, dv: d.dv, sl: d.sl, donGia: d.donGia, thanhTien: d.thanhTien, quyCach: d.quyCach, ghiChu: d.ghiChu }; }) }; });
+      var tep = ltChungTu(r.ds, tu, den).filter(function (c) { return !/^image\//.test(c.mime); }).map(function (c) { return { ma: ctMa(c.fileId), fileId: c.fileId, ngay: c.ngay, gio: c.gio, hoTen: c.hoTen, ten: c.ten, mime: c.mime, kichThuoc: c.kichThuoc, ghiChu: c.ghiChu }; });
+      var tkKy = (Array.isArray(req.khoang) ? req.khoang : []).slice(0, 80).filter(function (k) { return k && parseD(k[0]) && parseD(k[1]) && k[0] <= k[1] && k[0] >= tu && k[1] <= den; }).map(function (k) {
+        var t = ltThongKe(h, r.ds, ctx, k[0], k[1]);
+        return { tu: k[0], den: k[1], tong: t.tong, soNgay: t.soNgay, soNgayLV: t.soNgayLV, soNgayHD: t.soNgayHD,
+          cn: t.caNhan.map(function (p) { return [p.username, p.hoTen, p.vaiTro, p.chucDanh, p.soTin, p.soAnh, p.soTep, p.soNgayLV, p.soNgayCoTT, p.soNgayKhongTT, p.soNgayNghi, p.bcNop + '/' + p.bcPhai, p.bcDungHan, p.bcTre, p.diemTG]; }) };
+      });
+      return { nhom: aiTenHT(h), tu: tu, den: den, ngay: ngay, bc: bc, kho: kho, tep: tep, tkKy: tkKy,
+        tv: Object.keys(tv).map(function (k) { var t = tv[k]; return { username: k, hoTen: t.hoTen, chucDanh: t.chucDanh, vaiTro: t.vaiTro }; }),
+        thanhVien: Object.keys(tv).map(function (k) { var t = tv[k]; return t.hoTen + ' [' + k + ']' + (t.chucDanh ? ' – ' + t.chucDanh : '') + ' (' + t.vaiTro + ')'; }) };   // v3.61: + mã ảnh (fid), thành viên – cho bản PDF
+    };
+    /* v3.64: mã chứng từ ngắn (ảnh / tệp) ghi trong tệp xuất, để AI bên ngoài trích dẫn lại khi trả kết quả */
+    function ctMa(fid) { return 'F' + String(fid || '').replace(/[^A-Za-z0-9]/g, '').slice(-8); }
+    /* v3.64: NẠP KẾT QUẢ PHÂN TÍCH TỪ AI BÊN NGOÀI (ChatGPT…) – JSON theo tệp lời nhắc do app tạo.
+       Máy chủ KHÔNG tin nguyên văn: làm sạch theo cùng bộ lọc với AI trong app (ngày phải có hoạt động, tài khoản phải là thành viên,
+       mã chứng từ phải có trong nhóm, mức đánh giá trong danh mục), thống kê cá nhân do HỆ THỐNG tính lại, số liệu báo cáo định kỳ được bù/đối chiếu. */
+    H['ai.nap'] = function (req, s) {
+      var h = ltQuyen(s, req.ht), o = typeof req.kq === 'string' ? parseJSON(req.kq, null) : req.kq;
+      o = aiO(o); if (!Object.keys(o).length) err('Không đọc được kết quả: cần một đối tượng JSON theo đúng tệp lời nhắc.');
+      if (o.loai && o.loai !== 'TAPACO-KQ-PHANTICH') err('Tệp không phải kết quả phân tích nhóm của TAPACO.');
+      var tu = String(req.tu || o.tu || ''), den = String(req.den || o.den || '');
+      if (!parseD(tu) || !parseD(den) || tu > den) err('Kết quả thiếu khoảng ngày hợp lệ ("tu", "den" dạng YYYY-MM-DD).');
+      if (den > env.today()) den = env.today();
+      if (ltMs(den + ' 00:00') - ltMs(tu + ' 00:00') > 366 * 86400000) err('Mỗi kết quả tối đa 12 tháng.');
+      var c2 = ltCay(h, false); if (!c2) err('Chưa lưu trữ nhóm. Bấm "Lưu trữ ngay" trước khi nạp kết quả.');
+      var r = ltTin(h.id), ctx = ltCtx(h, r.ds), tv = aiTV(h), ngays = ltNgays(r.ds, ctx).filter(function (d) { return d >= tu && d <= den; });
+      if (!ngays.length) err('Nhóm không có hoạt động trong khoảng ' + ngayVN(tu) + ' – ' + ngayVN(den) + '.');
+      var ten = {}; Object.keys(tv).forEach(function (u) { ten[boDau(tv[u].hoTen).toLowerCase()] = u; });
+      var uMap = function (u) { u = aiS(u, 80); if (tv[u]) return u; var m = /\[([^\]]+)\]/.exec(u); if (m && tv[m[1]]) return m[1]; return ten[boDau(u).toLowerCase()] || u; };
+      var ct = ltChungTu(r.ds, tu, den), ma = {}; ct.forEach(function (c) { ma[ctMa(c.fileId)] = c.fileId; ma[c.fileId] = c.fileId; });
+      var bo = { ngay: 0, nguoi: 0, ct: 0 };
+      var dsN = aiDs(o.ngay, 400); dsN.forEach(function (x) { x = aiO(x); ['yeuCauVatTu', 'kienNghi'].forEach(function (k) { aiDs(x[k], 40).forEach(function (y) { if (y && y.username) y.username = uMap(y.username); }); }); });
+      var ctIn = aiDs(o.chungTu, 960).map(function (x) { x = aiO(x); var f = ma[aiS(x.ma || x.fileId, 80).replace(/^#/, '')]; if (!f) bo.ct++; return { fileId: f || '', moTa: x.moTa || x.tomTat, lienQuan: x.lienQuan }; });
+      var cnIn = aiDs(o.caNhanGhiNhan || o.ghiNhan, 80).map(function (x) { x = aiO(x); return { username: uMap(x.username || x.hoTen), dongGop: x.dongGop, canLuuY: x.canLuuY }; });
+      var d = { tu: tu, den: den, ngay: ngays };
+      var part = aiSachDot({ ngay: dsN, doiTac: o.doiTac, suKien: o.suKien, chungTu: ctIn, caNhan: cnIn }, d, ct, tv, true);
+      bo.ngay = dsN.length - part.ngay.length; var soNhan = part.ngay.length;
+      aiBuBC(part, ctx, d, tv);
+      var tk = ltThongKe(h, r.ds, ctx, tu, den), j = { tu: tu, den: den, nhan: env.now().replace(/[-:]/g, '').replace(' ', '-').slice(0, 13) };
+      var g = aiGopDot([part], tk, r, j);
+      var cnDG = aiDs(o.caNhan, 80).map(function (x) { x = aiO(x); var u = uMap(x.username || x.hoTen); if (!tv[u]) bo.nguoi++; return Object.assign({}, x, { username: u }); });
+      var t1 = aiSachT1(o), t2 = aiSachT2({ caNhan: cnDG, doiTac: o.doiTacDanhGia || o.danhGiaDoiTac, diemManh: o.diemManh, tonTai: o.tonTai, giaiPhap: o.giaiPhap, kienNghiBGD: o.kienNghiBGD }, tv);
+      if (!t1.tongThe && !part.ngay.length) err('Kết quả không có "tongThe" và không có ngày hợp lệ nào – kiểm tra lại JSON (khoảng ngày, định dạng).');
+      var model = aiS(o.model || o.nguon, 60);
+      var kq = aiLapKQ(h, c2, s, j, tk, g, t1, t2, { ncc: 'ngoai', model: model || 'không ghi mô hình', xemAnh: false, ngoai: true }, '_GPT');
+      if (c2 && env.luuTru) {         // nhật ký thi công (Google Docs / PDF) như khi chạy AI trong app
+        try { var dn = env.luuTru.taoDoc(c2.ai, 'Nhật ký thi công ' + aiTenHT(h) + ' ' + aiTenNgan(tu) + '–' + ngayVN(den) + ' (ChatGPT, lập ' + j.nhan + ')', nkKhoi(kq), { pdf: true }); kq.nkDocId = dn.id; kq.nkDocUrl = dn.url; kq.nkPdfId = dn.pdfId || ''; } catch (e) { kq.loiNK = String(e.message || e); }
+        if (kq.jsonId) try { env.luuTru.ghi(c2.ai, 'PhanTich_' + tu + '_' + den + '_' + j.nhan + '_GPT.json', JSON.stringify(kq), 'application/json'); } catch (e) { }
+      }
+      kq.napKiem = { soNgayNhan: soNhan, soNgayBu: part.ngay.length - soNhan, soNgayHD: ngays.length, boNgay: bo.ngay, boNguoi: bo.nguoi, boChungTu: bo.ct, soKhiaCoDanhGia: t1.danhGia.filter(function (x) { return x.muc !== 'Chưa đủ dữ liệu'; }).length };
+      log(s, 'ai.nap', aiTenHT(h) + ' ' + tu + '→' + den + ' (ChatGPT): ' + part.ngay.length + ' ngày');
+      return kq;
     };
 
     /* ==================== THÔNG BÁO ĐẨY (v3.1) ====================
@@ -8939,8 +9100,21 @@ var HRCORE = (function () {
     function cvRow(id) { var o = T('CongVan').filter(function (x) { return x.id === id; })[0]; if (!o) err('Không tìm thấy công văn.'); return o; }
     function cvNguoi(o) { return parseJSON(o.nguoiXuLy, []).concat(parseJSON(o.phoiHop, [])); }
     function cvXem(s, o) {
+      var dsXem = parseJSON(o.nguoiXem, []).concat(parseJSON(o.nguoiCT, []), parseJSON(o.ctCho, []));   // v3.65: + người nhận chuyển tiếp đã duyệt, cấp trên đang duyệt
+      if (o.hanChe === '1')                   // v3.62: văn bản hạn chế – người có quyền "xem toàn bộ sổ" cũng không xem nếu không được chọn
+        return s.role === 'admin' || s.role === 'giamdoc' || o.nguoiNhap === (s.hoTen || s.username)
+          || laNguoiXuLy(s, cvNguoi(o).concat(dsXem).concat(cvNguoiDoc(o)));
       return can(s.role, 'congvan') || laNguoiXuLy(s, cvNguoi(o)) || o.nguoiNhap === (s.hoTen || s.username)
-        || laNguoiXuLy(s, cvNguoiDoc(o));      // chỉ đọc được sau khi Giám đốc duyệt chia sẻ
+        || laNguoiXuLy(s, cvNguoiDoc(o)) || laNguoiXuLy(s, dsXem);      // người được chia sẻ: sau khi Giám đốc duyệt / người được chọn xem khi vào sổ
+    }
+    function cvDatXem(o, req, s) {             // v3.62: phân quyền xem (vào sổ / sửa quyền)
+      if (req.nguoiXem === undefined && req.hanChe === undefined) return [];
+      var cu = parseJSON(o.nguoiXem, []), ds = Array.isArray(req.nguoiXem) ? req.nguoiXem.slice(0, 60) : cu;
+      if (ds.length) kiemNguoi(ds, false, 'Người được xem');
+      if (req.hanChe !== undefined) o.hanChe = req.hanChe ? '1' : '';
+      // hạn chế mà chưa chọn ai: chỉ Giám đốc, người nhập (và người được giao sau) xem được
+      o.nguoiXem = JSON.stringify(ds);
+      return ds.filter(function (a) { return cu.indexOf(a) < 0; });
     }
     function cvGiaoDuoc(s) { return can(s.role, 'vanthu') || s.role === 'giamdoc' || s.role === 'admin'; }
     function cvSoKeTiep(huong, nam) {
@@ -8976,10 +9150,11 @@ var HRCORE = (function () {
       var nam = String(req.nam || env.today().slice(0, 4)), url = '';
       if (can(s.role, 'congvan') && env.files.duongUrl) { try { url = env.files.duongUrl([TM_CV]); } catch (e) { url = ''; } }
       var nhe = ds.map(function (o) { if (!o.noiDungOCR) return o; var x = Object.assign({}, o); x.soChuOCR = String(o.noiDungOCR).length; x.ocrTim = String(o.noiDungOCR).slice(0, 1500); delete x.noiDungOCR; return x; });   // v3.42: đoạn đầu chữ quét để tìm   // v3.24: chữ OCR tải riêng khi mở văn bản
-      return { ds: nhe, xl: T('CongVanXL').filter(function (x) { return co[x.cvId]; }),
+      return { ds: nhe, xl: T('CongVanXL').filter(function (x) { return co[x.cvId]; }), ct: T('CongVanCT').filter(function (x) { return co[x.cvId]; }),
         nam: nam, soDen: cvSoKeTiep('den', nam), soDi: cvSoKeTiep('di', nam),
         vanThu: can(s.role, 'vanthu'), giaoDuoc: cvGiaoDuoc(s), duyetCS: cvDuyetCSDuoc(s),
-        coAI: !!(env.ai && env.ai.trangThai && env.ai.trangThai().coKhoa), toanBo: can(s.role, 'congvan'), thuMucUrl: url };
+        coAI: !!(env.ai && env.ai.trangThai && env.ai.trangThai().coKhoa), toanBo: can(s.role, 'congvan'), thuMucUrl: url,
+        danhBa: chatDir().map(function (u) { return { username: u.username, hoTen: u.hoTen, phongBan: u.phongBan, chucVu: u.chucVu }; }) };   // v3.65: danh bạ để chọn người chuyển tiếp, hiện tên người đã đọc
     };
     H['cv.save'] = function (req, s) {
       need(s, 'vanthu');
@@ -8993,8 +9168,11 @@ var HRCORE = (function () {
           nguoiNhap: s.hoTen || s.username, taoLuc: env.now() };
       } else {
         o = cvRow(req.id);
+        if (!cvXem(s, o)) err('Bạn không có quyền với văn bản này.');
         if (o.trangThai === CV_HET && s.role !== 'admin') err('Công văn đã lưu hồ sơ, chỉ Quản trị sửa được.');
       }
+      if (moi && req.nguoiXem === undefined && req.hanChe === undefined) { req.hanChe = false; }
+      var xemMoi = cvDatXem(o, req, s);
       ['soHieu', 'ngayVB', 'ngayVaoSo', 'noiGui', 'noiNhan', 'loai', 'doKhan', 'trichYeu', 'nguoiKy', 'ghiChu', 'lienKet', 'hanTraLoi'].forEach(function (k) {
         if (r[k] !== undefined) o[k] = String(r[k] || '').trim().slice(0, 600);
       });
@@ -9025,12 +9203,36 @@ var HRCORE = (function () {
       D('CongVan');
       log(s, 'cv.save', (moi ? 'đăng ký ' : 'sửa ') + cvTen(o) + ': ' + o.trichYeu);
       if (moi) cvGhiXL(o, 'Đăng ký vào sổ', s, o.trichYeu, '', null);
+      if (xemMoi.length || (!moi && req.nguoiXem !== undefined)) {
+        cvGhiXL(o, 'Phân quyền xem', s, (o.hanChe === '1' ? 'Hạn chế – chỉ: ' : 'Cho xem: ') + (tenNguoi(parseJSON(o.nguoiXem, [])) || '(không ai thêm)'), '', null);
+        if (xemMoi.length) bao(nguoiCo(xemMoi, s.username), { loai: 'duyet', t: 'Văn bản được chuyển cho bạn xem', b: cvTen(o) + ': ' + o.trichYeu, tag: 'cv_' + o.id, mo: '#v=cv' });
+      }
       return o;
     };
-    H['cv.upload'] = function (req, s) {
-      need(s, 'vanthu');
+    H['cv.quyen'] = function (req, s) {                // v3.62: Giám đốc / văn thư sửa người được xem, chế độ hạn chế
       var o = cvRow(req.id);
+      if (!cvGiaoDuoc(s) || !cvXem(s, o)) err('Chỉ Giám đốc, văn thư hoặc Quản trị phân quyền xem văn bản.');
       if (o.trangThai === CV_HET && s.role !== 'admin') err('Công văn đã lưu hồ sơ.');
+      var moi = cvDatXem(o, { nguoiXem: req.nguoiXem || [], hanChe: !!req.hanChe }, s);
+      o.capNhat = env.now(); D('CongVan');
+      var x = cvGhiXL(o, 'Phân quyền xem', s, (o.hanChe === '1' ? 'Hạn chế – chỉ: ' : 'Cho xem: ') + (tenNguoi(parseJSON(o.nguoiXem, [])) || '(chỉ người xử lý)'), '', null);
+      log(s, 'cv.quyen', cvTen(o) + ' → ' + (o.hanChe === '1' ? 'hạn chế, ' : '') + tenNguoi(parseJSON(o.nguoiXem, [])));
+      if (moi.length) bao(nguoiCo(moi, s.username), { loai: 'duyet', t: 'Văn bản được chuyển cho bạn xem', b: cvTen(o) + ': ' + o.trichYeu, tag: 'cv_' + o.id, mo: '#v=cv' });
+      return { cv: o, xl: x };
+    };
+    H['cv.upload'] = function (req, s) {
+      var o = cvRow(req.id);
+      if (!can(s.role, 'vanthu') && !(o.nguoiNhap === (s.hoTen || s.username) && cvXem(s, o))) err('Chỉ văn thư hoặc người vào sổ tải tệp văn bản.');
+      if (!cvXem(s, o)) err('Bạn không có quyền với văn bản này.');
+      if (o.trangThai === CV_HET && s.role !== 'admin') err('Công văn đã lưu hồ sơ.');
+      if (req.them && o.fileId) {                     // v3.65: thêm tệp kèm (phụ lục, bản vẽ, hồ sơ…) – cùng một văn bản
+        var kem = parseJSON(o.tepKem, []); if (kem.length >= 20) err('Mỗi văn bản tối đa 21 tệp.');
+        var tk = cvTepVao(o, req.file || {}, 'Kem' + (kem.length + 1));
+        kem.push({ fileId: tk.fileId, ten: tk.ten, mime: tk.mime, kichThuoc: tk.kichThuoc, nguoi: s.hoTen || s.username, luc: env.now() });
+        o.tepKem = JSON.stringify(kem); o.capNhat = env.now(); D('CongVan');
+        log(s, 'cv.upload', cvTen(o) + ': thêm ' + tk.ten);
+        return o;
+      }
       var t = cvTepVao(o, req.file || {}, '');
       if (o.fileId) { try { env.files.del(o.fileId); } catch (e) { } }
       o.fileId = t.fileId; o.tenFile = t.ten; o.mime = t.mime; o.kichThuoc = t.kichThuoc; o.capNhat = env.now();
@@ -9048,6 +9250,11 @@ var HRCORE = (function () {
         if (!x || !x.fileId) err('Không tìm thấy tệp.');
         fid = x.fileId; ten = x.tenTep; mime = '';
       }
+      if (req.kemId) {                                // v3.65: tệp kèm theo văn bản
+        var k = parseJSON(o.tepKem, []).filter(function (y) { return y.fileId === req.kemId; })[0];
+        if (!k) err('Không tìm thấy tệp.');
+        fid = k.fileId; ten = k.ten; mime = k.mime || '';
+      }
       if (req.tnId) {                                 // tệp đính kèm một lời trao đổi
         var m = T('CongVanTN').filter(function (y) { return y.id === req.tnId && y.cvId === o.id; })[0];
         if (!m || !m.fileId) err('Không tìm thấy tệp.');
@@ -9060,7 +9267,7 @@ var HRCORE = (function () {
     };
     H['cv.giao'] = function (req, s) {
       var o = cvRow(req.id);
-      if (!cvGiaoDuoc(s)) err('Chỉ Giám đốc, TCHC hoặc Quản trị giao xử lý công văn.');
+      if (!cvGiaoDuoc(s) || !cvXem(s, o)) err('Chỉ Giám đốc, văn thư hoặc Quản trị giao xử lý công văn.');
       if (o.trangThai === CV_HET) err('Công văn đã lưu hồ sơ.');
       var xl = (req.nguoiXuLy || []).slice(0, 10), ph = (req.phoiHop || []).slice(0, 20);
       kiemNguoi(xl, false, 'Người xử lý chính');
@@ -9149,21 +9356,46 @@ var HRCORE = (function () {
       if (anh) return anhAI();
       err(pdf ? 'Không nhận dạng được chữ trong PDF (bản quét quá mờ hoặc tệp có mật khẩu). Thử chụp lại rõ hơn, hoặc tải lên ảnh JPG/PNG.' : 'Không đọc được chữ trong tệp Word.');
     }
-    H['cv.ai'] = function (req, s) {
-      need(s, 'vanthu');
-      var f = req.file || {}, cfg = getCfg();
-      if (!req.chu) {
-      if (!f.data) err('Chưa chọn tệp.');
+    function cvKiemTep(f) {
+      var cfg = getCfg();
+      if (!f || !f.data) err('Chưa chọn tệp.');
       if (!MIME_OK.test(f.mime || '')) err('Chỉ đọc được PDF, ảnh (JPG, PNG, WEBP, HEIC) hoặc Word.');
       var bytes = Math.floor(String(f.data).length * 3 / 4);
-      if (bytes > (num(cfg.dungLuongToiDaMB) || 10) * 1048576) err('Tệp vượt ' + (num(cfg.dungLuongToiDaMB) || 10) + ' MB.');
+      if (bytes > (num(cfg.dungLuongToiDaMB) || 10) * 1048576) err('Tệp "' + (f.name || '') + '" vượt ' + (num(cfg.dungLuongToiDaMB) || 10) + ' MB.');
+    }
+    /* v3.65: đọc NHIỀU tệp của cùng một văn bản (tệp 1 = văn bản chính, sau là phụ lục / tài liệu kèm) → ghép chữ (OCR) → AI bóc trường + tóm tắt */
+    function cvDocNhieu(ds) {
+      var chu = [], anh = [], demo = false, nguon = [], loi = [];
+      ds.slice(0, 8).forEach(function (f, i) {
+        var t; try { t = cvChuTep(f); } catch (e) { loi.push((f.name || 'tệp ' + (i + 1)) + ': ' + (e.message || e)); return; }
+        if (t.demo) demo = true;
+        var nhan = ds.length > 1 ? '=== TỆP ' + (i + 1) + (i === 0 ? ' (VĂN BẢN CHÍNH)' : ' (TÀI LIỆU KÈM)') + ': ' + String(f.name || '') + ' ===\n' : '';
+        if (t.chu) { chu.push(nhan + t.chu.slice(0, i === 0 ? 30000 : 12000)); nguon.push(t.nguon); }
+        else if (t.anh && t.anh.length && anh.length < 4) { anh.push({ nhan: ds.length > 1 ? 'Tệp ' + (i + 1) + ' (' + (i === 0 ? 'văn bản chính' : 'tài liệu kèm') + '): ' + String(f.name || '') : t.anh[0].nhan, mime: t.anh[0].mime, data: t.anh[0].data }); nguon.push('anh'); }
+      });
+      if (!chu.length && !anh.length && !demo) err(loi.length ? loi.join(' · ') : 'Không đọc được nội dung tệp nào.');
+      return { chu: chu.join('\n\n').slice(0, 60000), anh: anh, demo: demo, nguon: nguon.indexOf('ocr') >= 0 ? 'ocr' : (nguon[0] || ''), loi: loi, soTep: ds.length };
+    }
+    function cvGoiAI(t, huong, ten) {
+      var nd = '=== VÀO SỔ CÔNG VĂN ===\n'
+        + 'Đây là ' + (huong === 'di' ? 'văn bản do Công ty TAPACO phát hành (công văn đi)' : 'văn bản gửi đến Công ty TAPACO (công văn đến)') + '.\n'
+        + (t.soTep > 1 ? 'Văn bản gồm ' + t.soTep + ' tệp: TỆP 1 là văn bản chính – các trường (số hiệu, ngày, nơi gửi, trích yếu…) lấy theo TỆP 1; các tệp sau là phụ lục / tài liệu kèm. '
+          + 'tomTat: 3–6 câu – việc văn bản yêu cầu, ai phải làm gì, thời hạn, và nội dung chính của từng tài liệu kèm (mỗi tài liệu 1 câu).\n' : '') + '\n'
+        + (t.chu ? (/^ocr/.test(t.nguon) ? '=== CHỮ NHẬN DẠNG (OCR) TỪ BẢN QUÉT – có thể sai vài ký tự, dấu tiếng Việt, ngắt dòng; hãy suy luận đúng nghĩa, không bịa thêm ===\n' : '=== NỘI DUNG VĂN BẢN ===\n') + t.chu : '')
+        + (t.anh && t.anh.length ? (t.chu ? '\n\n' : '') + 'Nội dung ' + (t.chu ? 'các tệp còn lại' : 'văn bản') + ' nằm trong ảnh đính kèm.' : '');
+      return aiGoi({ he: CV_HE, nd: nd, anh: t.anh, maxTok: t.soTep > 1 ? 2200 : 1600, loai: 'congvan', duLieu: { demo: !!t.demo, ten: String(ten || ''), huong: huong } }) || {};
+    }
+    H['cv.ai'] = function (req, s) {
+      need(s, 'vanthu');
+      var ds = Array.isArray(req.files) && req.files.length ? req.files.slice(0, 8) : [req.file || {}], f = ds[0] || {};
+      if (!req.chu) {
+        ds.forEach(cvKiemTep);
+        var tong = ds.reduce(function (a, x) { return a + Math.floor(String(x.data).length * 3 / 4); }, 0);
+        if (tong > 40 * 1048576) err('Tổng dung lượng các tệp vượt 40 MB – chọn ít tệp hơn.');
       }
       var huong = req.huong === 'di' ? 'di' : 'den';
-      var t = req.chu ? { chu: lamSachChu(req.chu).slice(0, 40000), anh: [], nguon: 'ocr-sua' } : cvChuTep(f);   // v3.24: văn thư sửa chữ OCR rồi bấm phân tích lại
-      var nd = '=== VÀO SỔ CÔNG VĂN ===\n'
-        + 'Đây là ' + (huong === 'di' ? 'văn bản do Công ty TAPACO phát hành (công văn đi)' : 'văn bản gửi đến Công ty TAPACO (công văn đến)') + '.\n\n'
-        + (t.chu ? (/^ocr/.test(t.nguon) ? '=== CHỮ NHẬN DẠNG (OCR) TỪ BẢN QUÉT – có thể sai vài ký tự, dấu tiếng Việt, ngắt dòng; hãy suy luận đúng nghĩa, không bịa thêm ===\n' : '=== NỘI DUNG VĂN BẢN ===\n') + t.chu : 'Nội dung văn bản nằm trong ảnh đính kèm.');
-      var o = aiGoi({ he: CV_HE, nd: nd, anh: t.anh, maxTok: 1600, loai: 'congvan', duLieu: { demo: !!t.demo, ten: String(f.name || ''), huong: huong } }) || {};
+      var t = req.chu ? { chu: lamSachChu(req.chu).slice(0, 60000), anh: [], nguon: 'ocr-sua', soTep: num(req.soTep) || 1 } : cvDocNhieu(ds);   // v3.24: văn thư sửa chữ OCR rồi bấm phân tích lại
+      var o = cvGoiAI(t, huong, f.name);
       var kq = {
         soHieu: aiS(o.soHieu, 100), ngayVB: cvNgay(o.ngayVB), noiGui: aiS(o.noiGui, 250), noiNhan: aiS(o.noiNhan, 250),
         loai: CV_LOAI.indexOf(aiS(o.loai, 40)) >= 0 ? aiS(o.loai, 40) : '',
@@ -9173,9 +9405,108 @@ var HRCORE = (function () {
         doTinCay: ['cao', 'trung bình', 'thấp'].indexOf(String(o.doTinCay || '').toLowerCase()) >= 0 ? String(o.doTinCay).toLowerCase() : ''
       };
       kq.soO = ['soHieu', 'ngayVB', 'noiGui', 'noiNhan', 'loai', 'doKhan', 'trichYeu', 'nguoiKy', 'hanTraLoi'].filter(function (k) { return kq[k]; }).length;
-      kq.nguon = t.nguon || ''; if (/^ocr/.test(t.nguon)) kq.ocr = t.chu.slice(0, 40000);
-      log(s, 'cv.ai', (req.chu ? 'phân tích lại chữ OCR đã sửa' : 'đọc bản quét ' + String(f.name || '') + (t.nguon === 'ocr' ? ' (OCR ' + t.chu.length + ' ký tự)' : '')) + ' – bóc được ' + kq.soO + ' trường');
+      kq.nguon = t.nguon || ''; if (t.chu && (/^ocr/.test(t.nguon) || t.soTep > 1)) kq.ocr = t.chu.slice(0, 60000);
+      kq.soTep = t.soTep || 1; if (t.loi && t.loi.length) kq.loiTep = t.loi;
+      log(s, 'cv.ai', (req.chu ? 'phân tích lại chữ OCR đã sửa' : 'đọc ' + (t.soTep > 1 ? t.soTep + ' tệp, ' : 'bản quét ') + String(f.name || '') + (t.nguon === 'ocr' ? ' (OCR ' + t.chu.length + ' ký tự)' : '')) + ' – bóc được ' + kq.soO + ' trường');
       return kq;
+    };
+    /* v3.65: đọc lại TẤT CẢ tệp đã lưu của một văn bản (chính + kèm) → AI tóm tắt lại nội dung */
+    H['cv.tomtat'] = function (req, s) {
+      var o = cvRow(req.id);
+      if (!cvXem(s, o)) err('Bạn không có quyền xem văn bản này.');
+      if (!can(s.role, 'vanthu') && !cvGiaoDuoc(s) && !laNguoiXuLy(s, cvNguoi(o)) && o.nguoiNhap !== (s.hoTen || s.username)) err('Chỉ văn thư, Giám đốc, người vào sổ hoặc người xử lý yêu cầu AI tóm tắt.');
+      var ds = [];
+      if (o.fileId) ds.push({ fileId: o.fileId, name: o.tenFile, mime: o.mime });
+      parseJSON(o.tepKem, []).forEach(function (k) { ds.push({ fileId: k.fileId, name: k.ten, mime: k.mime }); });
+      if (!ds.length) err('Văn bản chưa có tệp nào.');
+      ds = ds.slice(0, 8).map(function (k) { var f = env.files.get(k.fileId); return f ? { name: k.name, mime: k.mime || 'application/pdf', data: f.data } : null; }).filter(Boolean);
+      if (!ds.length) err('Không đọc được tệp (có thể đã bị xóa khỏi Drive).');
+      var t = cvDocNhieu(ds), r = cvGoiAI(t, o.huong, ds[0].name), tt = aiS(r.tomTat, 2500);
+      if (!tt) err('AI không tóm tắt được nội dung – thử lại sau.');
+      o.tomTat = tt; o.aiLuc = env.now(); o.aiTinCay = ['cao', 'trung bình', 'thấp'].indexOf(String(r.doTinCay || '').toLowerCase()) >= 0 ? String(r.doTinCay).toLowerCase() : '';
+      if (t.chu) o.noiDungOCR = t.chu.slice(0, 45000);
+      o.capNhat = env.now(); D('CongVan');
+      var x = cvGhiXL(o, 'AI tóm tắt', s, 'Đọc ' + ds.length + ' tệp' + (t.loi.length ? ' (không đọc được: ' + t.loi.join('; ') + ')' : ''), '', null);
+      log(s, 'cv.tomtat', cvTen(o) + ': ' + ds.length + ' tệp');
+      return { cv: o, xl: x };
+    };
+    H['cv.tepxoa'] = function (req, s) {               // v3.65: gỡ một tệp kèm
+      var o = cvRow(req.id); need(s, 'vanthu');
+      if (!cvXem(s, o)) err('Bạn không có quyền với văn bản này.');
+      if (o.trangThai === CV_HET && s.role !== 'admin') err('Công văn đã lưu hồ sơ.');
+      var kem = parseJSON(o.tepKem, []), k = kem.filter(function (y) { return y.fileId === req.fileId; })[0];
+      if (!k) err('Không tìm thấy tệp.');
+      try { env.files.del(k.fileId); } catch (e) { }
+      o.tepKem = JSON.stringify(kem.filter(function (y) { return y !== k; })); o.capNhat = env.now(); D('CongVan');
+      log(s, 'cv.tepxoa', cvTen(o) + ': ' + k.ten);
+      return o;
+    };
+    /* v3.65: ghi nhận ĐÃ ĐỌC (người nhận / người được giao mở văn bản) */
+    H['cv.doc'] = function (req, s) {
+      var o = cvRow(req.id);
+      if (!cvXem(s, o)) err('Bạn không có quyền xem văn bản này.');
+      var d = parseJSON(o.daDoc, {}); if (d[s.username]) return { daDoc: o.daDoc };
+      d[s.username] = env.now(); o.daDoc = JSON.stringify(d); D('CongVan');
+      return { daDoc: o.daDoc };
+    };
+    /* ---- v3.65: CHUYỂN TIẾP công văn cho người liên quan – CẤP TRÊN của người chuyển duyệt ----
+       Cấp trên: nhân viên → Trưởng phòng / CHT bộ phận (không có thì Giám đốc); Trưởng phòng / CHT → Giám đốc; Giám đốc, Quản trị → không cần duyệt.
+       Trong lúc chờ, người duyệt được xem văn bản để quyết định. Duyệt: "để biết" → được xem; "phối hợp xử lý" → vào danh sách phối hợp, báo cáo được. */
+    function cvCapTren(s) {
+      if (s.role === 'giamdoc' || s.role === 'admin') return [];
+      if (ROLE_QL.indexOf(normRole(s.role)) >= 0) return ['r:giamdoc'];
+      var u = T('Users').filter(function (x) { return x.username === s.username; })[0] || {};
+      var ql = quanLyCua(boPhanCua(u)).filter(function (x) { return x.username !== s.username; });
+      return ql.length ? ql.map(function (x) { return 'u:' + x.username; }) : ['r:giamdoc'];
+    }
+    function cvCTCho(o) {                              // cấp trên đang có đề nghị chờ duyệt → được xem văn bản
+      var ds = []; T('CongVanCT').forEach(function (c) { if (c.cvId === o.id && c.trangThai === 'Chờ duyệt') parseJSON(c.nguoiDuyet, []).forEach(function (a) { if (ds.indexOf(a) < 0) ds.push(a); }); });
+      o.ctCho = JSON.stringify(ds);
+    }
+    function cvCTApDung(o, c, s) {
+      var den = parseJSON(c.den, []);
+      if (c.muc === 'xuly') { var ph = parseJSON(o.phoiHop, []); den.forEach(function (a) { if (ph.indexOf(a) < 0) ph.push(a); }); o.phoiHop = JSON.stringify(ph); if (o.trangThai === 'Mới đăng ký') o.trangThai = 'Đã giao xử lý'; }
+      else { var ct = parseJSON(o.nguoiCT, []); den.forEach(function (a) { if (ct.indexOf(a) < 0) ct.push(a); }); o.nguoiCT = JSON.stringify(ct); }
+      o.capNhat = env.now();
+      bao(nguoiCo(den, c.nguoi), { loai: 'duyet', t: c.muc === 'xuly' ? 'Công văn chuyển bạn phối hợp xử lý' : 'Công văn chuyển bạn để biết',
+        b: cvTen(o) + ': ' + o.trichYeu + ' · ' + c.tenNguoi + (c.noiDung ? ': ' + String(c.noiDung).slice(0, 100) : ''), tag: 'cv_' + o.id, mo: '#v=cv' });
+    }
+    H['cv.chuyen'] = function (req, s) {
+      var o = cvRow(req.id);
+      if (!cvXem(s, o)) err('Bạn không có quyền với văn bản này.');
+      if (o.trangThai === CV_HET) err('Công văn đã lưu hồ sơ.');
+      var den = (req.den || []).slice(0, 20); if (!den.length) err('Chọn người nhận chuyển tiếp.');
+      kiemNguoi(den, false, 'Người nhận chuyển tiếp');
+      var muc = req.muc === 'xuly' ? 'xuly' : 'xem', nd = String(req.noiDung || '').trim().slice(0, 1500);
+      if (!nd) err('Nhập nội dung / lý do chuyển tiếp.');
+      var cap = cvCapTren(s);
+      var c = { id: newId(), cvId: o.id, nguoi: s.username, tenNguoi: s.hoTen || s.username, den: JSON.stringify(den), muc: muc, noiDung: nd,
+        nguoiDuyet: JSON.stringify(cap), tenDuyet: cap.length ? tenNguoi(cap) : '', trangThai: cap.length ? 'Chờ duyệt' : 'Đã duyệt',
+        duyetBoi: cap.length ? '' : (s.hoTen || s.username), duyetLuc: cap.length ? '' : env.now(), ghiChu: cap.length ? '' : 'Giám đốc / Quản trị chuyển – không cần duyệt', taoLuc: env.now() };
+      T('CongVanCT').push(c); D('CongVanCT');
+      var x = cvGhiXL(o, cap.length ? 'Đề nghị chuyển tiếp' : 'Chuyển tiếp', s, (muc === 'xuly' ? 'Phối hợp xử lý' : 'Để biết') + ' → ' + tenNguoi(den) + ': ' + nd + (cap.length ? ' · chờ ' + tenNguoi(cap) + ' duyệt' : ''), '', null);
+      if (cap.length) { cvCTCho(o); bao(nguoiCo(cap, s.username), { loai: 'duyet', t: 'Đề nghị chuyển tiếp công văn chờ bạn duyệt', b: (s.hoTen || s.username) + ' → ' + tenNguoi(den) + ': ' + cvTen(o), tag: 'cvct_' + c.id, mo: '#v=cv' }); }
+      else cvCTApDung(o, c, s);
+      D('CongVan');
+      log(s, 'cv.chuyen', cvTen(o) + ' → ' + tenNguoi(den) + (cap.length ? ' (chờ duyệt)' : ''));
+      return { cv: o, ct: c, xl: x };
+    };
+    H['cv.duyetct'] = function (req, s) {
+      var c = T('CongVanCT').filter(function (y) { return y.id === req.ctId; })[0]; if (!c) err('Không tìm thấy đề nghị chuyển tiếp.');
+      if (c.trangThai !== 'Chờ duyệt') err('Đề nghị đã được xử lý (' + c.trangThai + ').');
+      var o = cvRow(c.cvId);
+      if (!(laNguoiXuLy(s, parseJSON(c.nguoiDuyet, [])) || s.role === 'giamdoc')) err('Chỉ cấp trên của người chuyển (' + c.tenDuyet + ') hoặc Giám đốc duyệt.');
+      if (c.nguoi === s.username) err('Không tự duyệt đề nghị của mình.');
+      var dong = !!req.dongY, gc = String(req.ghiChu || '').trim().slice(0, 500);
+      if (!dong && !gc) err('Nhập lý do không duyệt.');
+      if (dong && Array.isArray(req.den) && req.den.length) { kiemNguoi(req.den.slice(0, 20), false, 'Người nhận chuyển tiếp'); c.den = JSON.stringify(req.den.slice(0, 20)); }   // cấp trên sửa người nhận
+      c.trangThai = dong ? 'Đã duyệt' : 'Không duyệt'; c.duyetBoi = s.hoTen || s.username; c.duyetLuc = env.now(); c.ghiChu = gc; D('CongVanCT');
+      if (dong) cvCTApDung(o, c, s);
+      cvCTCho(o); D('CongVan');
+      var x = cvGhiXL(o, dong ? 'Duyệt chuyển tiếp' : 'Không duyệt chuyển tiếp', s, c.tenNguoi + ' → ' + tenNguoi(parseJSON(c.den, [])) + (gc ? ' · ' + gc : ''), '', null);
+      bao([c.nguoi].filter(function (u) { return u !== s.username; }), { loai: 'duyet', t: dong ? 'Đề nghị chuyển tiếp công văn đã được duyệt' : 'Đề nghị chuyển tiếp công văn không được duyệt', b: cvTen(o) + (gc ? ' · ' + gc : ''), tag: 'cvct_' + c.id, mo: '#v=cv' });
+      log(s, 'cv.duyetct', cvTen(o) + ': ' + c.trangThai);
+      return { cv: o, ct: c, xl: x };
     };
 
     /* ---- Giám đốc duyệt chia sẻ văn bản cho người liên quan (v3.7) ----
@@ -9249,6 +9580,7 @@ var HRCORE = (function () {
     H['cv.chot'] = function (req, s) {
       need(s, 'vanthu');
       var o = cvRow(req.id);
+      if (!cvXem(s, o)) err('Bạn không có quyền với văn bản này.');
       if (o.trangThai === CV_HET) err('Công văn đã lưu hồ sơ.');
       o.trangThai = CV_HET; o.capNhat = env.now(); D('CongVan');
       var x = cvGhiXL(o, 'Lưu hồ sơ', s, String(req.note || '').trim(), '', null);
@@ -9258,8 +9590,11 @@ var HRCORE = (function () {
     H['cv.delete'] = function (req, s) {
       need(s, 'vanthu');
       var a = T('CongVan'), o = cvRow(req.id);
+      if (!cvXem(s, o)) err('Bạn không có quyền với văn bản này.');
       if (['Mới đăng ký', 'Chờ ban hành'].indexOf(o.trangThai) < 0 && s.role !== 'admin') err('Chỉ xóa được văn bản mới đăng ký, chưa giao xử lý.');
       if (o.fileId) { try { env.files.del(o.fileId); } catch (e) { } }
+      parseJSON(o.tepKem, []).forEach(function (k) { try { env.files.del(k.fileId); } catch (e) { } });
+      var ctd = T('CongVanCT'); for (var c = ctd.length - 1; c >= 0; c--) if (ctd[c].cvId === o.id) ctd.splice(c, 1); D('CongVanCT');
       var xl = T('CongVanXL');
       for (var i = xl.length - 1; i >= 0; i--) if (xl[i].cvId === o.id) { if (xl[i].fileId) { try { env.files.del(xl[i].fileId); } catch (e) { } } xl.splice(i, 1); }
       D('CongVanXL');
@@ -10743,7 +11078,7 @@ var HRCORE = (function () {
   }
 
   return {
-    VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, blGiaTri: blGiaTri, BL_THEM: BL_THEM, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
+    VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, aiLoiNhacNgoai: aiLoiNhacNgoai, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, blGiaTri: blGiaTri, BL_THEM: BL_THEM, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
     BIEN_HT: BIEN_HT, matKhauTheoNV: matKhauTheoNV, tenBien: tenBien, xlMauTamUng: xlMauTamUng, docTamUng: docTamUng, docTien: docTien, docNgay: docNgay, nhanLoaiTU: nhanLoaiTU, dauVaoTinhLuong: dauVaoTinhLuong, astExcel: astExcel, ctExcel: ctExcel, cotXL: cotXL, xlBangTinh: xlBangTinh, xlBangLuongThang: xlBangLuongThang, xlNam: xlNam, xlCaNhan: xlCaNhan, xlChiPhi: xlChiPhi, sangXLSX: sangXLSX, khoanCo: khoanCo, amSangDuong: amSangDuong, lichLeTheoLuat: lichLeTheoLuat, cleanLe: cleanLe, LOAI_LE: LOAI_LE, KY_HIEU: KY_HIEU, DON_KH: DON_KH, ngayTheoDon: ngayTheoDon, cleanNgay: cleanNgay, tongHopNgay: tongHopNgay, NHOM_VP: NHOM_VP, thu: thu, ROLE_QL: ROLE_QL, normRole: normRole, tenDangNhap: tenDangNhap, ROLES_MOTA: ROLES_MOTA, BT_LOAI: BT_LOAI, CAM_XUC: CAM_XUC, memChat: memChat, CT_PHANLOAI: CT_PHANLOAI, CT_VAITRO: CT_VAITRO, CT_MAU: CT_MAU, nlvTrongKy: nlvTrongKy, bienNLV: bienNLV, CT_LUONG_MD: CT_LUONG_MD, BIEN_KY_MD: BIEN_KY_MD, CT_DONGBH_MD: CT_DONGBH_MD, BUOC_XONG: BUOC_XONG, LOAI_BUOC: LOAI_BUOC, FIELDS_LOAI: FIELDS_LOAI,
     buocLuong: buocLuong, viTriBuoc: viTriBuoc, buocTheoLoai: buocTheoLoai, laNguoiXuLy: laNguoiXuLy, kiemTraQTLuong: kiemTraQTLuong,
     CV_HUONG: CV_HUONG, CV_LOAI: CV_LOAI, CV_KHAN: CV_KHAN, CV_TT_DEN: CV_TT_DEN, CV_TT_DI: CV_TT_DI, CV_HET: CV_HET,
@@ -15888,7 +16223,7 @@ function xemTep(r, tieuDe) {                       // xem bản quét / tệp đ
 /* ====================== SỔ CÔNG VĂN ĐẾN – ĐI ====================== */
 async function cvTai(giu) {
   if (CVS.dang) return; CVS.dang = true;
-  try { const r = await api('cv.ds', { nam: CVS.nam || undefined }, { quiet: true }); CVS.ds = r.ds; CVS.xl = r.xl || []; CVS.meta = r; CVS.nam = CVS.nam || r.nam; }
+  try { const r = await api('cv.ds', { nam: CVS.nam || undefined }, { quiet: true }); CVS.ds = r.ds; CVS.xl = r.xl || []; CVS.ct = r.ct || []; CVS.meta = r; CVS.nam = CVS.nam || r.nam; }
   catch (e) { CVS.ds = []; toast(e.message, 'err'); }
   finally { CVS.dang = false; }
   if (!giu && APP.view === 'cv') render();
@@ -15915,8 +16250,11 @@ function cvChiTiet(id) {
       ${dong('Trích yếu', esc(o.trichYeu || ''))}
       ${dong('Người ký', esc(o.nguoiKy || ''))}
       ${dong('Bút phê, giao việc', esc(o.butPhe || '').replace(/\n/g, '<br>'))}
+      ${dong('Người nhận, đọc', (o.hanChe === '1' ? '<span class="pill bad">🔒 Hạn chế</span> ' : '') + esc(moTaNguoi(C.parseJSON(o.nguoiXem, []))) + (o.hanChe === '1' ? '<div class="muted small">Chỉ những người này, Giám đốc, người nhập và người được giao xử lý xem được.</div>' : ''))}
       ${dong('Người xử lý', esc(moTaNguoi(C.parseJSON(o.nguoiXuLy, []))))}
       ${dong('Phối hợp, theo dõi', esc(moTaNguoi(C.parseJSON(o.phoiHop, []))))}
+      ${dong('Nhận qua chuyển tiếp', esc(moTaNguoi(C.parseJSON(o.nguoiCT, []))))}
+      ${dong('Tình trạng đọc', cvDocHTML(o))}
       ${dong('Hạn trả lời ghi trong văn bản', o.hanTraLoi ? dfmt(o.hanTraLoi) : '')}
       ${dong('Hạn xử lý được giao', o.hanXuLy ? dfmt(o.hanXuLy) + (cvQuaHan(o) ? ' <span class="pill bad">quá hạn</span>' : '') : '')}
       ${dong('Chia sẻ', cvCSPill(o) + (cvDaChiaSe(o) ? ' ' + esc(moTaNguoi(C.parseJSON(o.nguoiDoc, []))) : o.csTrangThai === 'Chờ duyệt' ? ' <span class="muted small">đề nghị: ' + esc(moTaNguoi(C.parseJSON(o.csDeXuat, []))) + '</span>' : '') + (o.nguoiDuyetCS ? `<div class="muted small">${esc(o.nguoiDuyetCS)} · ${esc((o.csLuc || '').slice(0, 16))}${o.csGhiChu ? ' · ' + esc(o.csGhiChu) : ''}</div>` : ''))}
@@ -15924,7 +16262,8 @@ function cvChiTiet(id) {
       ${dong('Ghi chú', esc(o.ghiChu || ''))}
       ${dong('Trạng thái', cvPill(o))}</tbody></table>
     ${o.tomTat ? `<div class="note" style="margin-bottom:12px"><b>Tóm tắt${o.aiLuc ? ' (AI đọc từ bản quét ' + esc((o.aiLuc || '').slice(0, 10)) + (o.aiTinCay ? ', độ tin cậy ' + esc(o.aiTinCay) : '') + ')' : ''}:</b> ${esc(o.tomTat).replace(/\n/g, '<br>')}</div>` : ''}
-    ${o.fileId ? `<div class="bar" style="margin-bottom:12px"><button class="btn" onclick="cvXemTep('${o.id}')">Xem bản quét (${esc(o.tenFile || '')})</button>${o.soChuOCR || o.noiDungOCR ? `<button class="btn" onclick="cvXemOCR('${o.id}')">Nội dung văn bản (chữ OCR)</button>` : ''}</div>` : '<div class="note w" style="margin-bottom:12px">Chưa có bản quét văn bản trên hệ thống.</div>'}
+    ${cvTepHTML(o)}
+    ${cvCTHTML(o)}
     <div class="sec">Quá trình xử lý</div>
     ${tr.length ? `<div class="docs">${tr.map(x => `<div class="doc"><div class="dm"><b>${esc(x.hanhDong)}</b>
       <span class="muted">${esc(x.tenNguoi)} · ${esc(x.thoiGian)}${x.hanXuLy ? ' · hạn ' + dfmt(x.hanXuLy) : ''}</span>
@@ -15940,13 +16279,16 @@ function cvChiTiet(id) {
   modal(C.CV_HUONG[o.huong] + ' số ' + o.so + '/' + o.nam, body, { size: 'lg', noFocus: true, foot: `<div class="bar" style="margin-right:auto">${cvNutHTML(o, true)}</div><button class="btn pri" onclick="closeModal()">Đóng</button>` });
   if (!cvHet(o)) tepGan('cvTN');
   cvTNTai(id, CVT.id !== id);
+  if (!C.parseJSON(o.daDoc, {})[APP.user.username]) api('cv.doc', { id }, { quiet: true }).then(r => { o.daDoc = r.daDoc; }).catch(() => { });   // v3.65: ghi nhận đã đọc
 }
 function cvNutHTML(o, trong) {
   const M = CVS.meta, s = trong ? ' sm' : ' sm';
   let h = '';
   if (!trong) h += `<button class="btn${s}" onclick="event.stopPropagation();cvChiTiet('${o.id}')">Chi tiết</button>`;
-  if (M.giaoDuoc && o.huong === 'den' && !cvHet(o)) h += `<button class="btn${s}" onclick="event.stopPropagation();cvGiaoForm('${o.id}')">${o.butPhe ? 'Giao lại' : 'Bút phê, giao xử lý'}</button>`;
+  if (M.giaoDuoc && !cvHet(o)) h += `<button class="btn${s}" onclick="event.stopPropagation();cvGiaoForm('${o.id}')">${o.butPhe ? 'Giao lại' : 'Bút phê, giao xử lý'}</button>`;
+  if (M.giaoDuoc && !cvHet(o)) h += `<button class="btn${s}" onclick="event.stopPropagation();cvQuyenForm('${o.id}')">🔒 Người được xem</button>`;
   if (cvCuaToi(o) && !cvHet(o)) h += `<button class="btn ok${s}" onclick="event.stopPropagation();cvBaoCaoForm('${o.id}')">Báo cáo</button>`;
+  if (!cvHet(o) && trong) h += `<button class="btn${s}" onclick="event.stopPropagation();cvChuyenForm('${o.id}')">↪ Chuyển tiếp</button>`;
   if (M.duyetCS && o.csTrangThai === 'Chờ duyệt' && !cvHet(o)) h += `<button class="btn ok${s}" onclick="event.stopPropagation();cvCSForm('${o.id}',true)">Duyệt chia sẻ</button>`;
   else if (M.duyetCS && !cvHet(o)) h += `<button class="btn${s}" onclick="event.stopPropagation();cvCSForm('${o.id}',true)">${cvDaChiaSe(o) ? 'Sửa chia sẻ' : 'Chia sẻ'}</button>`;
   else if (M.vanThu && !cvDaChiaSe(o) && o.csTrangThai !== 'Chờ duyệt' && !cvHet(o)) h += `<button class="btn${s}" onclick="event.stopPropagation();cvCSForm('${o.id}',false)">Trình chia sẻ</button>`;
@@ -15962,8 +16304,8 @@ async function cvXemOCR(id) {                       // v3.24: chữ nhận dạn
   modal('Nội dung văn bản (chữ OCR) – ' + C.CV_HUONG[o.huong] + ' số ' + o.so + '/' + o.nam, `<div class="note small" style="margin-bottom:8px">Chữ được nhận dạng tự động từ bản quét, có thể sai vài ký tự – đối chiếu bản quét khi cần trích dẫn.</div><textarea id="cvOCRxem" readonly rows="18" style="width:100%;font:13px/1.55 var(--f-body,inherit);white-space:pre-wrap">${esc(chu || '')}</textarea>`,
     { size: 'lg', foot: `<button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText($('cvOCRxem').value).then(()=>toast('Đã sao chép.','ok'))">Sao chép</button><button class="btn pri" onclick="closeModal()">Đóng</button>` });
 }
-async function cvXemTep(id, xlId) {
-  const r = await run(() => api('cv.get', { id, xlId })); if (!r) return;
+async function cvXemTep(id, xlId, kemId) {
+  const r = await run(() => api('cv.get', { id, xlId, kemId })); if (!r) return;
   xemTep(r);
 }
 function cvBangHTML(rows, huong) {
@@ -15975,9 +16317,9 @@ function cvBangHTML(rows, huong) {
     { l: 'Trích yếu', wrap: 1, f: o => esc(o.trichYeu || '') + (o.doKhan && o.doKhan !== 'Thường' ? ` <span class="pill bad">${esc(o.doKhan)}</span>` : '') + (o.loai && o.loai !== 'Công văn' ? `<div class="muted small">${esc(o.loai)}</div>` : '') },
     ...(di ? [{ l: 'Người ký', f: o => esc(o.nguoiKy || '') }]
       : [{ l: 'Người xử lý · hạn', wrap: 1, f: o => (o.nguoiXuLy && o.nguoiXuLy !== '[]' ? esc(moTaNguoi(C.parseJSON(o.nguoiXuLy, []))) : '<span class="muted">chưa giao</span>') + (o.hanXuLy ? `<div class="small" style="color:${cvQuaHan(o) ? 'var(--bad)' : 'var(--muted)'}">hạn ${dfmt(o.hanXuLy)}</div>` : '') }]),
-    { l: 'Trạng thái', f: o => cvPill(o) + '<div style="margin-top:3px">' + cvCSPill(o) + '</div>' + (o.fileId ? '<div class="muted small">có bản quét</div>' : '') + (num(o.soTN) ? `<div class="muted small">${num(o.soTN)} lời trao đổi</div>` : '') },
+    { l: 'Trạng thái', f: o => cvPill(o) + (o.hanChe === '1' ? ' <span class="pill bad" title="Chỉ người được chọn xem">🔒 Hạn chế</span>' : '') + '<div style="margin-top:3px">' + cvCSPill(o) + '</div>' + (o.fileId ? '<div class="muted small">có bản quét</div>' : '') + (num(o.soTN) ? `<div class="muted small">${num(o.soTN)} lời trao đổi</div>` : '') },
     { l: '', f: o => cvNutHTML(o, false) }
-  ], rows, { empty: 'Chưa có văn bản nào trong sổ.' });
+  ], rows, { empty: 'Chưa có văn bản nào trong sổ.', click: o => `cvChiTiet('${o.id}')` });   // v3.62: bấm vào dòng mở hộp thoại văn bản
 }
 function vCV() {
   if (!CVS.ds) { cvTai(); return '<div class="card"><div class="empty">Đang tải sổ công văn…</div></div>'; }
@@ -15989,6 +16331,7 @@ function vCV() {
   const di = trong.filter(o => o.huong === 'di').sort((a, b) => num(b.so) - num(a.so));
   const viec = CVS.ds.filter(o => cvCuaToi(o) && cvMo(o)).sort((a, b) => (a.hanXuLy || '9') < (b.hanXuLy || '9') ? -1 : 1);
   const qh = viec.filter(cvQuaHan).length;
+  const choDuyet = cvCTChoToi();
   let body;
   if (String(CVS.q || '').trim()) body = cvTimHTML(t, nam);          // v3.42: tìm gần đúng
   else if (t === 'viec') body = (qh ? `<div class="note w" style="margin-bottom:12px">Có <b>${qh}</b> văn bản đã quá hạn xử lý. Đề nghị Anh/Chị báo cáo kết quả hoặc đề xuất gia hạn.</div>` : '')
@@ -16002,6 +16345,7 @@ function vCV() {
     ${tabs('cv', [['den', 'Đến (' + den.length + ')'], ['di', 'Đi (' + di.length + ')'], ['viec', 'Việc của tôi (' + viec.length + ')']])}
     <div class="bar" style="margin:4px 0 12px"><input id="cvTim" type="search" value="${esc(CVS.q || '')}" placeholder="Tìm công văn: số, ký hiệu, đơn vị gửi / nhận, trích yếu, nội dung…" oninput="cvTimGo(this.value)" style="max-width:560px" aria-label="Tìm công văn">
       <label class="ck small"><input type="checkbox" id="cvTimNam"${CVS.tatCaNam !== false ? ' checked' : ''} onchange="CVS.tatCaNam=this.checked;cvTimGo($('cvTim').value)"> Mọi năm</label></div>
+    ${choDuyet.length ? `<div class="note w" style="margin-bottom:10px"><b>↪ ${choDuyet.length} đề nghị chuyển tiếp công văn chờ Anh/Chị duyệt:</b> ${choDuyet.map(c => { const o = CVS.ds.find(x => x.id === c.cvId) || {}; return `<a href="#" onclick="event.preventDefault();cvChiTiet('${c.cvId}')">${esc(C.CV_HUONG[o.huong] || '')} số ${esc(o.so || '')}/${esc(o.nam || '')}</a> (${esc(c.tenNguoi)} → ${esc(moTaNguoi(C.parseJSON(c.den, [])))})`; }).join(' · ')}</div>` : ''}
     <div id="cvBody">${body}</div></div>`;
   return intro;
 }
@@ -16014,8 +16358,27 @@ function cvTimHTML(t, nam) {
   return `<div class="muted small" style="margin-bottom:8px">${ds.length ? `${ds.length} văn bản khớp gần đúng với "<b>${esc(q)}</b>"${moiNam ? ' (mọi năm)' : ' (năm ' + esc(nam) + ')'}, khớp nhất ở trên.` : `Không thấy văn bản nào khớp "<b>${esc(q)}</b>". Thử gõ ít chữ hơn hoặc bỏ tích "Mọi năm".`}</div>` + (ds.length ? cvBangHTML(ds, t === 'viec' ? 'den' : t) : '');
 }
 function cvTimGo(v) { CVS.q = v; clearTimeout(CVS.hen); CVS.hen = setTimeout(() => { const b = $('cvBody'); if (b) b.innerHTML = String(v || '').trim() ? cvTimHTML(curTab('cv', 'den'), CVS.nam || todayS().slice(0, 4)) : (render(), setTimeout(() => { const i = $('cvTim'); if (i) i.focus(); }, 0), ''); }, 180); }
+/* v3.62: PHÂN QUYỀN XEM – chọn người / vai trò được xem ngay khi vào sổ; "Hạn chế": chỉ những người này + Giám đốc + người nhập + người xử lý */
+function cvQXHTML() {
+  const st = APP.cvQX || { ds: [], hc: true };
+  return `<label class="ck" style="display:flex;gap:6px;align-items:center;margin:4px 0 8px"><input type="checkbox" ${st.hc ? 'checked' : ''} onchange="APP.cvQX.hc=this.checked;$('cvQX').innerHTML=cvQXHTML()"> <b>Hạn chế</b> – chỉ người được chọn dưới đây (cùng Giám đốc, người nhập, người được giao xử lý) xem được</label>
+    <div class="chips">${st.ds.map(a => `<span class="chip">${esc(moTaNguoi([a]))}<button title="Bỏ" onclick="cvQXDoi('${esc(a)}',false)">×</button></span>`).join('')}
+    <select class="addp" onchange="if(this.value)cvQXDoi(this.value,true)"><option value="">+ thêm người nhận, đọc văn bản…</option>${nguoiOptions(false).filter(x => !st.ds.includes(x[0])).map(x => `<option value="${esc(x[0])}">${esc(x[1])}</option>`).join('')}</select></div>
+    <div class="muted small" style="margin-top:4px">${st.hc ? (st.ds.length ? 'Chỉ ' + esc(moTaNguoi(st.ds)) + ' (và Giám đốc, người xử lý) xem được.' : 'Chưa chọn ai – chỉ Giám đốc, người nhập xem được cho đến khi giao xử lý.') : 'Không hạn chế: người có quyền xem toàn bộ sổ (Giám đốc, TCHC…) và người được chọn xem được.'} Giám đốc giao xử lý sau thì người được giao tự xem được.</div>`;
+}
+function cvQXDoi(code, add) { const st = APP.cvQX; st.ds = add ? (st.ds.includes(code) ? st.ds : st.ds.concat([code])) : st.ds.filter(x => x !== code); if ($('cvQX')) $('cvQX').innerHTML = cvQXHTML(); }
+function cvQuyenForm(id) {
+  const o = CVS.ds.find(x => x.id === id); if (!o) return;
+  APP.cvQX = { ds: C.parseJSON(o.nguoiXem, []), hc: o.hanChe === '1' };
+  modal('Người được xem – ' + C.CV_HUONG[o.huong] + ' số ' + o.so + '/' + o.nam, `<p style="margin-top:0"><b>${esc(o.trichYeu || '')}</b></p><div id="cvQX">${cvQXHTML()}</div>`, {
+    okText: 'Lưu phân quyền', onOk: async () => {
+      const r = await api('cv.quyen', { id, nguoiXem: APP.cvQX.ds, hanChe: APP.cvQX.hc });
+      upsertLocal(CVS.ds, r.cv, 'id'); CVS.xl.push(r.xl); render(); toast('Đã lưu người được xem.', 'ok');
+    } });
+}
 function cvForm(huong, id) {
-  const o = id ? CVS.ds.find(x => x.id === id) : { huong, loai: 'Công văn', doKhan: 'Thường', ngayVaoSo: todayS() };
+  const o = id ? CVS.ds.find(x => x.id === id) : { huong, loai: 'Công văn', doKhan: 'Thường', ngayVaoSo: todayS(), hanChe: '1' };
+  APP.cvQX = { ds: C.parseJSON(o.nguoiXem, []), hc: o.hanChe === '1' };
   const di = (o.huong || huong) === 'di';
   const F = [
     { k: 'ngayVaoSo', l: di ? 'Ngày ban hành (vào sổ)' : 'Ngày nhận (vào sổ)', t: 'date', req: 1 },
@@ -16030,33 +16393,40 @@ function cvForm(huong, id) {
     { k: 'ghiChu', l: 'Ghi chú', w: 'wf' }
   ];
   modal((id ? 'Sửa ' : 'Đăng ký vào sổ – ') + C.CV_HUONG[o.huong || huong],
-    (id ? '' : `<div class="sec">1. Bản quét văn bản${CVS.meta.coAI ? ' — AI đọc và điền hộ các ô bên dưới' : ''}</div>
-      ${dropHTML('cvTep', 'PDF, ảnh chụp, Word · tối đa ' + (cfg().dungLuongToiDaMB || 10) + ' MB')}
+    (id ? '' : `<div class="sec">1. Tệp văn bản – chọn được NHIỀU tệp (văn bản chính, phụ lục, bản vẽ…)${CVS.meta.coAI ? ' — AI đọc tất cả, điền hộ và tóm tắt' : ''}</div>
+      ${cvDropNhieuHTML()}
       <div id="cvAIst" style="margin:6px 0 2px"></div>
       <div class="sec">2. Thông tin vào sổ</div>`)
     + formHTML(F, o)
     + `<label class="f wf"><span>Tóm tắt nội dung${CVS.meta.coAI ? ' (AI đọc từ bản quét, sửa được)' : ''}</span><textarea id="cvTomTat" rows="3">${esc(o.tomTat || '')}</textarea></label>`
+    + `<div class="sec">${id ? '' : '3. '}Người nhận, đọc văn bản (phân quyền xem)</div><div id="cvQX">${cvQXHTML()}</div>`
     + `<div class="small muted" style="margin-top:8px">Số ${di ? 'đi' : 'đến'} do hệ thống tự cấp theo năm${id ? ', sửa được ở ô dưới' : ''}.${CVS.meta.coAI && !id ? ' AI chỉ điền hộ — văn thư soát lại rồi mới bấm Đăng ký.' : ''}</div>`
     + (id ? formHTML([{ k: 'so', l: 'Số vào sổ', t: 'num' }], { so: o.so }) : ''), {
     size: 'lg', okText: id ? 'Lưu' : 'Đăng ký', onOk: async () => {
       const v = readForm(F); v.huong = o.huong || huong;
       v.tomTat = $('cvTomTat') ? $('cvTomTat').value.trim() : '';
+      if (APP.cvQX.hc && !APP.cvQX.ds.length && !id && !confirm('Văn bản hạn chế nhưng chưa chọn người được xem – chỉ Giám đốc và bạn xem được cho đến khi giao xử lý. Tiếp tục?')) return false;
       if (!id && $('cvOCR')) v.noiDungOCR = $('cvOCR').value;      // v3.24: lưu chữ OCR để tra cứu
       if (_cvAI && !id) v.aiTinCay = _cvAI.doTinCay || '';
-      const req = { row: v }; if (id) { req.id = id; const so = num($('f_so') && $('f_so').value); if (so) req.so = so; }
+      const req = { row: v, nguoiXem: APP.cvQX.ds, hanChe: APP.cvQX.hc }; if (id) { req.id = id; const so = num($('f_so') && $('f_so').value); if (so) req.so = so; }
       const r = await api('cv.save', req);
-      if (!id && TEP.cvTep) { try { const r2 = await api('cv.upload', { id: r.id, file: TEP.cvTep }); Object.assign(r, r2); } catch (e) { toast('Đã vào sổ nhưng chưa tải được bản quét: ' + e.message, 'err'); } }
+      if (!id && (TEP.cvTeps || []).length) {        // v3.65: tệp 1 = văn bản chính, các tệp sau = tài liệu kèm
+        for (let i = 0; i < TEP.cvTeps.length; i++) {
+          try { const r2 = await api('cv.upload', { id: r.id, file: TEP.cvTeps[i], them: i > 0 }); Object.assign(r, r2); }
+          catch (e) { toast('Đã vào sổ nhưng chưa tải được tệp "' + TEP.cvTeps[i].name + '": ' + e.message, 'err'); }
+        }
+      }
       CVS.ds = CVS.ds || []; upsertLocal(CVS.ds, r, 'id'); render(); cvTai(true).then(veLaiNeuRanh).catch(() => { });   // v3.24: làm mới sổ chạy ngầm
       toast((id ? 'Đã lưu ' : 'Đã vào sổ ') + C.CV_HUONG[r.huong].toLowerCase() + ' số ' + r.so + '/' + r.nam + '.', 'ok');
     }
   });
   if (!id) {
-    _cvAI = null; tepGan('cvTep');
+    _cvAI = null; TEP.cvTeps = []; TEP.cvTep = null; APP.cvHuongDoc = o.huong || huong;
     ['f_loai', 'f_doKhan'].forEach(k => { const f = $(k); if (f) f.addEventListener('change', () => { f.dataset.doi = '1'; f.classList.remove('aifill'); }); });
-    const inp = $('cvTep');
-    if (inp) inp.addEventListener('change', () => setTimeout(() => cvAIDoc(o.huong || huong), 100));
-    const dz = $('cvTepD');
-    if (dz) dz.addEventListener('drop', () => setTimeout(() => cvAIDoc(o.huong || huong), 100));
+    const dz = $('cvTepsD');
+    if (dz) { ['dragover', 'dragenter'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('on'); }));
+      ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove('on'); }));
+      dz.addEventListener('drop', ev => cvTepsThem(ev.dataTransfer.files)); }
   }
 }
 function cvGiaoForm(id) {
@@ -16123,16 +16493,132 @@ function cvXoa(id) {
 /* ---- AI đọc bản quét công văn rồi điền hộ vào form (v3.7) ----
    Chọn tệp xong là tự đọc. Chỉ điền vào ô ĐANG TRỐNG, không đè lên những gì văn thư đã gõ;
    ô nào AI điền được tô nhẹ để soát lại. AI chỉ điền hộ — văn thư vẫn phải kiểm trước khi lưu. */
+/* v3.65: chọn NHIỀU tệp cho một văn bản (tệp đầu = văn bản chính) */
+function cvDropNhieuHTML() {
+  return `<label class="drop" id="cvTepsD" for="cvTeps"><input type="file" id="cvTeps" multiple accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" class="hide" onchange="cvTepsThem(this.files);this.value=''">
+    <b>Chọn tệp hoặc kéo thả vào đây (chọn được nhiều tệp)</b><span>PDF, ảnh chụp, Word, Excel · mỗi tệp tối đa ${esc(String(cfg().dungLuongToiDaMB || 10))} MB · tối đa 8 tệp</span></label>
+    <div id="cvTepsDS">${cvTepsDSHTML()}</div>`;
+}
+function cvTepsDSHTML() {
+  const ds = TEP.cvTeps || []; if (!ds.length) return '';
+  return `<div class="docs" style="margin-top:6px">${ds.map((f, i) => `<div class="doc"><div class="dm"><b>${i === 0 ? '📄 Văn bản chính' : '📎 Tài liệu kèm ' + i}: ${esc(f.name)}</b><span class="muted">${kb(f.size)}</span></div>
+    <div class="bar">${i > 0 ? `<button class="btn sm" type="button" onclick="cvTepsDoi(${i},-1)" title="Đặt làm văn bản chính">↑</button>` : ''}<button class="btn sm" type="button" onclick="cvTepsDoi(${i},0)">Bỏ</button></div></div>`).join('')}</div>`;
+}
+async function cvTepsThem(fl) {
+  const ds = TEP.cvTeps = TEP.cvTeps || [];
+  for (const f of [...(fl || [])]) {
+    if (ds.length >= 8) { toast('Tối đa 8 tệp cho một văn bản.', 'err'); break; }
+    try { ds.push(await tepDoc(f)); } catch (e) { toast(f.name + ': ' + e.message, 'err'); }
+  }
+  TEP.cvTep = ds[0] || null;
+  if ($('cvTepsDS')) $('cvTepsDS').innerHTML = cvTepsDSHTML();
+  cvAIDoc(APP.cvHuongDoc);
+}
+function cvTepsDoi(i, cach) {
+  const ds = TEP.cvTeps || [];
+  if (cach === 0) ds.splice(i, 1); else { const x = ds.splice(i, 1)[0]; ds.unshift(x); }
+  TEP.cvTep = ds[0] || null;
+  if ($('cvTepsDS')) $('cvTepsDS').innerHTML = cvTepsDSHTML();
+  cvAIDoc(APP.cvHuongDoc);
+}
+/* v3.65: CHUYỂN TIẾP công văn – cấp trên người chuyển duyệt */
+function cvCTChoToi() { return (CVS.ct || []).filter(c => c.trangThai === 'Chờ duyệt' && c.nguoi !== APP.user.username && (C.laNguoiXuLy(APP.user, C.parseJSON(c.nguoiDuyet, [])) || APP.user.role === 'giamdoc')); }
+function cvCTHTML(o) {
+  const ds = (CVS.ct || []).filter(c => c.cvId === o.id).sort((a, b) => a.taoLuc < b.taoLuc ? -1 : 1); if (!ds.length) return '';
+  const m = { 'Chờ duyệt': 'warn', 'Đã duyệt': 'ok', 'Không duyệt': 'bad' };
+  return `<div class="sec">Chuyển tiếp (${ds.length})</div><div class="docs">${ds.map(c => { const toi = c.trangThai === 'Chờ duyệt' && cvCTChoToi().some(x => x.id === c.id);
+    return `<div class="doc"><div class="dm"><b>${esc(c.tenNguoi)} → ${esc(moTaNguoi(C.parseJSON(c.den, [])))}</b> <span class="pill ${m[c.trangThai] || ''}">${esc(c.trangThai)}</span> <span class="pill">${c.muc === 'xuly' ? 'Phối hợp xử lý' : 'Để biết'}</span>
+      <span class="muted">${esc((c.taoLuc || '').slice(0, 16))}${c.trangThai === 'Chờ duyệt' ? ' · chờ ' + esc(c.tenDuyet) + ' duyệt' : c.duyetBoi ? ' · ' + esc(c.duyetBoi) + ' ' + esc((c.duyetLuc || '').slice(0, 16)) : ''}${c.ghiChu ? ' · ' + esc(c.ghiChu) : ''}</span>
+      <span>${esc(c.noiDung || '')}</span></div>
+      ${toi ? `<div class="bar"><button class="btn ok sm" onclick="cvCTDuyet('${c.id}',true)">Duyệt</button><button class="btn sm" onclick="cvCTDuyet('${c.id}',false)">Không duyệt</button></div>` : ''}</div>`; }).join('')}</div>`;
+}
+function cvDanhBaOpts() {                           // người dùng thường không tải danh sách tài khoản → dùng danh bạ máy chủ trả kèm sổ công văn
+  const ds = (CVS.meta && CVS.meta.danhBa) || [];
+  return ds.filter(u => u.username !== APP.user.username).sort((a, b) => (a.hoTen || '').localeCompare(b.hoTen || '')).map(u => ['u:' + u.username, (u.hoTen || u.username) + (u.chucVu ? ' – ' + u.chucVu : '') + (u.phongBan ? ' (' + u.phongBan + ')' : '')]);
+}
+function cvChuyenForm(id) {
+  const o = CVS.ds.find(x => x.id === id); if (!o) return;
+  APP.cvCT = { ds: [] };
+  const ve = () => { const st = APP.cvCT; $('cvCTN').innerHTML = `<div class="chips">${st.ds.map(a => `<span class="chip">${esc(moTaNguoi([a]))}<button title="Bỏ" onclick="APP.cvCT.ds=APP.cvCT.ds.filter(x=>x!=='${esc(a)}');cvCTVe()">×</button></span>`).join('')}
+    <select class="addp" onchange="if(this.value){APP.cvCT.ds.push(this.value);cvCTVe()}"><option value="">+ chọn người nhận…</option>${cvDanhBaOpts().filter(x => !st.ds.includes(x[0])).map(x => `<option value="${esc(x[0])}">${esc(x[1])}</option>`).join('')}</select></div>`; };
+  window.cvCTVe = ve;
+  const tuDuyet = ['giamdoc', 'admin'].includes(APP.user.role);
+  modal('↪ Chuyển tiếp – ' + C.CV_HUONG[o.huong] + ' số ' + o.so + '/' + o.nam, `<p style="margin-top:0"><b>${esc(o.trichYeu || '')}</b></p>
+    <div class="f wf"><span>Chuyển cho</span><div id="cvCTN"></div></div>
+    <div class="bar" style="gap:16px;margin:6px 0"><label class="ck"><input type="radio" name="cvCTm" value="xem" checked> Để biết (được đọc văn bản)</label><label class="ck"><input type="radio" name="cvCTm" value="xuly"> Phối hợp xử lý (đọc, trao đổi, báo cáo)</label></div>
+    ${formHTML([{ k: 'ctND', l: 'Nội dung / lý do chuyển tiếp', t: 'textarea', req: 1, w: 'wf' }])}
+    <div class="note small">${tuDuyet ? 'Giám đốc / Quản trị chuyển tiếp: có hiệu lực ngay.' : 'Đề nghị chuyển tiếp được gửi <b>cấp trên trực tiếp</b> của Anh/Chị duyệt (Trưởng phòng / Chỉ huy trưởng bộ phận; Trưởng phòng, CHT thì Giám đốc duyệt). Duyệt xong người nhận mới đọc được văn bản.'}</div>`, {
+    okText: tuDuyet ? 'Chuyển tiếp' : 'Gửi đề nghị', onOk: async () => {
+      if (!APP.cvCT.ds.length) throw new Error('Chọn người nhận.');
+      const r = await api('cv.chuyen', { id, den: APP.cvCT.ds, muc: (document.querySelector('input[name=cvCTm]:checked') || {}).value, noiDung: $('f_ctND').value });
+      upsertLocal(CVS.ds, r.cv, 'id'); CVS.xl.push(r.xl); CVS.ct.push(r.ct); render();
+      toast(r.ct.trangThai === 'Chờ duyệt' ? 'Đã gửi đề nghị – chờ ' + r.ct.tenDuyet + ' duyệt.' : 'Đã chuyển tiếp.', 'ok');
+    } });
+  ve();
+}
+async function cvCTDuyet(ctId, dongY) {
+  let ghiChu = '';
+  if (!dongY) { ghiChu = prompt('Lý do không duyệt:') || ''; if (!ghiChu.trim()) return; }
+  const r = await run(() => api('cv.duyetct', { ctId, dongY, ghiChu })); if (!r) return;
+  upsertLocal(CVS.ds, r.cv, 'id'); upsertLocal(CVS.ct, r.ct, 'id'); CVS.xl.push(r.xl);
+  toast(dongY ? 'Đã duyệt chuyển tiếp.' : 'Đã không duyệt.', 'ok'); cvChiTiet(r.cv.id); render();
+}
+/* v3.65: tệp của văn bản trong hộp thoại: xem, thêm, gỡ, AI đọc lại – tóm tắt */
+function cvTepHTML(o) {
+  const kem = C.parseJSON(o.tepKem, []), M = CVS.meta, sua = (M.vanThu || o.nguoiNhap === (APP.user.hoTen || APP.user.username)) && !cvHet(o);
+  const aiDuoc = M.coAI && (M.vanThu || M.giaoDuoc || cvCuaToi(o) || o.nguoiNhap === (APP.user.hoTen || APP.user.username));
+  if (!o.fileId && !kem.length) return `<div class="note w" style="margin-bottom:12px">Chưa có tệp văn bản trên hệ thống.${sua ? ` <label class="btn sm">+ Tải tệp<input type="file" multiple class="hide" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" onchange="cvTepThem('${o.id}',this.files)"></label>` : ''}</div>`;
+  return `<div class="sec">Tệp văn bản (${(o.fileId ? 1 : 0) + kem.length})</div><div class="bar" style="margin-bottom:6px;flex-wrap:wrap">
+    ${o.fileId ? `<button class="btn" onclick="cvXemTep('${o.id}')">📄 ${esc(o.tenFile || 'Văn bản chính')}</button>` : ''}
+    ${kem.map(k => `<span class="chip" style="padding:0"><button class="btn sm" onclick="cvXemTep('${o.id}','','${esc(k.fileId)}')">📎 ${esc(k.ten)}</button>${sua ? `<button class="btn sm" title="Gỡ tệp" onclick="cvTepXoa('${o.id}','${esc(k.fileId)}')">×</button>` : ''}</span>`).join('')}
+    ${o.soChuOCR || o.noiDungOCR ? `<button class="btn sm" onclick="cvXemOCR('${o.id}')">Nội dung văn bản (chữ đọc được)</button>` : ''}
+    ${sua ? `<label class="btn sm">+ Thêm tệp<input type="file" multiple class="hide" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" onchange="cvTepThem('${o.id}',this.files)"></label>` : ''}
+    ${aiDuoc ? `<button class="btn sm" id="cvTTbtn" onclick="cvTomTatLai('${o.id}')">${AI_IC} AI đọc ${kem.length ? 'tất cả tệp' : 'văn bản'} &amp; tóm tắt lại</button>` : ''}</div>`;
+}
+async function cvTepThem(id, fl) {
+  const ds = [...(fl || [])]; if (!ds.length) return;
+  let o = CVS.ds.find(x => x.id === id), n = 0;
+  for (const f of ds) {
+    try { const t = await tepDoc(f); o = await api('cv.upload', { id, file: t, them: !!o.fileId }); upsertLocal(CVS.ds, o, 'id'); n++; }
+    catch (e) { toast(f.name + ': ' + e.message, 'err'); }
+  }
+  if (n) { toast('Đã thêm ' + n + ' tệp.' + (CVS.meta.coAI ? ' Bấm "AI đọc & tóm tắt lại" để cập nhật tóm tắt.' : ''), 'ok'); cvChiTiet(id); render(); }
+}
+function cvTepXoa(id, fileId) {
+  confirmBox('Gỡ tệp này khỏi văn bản? Tệp trên Drive được chuyển vào thùng rác.', async () => {
+    const o = await api('cv.tepxoa', { id, fileId }); upsertLocal(CVS.ds, o, 'id'); cvChiTiet(id); render(); toast('Đã gỡ tệp.', 'ok');
+  }, 'Gỡ');
+}
+async function cvTomTatLai(id) {
+  const b = $('cvTTbtn'); if (b) { b.disabled = true; b.textContent = 'AI đang đọc các tệp…'; }
+  try { const r = await api('cv.tomtat', { id }, { quiet: true }); upsertLocal(CVS.ds, r.cv, 'id'); CVS.xl.push(r.xl); toast('Đã cập nhật tóm tắt.', 'ok'); cvChiTiet(id); }
+  catch (e) { toast(e.message, 'err'); if (b) { b.disabled = false; b.textContent = 'AI đọc & tóm tắt lại'; } }
+}
+/* v3.65: tình trạng đọc của người nhận (tài khoản cụ thể) */
+function cvDocHTML(o) {
+  const daDoc = C.parseJSON(o.daDoc, {}), u = [];
+  [o.nguoiXem, o.nguoiXuLy, o.phoiHop, o.nguoiCT].forEach(j => C.parseJSON(j, []).forEach(a => { if (/^u:/.test(a) && !u.includes(a.slice(2))) u.push(a.slice(2)); }));
+  const ngoai = Object.keys(daDoc).filter(x => !u.includes(x));
+  if (!u.length && !ngoai.length) return '';
+  const ten = x => moTaNguoi(['u:' + x]);
+  const da = u.filter(x => daDoc[x]).concat(ngoai), chua = u.filter(x => !daDoc[x]);
+  return (da.length ? `<span style="color:var(--ok)">✓ Đã đọc:</span> ${da.map(x => esc(ten(x)) + ' <span class="muted small">' + esc(String(daDoc[x]).slice(5, 16)) + '</span>').join(', ')}` : '')
+    + (chua.length ? `${da.length ? '<br>' : ''}<span class="muted">Chưa đọc:</span> ${esc(chua.map(ten).join(', '))}` : '');
+}
 const CV_AI_O = ['soHieu', 'ngayVB', 'noiGui', 'noiNhan', 'loai', 'doKhan', 'trichYeu', 'nguoiKy', 'hanTraLoi'];
 let _cvAI = null;
 async function cvAIDoc(huong) {
   const el = $('cvAIst'); if (!el) return;
-  if (!TEP.cvTep) { el.innerHTML = ''; return; }
+  const ds = TEP.cvTeps || [];
+  if (!ds.length) { el.innerHTML = ''; return; }
   if (!CVS.meta.coAI) { el.innerHTML = '<span class="muted small">Máy chủ chưa bật AI — nhập tay các ô ở trên.</span>'; return; }
-  const laQuet = /^image\/|pdf/i.test(TEP.cvTep.mime || '');
-  el.innerHTML = `<span class="small">${AI_IC} ${laQuet ? 'Đang nhận dạng chữ (OCR) từ bản quét, rồi AI phân tích, tóm tắt…' : 'Đang đọc văn bản…'}</span>`;
+  const laQuet = ds.some(f => /^image\/|pdf/i.test(f.mime || ''));
+  const lan = (APP.cvAILan = (APP.cvAILan || 0) + 1);
+  el.innerHTML = `<span class="small">${AI_IC} ${ds.length > 1 ? 'Đang đọc ' + ds.length + ' tệp' : 'Đang đọc'}${laQuet ? ' (nhận dạng chữ OCR từ bản quét)' : ''}, rồi AI phân tích, tóm tắt…</span>`;
   try {
-    const r = _cvAI = await api('cv.ai', { huong, file: TEP.cvTep }, { quiet: true });
+    const r = await api('cv.ai', { huong, files: ds }, { quiet: true });
+    if (lan !== APP.cvAILan) return;                      // đã chọn thêm / bớt tệp trong lúc đọc → bỏ kết quả cũ
+    _cvAI = r;
     cvAIDien(r, huong);
   } catch (e) { _cvAI = null; el.innerHTML = `<span class="small" style="color:var(--bad)">Không đọc được bằng AI: ${esc(e.message)} — nhập tay các ô ở trên.</span>`; }
 }
@@ -16141,7 +16627,7 @@ async function cvAIDocLai(huong) {                   // v3.24: văn thư sửa c
   const b = $('cvOCRbtn'); if (b) { b.disabled = true; b.textContent = 'AI đang phân tích…'; }
   try {
     document.querySelectorAll('#md .aifill').forEach(f => { if (f.tagName === 'SELECT') delete f.dataset.doi; else f.value = ''; f.classList.remove('aifill'); });
-    const r = _cvAI = await api('cv.ai', { huong, chu }, { quiet: true });
+    const r = _cvAI = await api('cv.ai', { huong, chu, soTep: (TEP.cvTeps || []).length || 1 }, { quiet: true });
     r.ocr = chu; cvAIDien(r, huong);
   } catch (e) { toast(e.message, 'err'); if (b) { b.disabled = false; b.textContent = 'AI phân tích lại từ chữ đã sửa'; } }
 }
@@ -16158,7 +16644,7 @@ function cvAIDien(r, huong) {
     const tt = $('cvTomTat'); if (tt && r.tomTat) tt.value = r.tomTat;
     const tc = { cao: 'ok', 'trung bình': 'warn', 'thấp': 'bad' }[r.doTinCay] || '';
     el.innerHTML = dien.length
-      ? `<div class="note" style="margin:0"><b>${AI_IC} ${r.ocr ? (r.nguon === 'ocr-sua' ? 'Từ chữ đã sửa → ' : 'Đã nhận dạng chữ (OCR) → ') : ''}AI đã phân tích và điền ${dien.length} ô</b>${r.doTinCay ? ` <span class="pill ${tc}">độ tin cậy: ${esc(r.doTinCay)}</span>` : ''}
+      ? `<div class="note" style="margin:0"><b>${AI_IC} ${r.soTep > 1 ? 'Đã đọc ' + r.soTep + ' tệp → ' : ''}${r.ocr ? (r.nguon === 'ocr-sua' ? 'Từ chữ đã sửa → ' : 'Đã nhận dạng chữ (OCR) → ') : ''}AI đã phân tích và điền ${dien.length} ô</b>${(r.loiTep || []).length ? `<div class="small" style="color:var(--bad)">Không đọc được: ${esc(r.loiTep.join('; '))}</div>` : ''}${r.doTinCay ? ` <span class="pill ${tc}">độ tin cậy: ${esc(r.doTinCay)}</span>` : ''}
          <div class="small">Các ô tô vàng là do AI điền — <b>đề nghị soát lại trước khi lưu</b>. Ô nào Anh/Chị đã gõ thì AI không đè lên.</div>
          ${r.doTinCay === 'thấp' ? '<div class="small" style="color:var(--bad)">Bản quét khó đọc, AI phải đoán nhiều. Hãy kiểm từng ô.</div>' : ''}</div>`
       : `<span class="muted small">AI không bóc được trường nào từ tệp này — nhập tay giúp em.</span>`;
@@ -16482,7 +16968,7 @@ function dxHuy(id) {
 
 /* ====================== LƯU TRỮ & PHÂN TÍCH NHÓM BẰNG AI (v2.8) ====================== */
 const AIS = { loc: 'nhom', ds: null, ai: null, sel: null, bc: {}, kq: null, tab: 'tq', run: null, img: {}, tu: '', den: '', xemAnh: true, dang: false };
-const AI_NCC = { gemini: 'Google Gemini', openai: 'OpenAI GPT', claude: 'Anthropic Claude', deepseek: 'DeepSeek', demo: 'AI mô phỏng (bản dùng thử)' };
+const AI_NCC = { ngoai: 'ChatGPT (nạp từ tệp)', gemini: 'Google Gemini', openai: 'OpenAI GPT', claude: 'Anthropic Claude', deepseek: 'DeepSeek', demo: 'AI mô phỏng (bản dùng thử)' };
 /* v3.15: gợi ý model theo nhà cung cấp – [model, mô tả]. Tên model đổi theo thời gian: bấm "Lấy danh sách model" để xem model khóa API đang dùng được.
    Model bị ngừng thì máy chủ tự chọn bản thay thế cùng dòng. */
 const AI_GOIY = {
@@ -16547,11 +17033,12 @@ function aiNhomHTML(g) {
       <div class="fg"><label class="f"><span>Từ ngày</span><input type="date" id="aiTu" value="${AIS.tu}" max="${todayS()}" onchange="AIS.tu=this.value"></label><label class="f"><span>Đến ngày</span><input type="date" id="aiDen" value="${AIS.den}" max="${todayS()}" onchange="AIS.den=this.value"></label></div>
       <div class="bar" style="margin:8px 0">${chip(7, '7 ngày')}${chip(30, '30 ngày')}${chip('tn', 'Tháng này')}${chip('tt', 'Tháng trước')}</div>
       <label class="small ai-ck"><input type="checkbox" ${AIS.xemAnh ? 'checked' : ''} onchange="AIS.xemAnh=this.checked"> Cho AI xem ảnh chứng từ (tối đa 4 ảnh mỗi đợt) để mô tả hiện trường</label>
-      <div class="bar" style="margin-top:12px"><button class="btn pri" ${chay || !coAI ? 'disabled' : ''} onclick="aiChay()">${AI_IC} Chạy phân tích AI</button><button class="btn" onclick="aiXuatNK()">Xuất nhật ký từng ngày (Excel)</button></div>
+      <label class="small ai-ck"><input type="checkbox" ${AIS.boDem ? 'checked' : ''} onchange="AIS.boDem=this.checked"> Phân tích lại từ đầu (không dùng kết quả nhật ký các ngày đã phân tích trước)</label>
+      <div class="bar" style="margin-top:12px"><button class="btn pri" ${chay || !coAI ? 'disabled' : ''} onclick="aiChay()">${AI_IC} Chạy phân tích AI</button><button class="btn" onclick="aiXuatNK()">Xuất nhật ký từng ngày (Excel)</button><button class="btn" onclick="aiPdfNhom()">📄 Xuất nội dung nhóm + lời nhắc ChatGPT (PDF / Word, tuần / tháng / tổng)</button><button class="btn" onclick="aiNapGPT()">📥 Nạp kết quả ChatGPT</button></div>
       ${!coAI ? `<div class="note w" style="margin-top:10px">${st ? 'Chưa cài khóa API AI. ' + (APP.user.role === 'admin' ? 'Bấm “Cài đặt AI” ở trên.' : 'Đề nghị Quản trị cài đặt.') : 'Máy chủ chưa bật AI.'} Vẫn xuất được nhật ký từng ngày.</div>` : `<p class="small muted" style="margin-top:10px">Nội dung tin nhắn, báo cáo${AIS.xemAnh ? ', ảnh' : ''} của nhóm trong khoảng ngày được gửi tới ${esc(AI_NCC[st.ncc] || st.ncc)} để phân tích. Số đếm, tỷ lệ nộp báo cáo do hệ thống tính; nhận xét của AI cần được đối chiếu trước khi sử dụng.</p>`}
       ${R ? aiTienTrinh(R) : ''}</div>
     <div class="card"><div class="hd"><h2>Báo cáo đã lập</h2><button class="btn sm" onclick="aiTaiBC()">Làm mới</button></div>
-      ${!bc ? '<div class="muted small">Đang tải…</div>' : bc.length ? `<div class="ai-bcl">${bc.map(b => `<button onclick="aiMo('${esc(b.id)}')"><span class="zi g">${AI_IC}</span><span><b>${dfmt(b.tu)} – ${dfmt(b.den)}</b><span class="muted small">Lập ${b.lap ? b.lap.slice(6, 8) + '/' + b.lap.slice(4, 6) + '/' + b.lap.slice(0, 4) + ' ' + b.lap.slice(9, 11) + ':' + b.lap.slice(11, 13) : esc(b.capNhat)}</span></span><span class="btn sm">Mở</span></button>`).join('')}</div>` : '<div class="muted small">Chưa có báo cáo phân tích nào.</div>'}</div>`;
+      ${!bc ? '<div class="muted small">Đang tải…</div>' : bc.length ? `<div class="ai-bcl">${bc.map(b => `<button onclick="aiMo('${esc(b.id)}')"><span class="zi g">${AI_IC}</span><span><b>${dfmt(b.tu)} – ${dfmt(b.den)}</b><span class="muted small">${/_GPT\.json$/.test(b.ten || '') ? '<span class="pill info">ChatGPT</span> ' : ''}Lập ${b.lap ? b.lap.slice(6, 8) + '/' + b.lap.slice(4, 6) + '/' + b.lap.slice(0, 4) + ' ' + b.lap.slice(9, 11) + ':' + b.lap.slice(11, 13) : esc(b.capNhat)}</span></span><span class="btn sm">Mở</span></button>`).join('')}</div>` : '<div class="muted small">Chưa có báo cáo phân tích nào.</div>'}</div>`;
 }
 function aiTienTrinh(R) {
   const ic = { cho: '○', dang: '<span class="ai-spin"></span>', xong: '✓', loi: '✕' };
@@ -16601,6 +17088,253 @@ async function aiXuatNK() {
   if (!r.ngay.length) return toast('Không có hoạt động nào trong khoảng ngày đã chọn.', 'err');
   bcXuat(C.xlNhatKy(r));
 }
+/* v3.61 → v3.64: XUẤT NỘI DUNG NHÓM (tin nhắn, ảnh, báo cáo định kỳ, phiếu nhập/xuất kho, hồ sơ – trích nội dung) ra Word (.docx) hoặc PDF,
+   chia theo TUẦN (Thứ Hai – Chủ nhật), THÁNG và/hoặc TỆP TỔNG, kèm TỆP LỜI NHẮC cho ChatGPT. ChatGPT trả JSON → "Nạp kết quả ChatGPT" (ai.nap).
+   Lấy dữ liệu một lần, tải ảnh thu nhỏ / tệp hồ sơ một lần. Không gửi dữ liệu đi đâu từ app (người dùng tự tải lên AI khi Công ty cho phép). */
+const XN = { dd: 'docx', tong: true, tuan: false, thang: false, zip: true, hoSo: true };
+function xnTuan(d) {                                    // ISO: tuần bắt đầu Thứ Hai → [ngày đầu tuần, số tuần, năm của tuần]
+  const t = new Date(d + 'T00:00:00Z'), w = (t.getUTCDay() + 6) % 7, dau = new Date(t); dau.setUTCDate(t.getUTCDate() - w);
+  const nam5 = new Date(dau); nam5.setUTCDate(dau.getUTCDate() + 3); const y = nam5.getUTCFullYear();   // tuần thuộc năm của ngày Thứ Năm
+  const so = Math.ceil(((nam5 - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
+  return [dau.toISOString().slice(0, 10), so, y];
+}
+function xnCong(d, n) { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
+function xnNgan(d) { return d.slice(8, 10) + '.' + d.slice(5, 7); }
+function xnTenNhom(r) { return String((r.nhom && (r.nhom.ten || r.nhom)) || 'nhom').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 60).trim(); }
+/* các phần cần xuất: [{ k, nhan, tu, den, ten }] – chỉ phần có hoạt động */
+function xnPhan(r, o) {
+  const tenNhom = xnTenNhom(r), co = d => r.ngay.some(n => n.ngay >= d[0] && n.ngay <= d[1]), out = [];
+  if (o.tong) out.push({ k: 'tong', nhan: 'Tổng hợp', tu: r.tu, den: r.den, ten: `Nhom ${tenNhom} - Tong hop (${xnNgan(r.tu)}.${r.tu.slice(0, 4)}-${xnNgan(r.den)}.${r.den.slice(0, 4)})` });
+  if (o.thang) { for (let m = r.tu.slice(0, 7); m <= r.den.slice(0, 7);) {
+      const [y, mm] = m.split('-').map(Number), cuoi = new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10), tu = m + '-01' < r.tu ? r.tu : m + '-01', den = cuoi > r.den ? r.den : cuoi;
+      if (co([tu, den])) out.push({ k: 'thang', nhan: `Tháng ${mm}/${y}`, tu, den, ten: `Nhom ${tenNhom} - Thang ${String(mm).padStart(2, '0')}-${y}` });
+      m = mm === 12 ? (y + 1) + '-01' : y + '-' + String(mm + 1).padStart(2, '0'); } }
+  if (o.tuan) { for (let [dau] = xnTuan(r.tu); dau <= r.den; dau = xnCong(dau, 7)) {
+      const [, so, y] = xnTuan(dau), tu = dau < r.tu ? r.tu : dau, c = xnCong(dau, 6), den = c > r.den ? r.den : c;
+      if (co([tu, den])) out.push({ k: 'tuan', nhan: `Tuần ${so}/${y}`, tu, den, ten: `Nhom ${tenNhom} - Tuan ${String(so).padStart(2, '0')}-${y} (${xnNgan(tu)}-${xnNgan(den)})` }); } }
+  return out;
+}
+function xnCat(r, p) {                                  // dữ liệu chat.nhatky thu hẹp về một khoảng ngày
+  const trong = x => x >= p.tu && x <= p.den;
+  return Object.assign({}, r, { tu: p.tu, den: p.den, ngay: r.ngay.filter(n => trong(n.ngay)),
+    bc: (r.bc || []).map(b => Object.assign({}, b, { dong: b.dong.filter(d => trong(d[0])) })),
+    kho: (r.kho || []).filter(k => trong(k.ngay)), tep: (r.tep || []).filter(t => trong(t.ngay)),
+    tk: (r.tkKy || []).find(k => k.tu === p.tu && k.den === p.den) || null });
+}
+function xnChonAnh(rr, toiDa) {                        // chọn đều theo thời gian, tối đa toiDa ảnh / tệp
+  const f = rr.ngay.flatMap(n => n.dong.map(d => d.fid).filter(Boolean)), chon = new Set();
+  if (f.length && toiDa > 0) { const b = Math.max(1, f.length / toiDa); for (let i = 0; i < f.length && chon.size < toiDa; i += b) chon.add(f[Math.floor(i)]); }
+  return [f.length, chon];
+}
+const xnSo = v => v == null || v === '' ? '' : Number(v).toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+/* nội dung một tệp → khối (Word: khoiSangDocx; PDF: khoiSangHTML) */
+function xnKhoi(rr, p, anh, nhac, tongAnh, soAnh, hoSo) {
+  const nhom = (rr.nhom && (rr.nhom.ten || rr.nhom)) || '', soDong = rr.ngay.reduce((s, n) => s + n.dong.length, 0), K = [];
+  K.push({ t: 'dau', x: 'CÔNG TY CP TAPACO VIỆT NAM', y: 'Tài liệu nội bộ – không chia sẻ ra ngoài' });
+  K.push({ t: 'h1', x: 'NỘI DUNG NHÓM: ' + nhom });
+  K.push({ t: 'giua', x: (p.k === 'tong' ? 'Tổng hợp' : p.nhan) + ': từ ' + dfmt(rr.tu) + ' đến ' + dfmt(rr.den) + ' · ' + rr.ngay.length + ' ngày có hoạt động · ' + soDong + ' dòng' + ((rr.kho || []).length ? ' · ' + rr.kho.length + ' phiếu kho' : '') + ((rr.tep || []).length ? ' · ' + rr.tep.length + ' hồ sơ' : '') });
+  K.push({ t: 'nho', x: 'Khoảng phân tích: tu = ' + rr.tu + ', den = ' + rr.den + '. Xuất lúc ' + nowS().slice(0, 16) + '. Tin đã thu hồi không ghi nội dung. Mã F… là mã chứng từ (ảnh, hồ sơ) để trích dẫn khi trả kết quả.' + (tongAnh ? ' Ảnh: ' + soAnh + '/' + tongAnh + ' ảnh (thu nhỏ' + (soAnh < tongAnh ? ', chọn đều theo thời gian' : '') + ').' : '') + ' Phân tích bằng ChatGPT: dùng kèm tệp "LoiNhac_ChatGPT…txt".' });
+  if ((rr.tv || []).length) { K.push({ t: 'h2', x: 'Thành viên nhóm' }); K.push({ t: 'bang', rows: [['Tài khoản', 'Họ tên', 'Chức danh', 'Vai trò trong nhóm']].concat(rr.tv.map(t => [t.username, t.hoTen, t.chucDanh || '', t.vaiTro || ''])), rong: [2, 3, 3, 2] }); }
+  else if ((rr.thanhVien || []).length) { K.push({ t: 'h2', x: 'Thành viên nhóm' }); K.push({ t: 'p', x: rr.thanhVien.join('; ') }); }
+  if (rr.tk) {
+    const t = rr.tk; K.push({ t: 'h2', x: 'Thống kê do hệ thống tính (chính xác – dùng làm căn cứ)' });
+    K.push({ t: 'p', x: `${t.soNgay} ngày, ${t.soNgayLV} ngày làm việc, có hoạt động ${t.soNgayHD} ngày; ${t.tong.soTin} tin nhắn, ${t.tong.soAnh} ảnh, ${t.tong.soTep} tệp; ${t.tong.soNguoi}/${t.tong.soTV} thành viên có hoạt động.` });
+    K.push({ t: 'bang', rows: [['Tài khoản', 'Họ tên', 'Tin', 'Ảnh', 'Tệp', 'Ngày LV', 'Ngày có TT', 'Ngày không TT', 'Nghỉ có đơn', 'BC nộp/phải', 'Đúng hạn', 'Trễ', 'Điểm TG']].concat(t.cn.map(c => [c[0], c[1], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12], c[13], c[14]].map(v => String(v == null ? '' : v)))), rong: [2, 3, 1, 1, 1, 1.2, 1.2, 1.3, 1.2, 1.3, 1.1, 1, 1.1] });
+  }
+  if (nhac) { K.push({ t: 'h2', x: 'Yêu cầu phân tích (dán vào ChatGPT)' }); K.push({ t: 'p', x: nhac }); }
+  const H = ['Giờ', 'Người', 'Nội dung'], RONG = [1, 2.4, 8];
+  rr.ngay.forEach(n => {
+    K.push({ t: 'h2', x: n.thu + ', ' + dfmt(n.ngay) + ' – ' + n.dong.length + ' dòng' });
+    let rows = [H];
+    const xa = () => { if (rows.length > 1) K.push({ t: 'bang', rows, rong: RONG }); rows = [H]; };
+    n.dong.forEach(d => {
+      const nd = (d.loai && !/^Tin nhắn$/.test(d.loai) ? '[' + d.loai + '] ' : '') + (d.noiDung || '') + (d.ma ? ' [mã ' + d.ma + ']' : '');
+      rows.push([d.gio, d.hoTen || '', nd]);
+      const a = d.fid && anh[d.fid];
+      if (a && /^image\/(jpeg|png)$/.test(a.mime)) { xa(); K.push({ t: 'anh', mime: a.mime, data: a.data, w: 300, x: (d.ma ? d.ma + ' · ' : '') + d.gio + ' · ' + (d.hoTen || '') + (d.tep ? ' · ' + d.tep : '') }); }
+    });
+    xa();
+  });
+  (rr.bc || []).forEach(b => { if (!b.dong.length) return; K.push({ t: 'h2', x: 'Báo cáo định kỳ: ' + b.tieuDe }); K.push({ t: 'bang', rows: [b.cot].concat(b.dong.map(d => d.map((v, j) => j === 0 ? dfmt(v) : String(v == null ? '' : v)))) }); });
+  if ((rr.kho || []).length) {
+    K.push({ t: 'h2', x: 'Phiếu nhập / xuất kho (' + rr.kho.length + ' phiếu)' });
+    rr.kho.forEach(k => {
+      K.push({ t: 'h3', x: k.soPhieu + ' – ' + k.loai + ' – ' + dfmt(k.ngay) });
+      K.push({ t: 'p', x: [k.kho && 'Kho: ' + k.kho, k.doiTac && (/nhập/i.test(k.loai) ? 'Nhà cung cấp / bên giao: ' : 'Bên nhận: ') + k.doiTac, k.hangMuc && 'Hạng mục: ' + k.hangMuc, k.nguoiGiaoNhan && 'Người giao nhận: ' + k.nguoiGiaoNhan, k.soCT && 'Số chứng từ: ' + k.soCT, 'Người lập: ' + (k.hoTenLap || ''), k.soAnh ? k.soAnh + ' ảnh kèm' : '', k.ghiChu && 'Ghi chú: ' + k.ghiChu].filter(Boolean).join(' · ') });
+      const tien = k.dong.reduce((s, d) => s + (+d.thanhTien || 0), 0);
+      K.push({ t: 'bang', rows: [['STT', 'Vật tư, hàng hóa', 'Quy cách', 'ĐVT', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Ghi chú']].concat(k.dong.map((d, i) => [String(i + 1), d.ten, d.quyCach || '', d.dv || '', xnSo(d.sl), d.donGia ? xnSo(d.donGia) : '', d.thanhTien ? xnSo(d.thanhTien) : '', d.ghiChu || ''])).concat(tien ? [['', 'Cộng', '', '', '', '', xnSo(tien), '']] : []), rong: [0.6, 3.4, 2, 0.9, 1.2, 1.3, 1.5, 2] });
+    });
+  }
+  if ((rr.tep || []).length) {
+    K.push({ t: 'h2', x: 'Hồ sơ, tệp đính kèm (' + rr.tep.length + ' tệp)' });
+    K.push({ t: 'nho', x: 'Nội dung bên dưới do máy tách chữ từ tệp gốc (Word, PDF có lớp chữ, Excel, văn bản), CHƯA tóm tắt – AI tóm tắt trong mục "chungTu" của kết quả. Bản quét dạng ảnh chưa tách được chữ.' });
+    rr.tep.forEach(t => {
+      const h = hoSo && hoSo[t.fileId];
+      K.push({ t: 'h3', x: '[' + t.ma + '] ' + t.ten });
+      K.push({ t: 'nho', x: dfmt(t.ngay) + ' ' + t.gio + ' · ' + (t.hoTen || '') + ' · ' + Math.max(1, Math.round((+t.kichThuoc || 0) / 1024)) + ' KB' + (t.ghiChu ? ' · Ghi chú khi gửi: ' + t.ghiChu : '') });
+      K.push({ t: 'p', x: h ? (h.chu ? 'Trích nội dung' + (h.cat ? ' (đoạn đầu)' : '') + ':\n' + h.chu : '(' + h.loi + ')') : '(chưa đọc nội dung tệp)' });
+    });
+  }
+  return K;
+}
+/* tách chữ một tệp hồ sơ (ngay trên máy) */
+async function xnDocTep(t, toiDa) {
+  if ((+t.kichThuoc || 0) > 15 * 1048576) return { loi: 'tệp lớn hơn 15 MB – không đọc' };
+  const ten = String(t.ten || '').toLowerCase(), mime = t.mime || '';
+  const loaiDoc = mime === MIME_DOCX || /\.docx$/.test(ten) ? 'docx' : /pdf/.test(mime) || /\.pdf$/.test(ten) ? 'pdf' : /^text\//.test(mime) || /\.(txt|csv|md)$/.test(ten) ? 'txt' : /sheet|excel/.test(mime) || /\.xlsx?$/.test(ten) ? 'xlsx' : '';
+  if (!loaiDoc) return { loi: /\.doc$/.test(ten) ? 'tệp .doc đời cũ – chưa đọc được, mở bằng Word lưu .docx' : 'định dạng ' + (ten.split('.').pop() || mime) + ' chưa đọc được nội dung' };
+  try {
+    const x = await api('ai.tep', { ht: AIS.sel, fileId: t.fileId }, { quiet: true }), bin = Uint8Array.from(atob(x.data), c => c.charCodeAt(0));
+    let chu = '';
+    if (loaiDoc === 'docx') chu = await docxVanBan(bin.buffer);
+    else if (loaiDoc === 'txt') chu = new TextDecoder().decode(bin);
+    else if (loaiDoc === 'pdf') {
+      const pdfjs = await napJS(OCR_LIB.pdf, () => window.pdfjsLib); pdfjs.GlobalWorkerOptions.workerSrc = OCR_LIB.pdfw;
+      const doc = await pdfjs.getDocument({ data: bin }).promise, n = Math.min(doc.numPages, 20);
+      for (let i = 1; i <= n && chu.length < toiDa * 2; i++) { const tc = await (await doc.getPage(i)).getTextContent(); chu += tc.items.map(z => z.str + (z.hasEOL ? '\n' : ' ')).join('') + '\n'; }
+      if (chu.replace(/\s/g, '').length < 30) return { loi: 'PDF dạng ảnh quét – chưa tách được chữ' };
+    } else {
+      if (!window.XLSX || !XLSX.read) return { loi: 'chưa tải được thư viện Excel' };
+      const wb = XLSX.read(bin, { type: 'array' });
+      chu = wb.SheetNames.slice(0, 5).map(n => '# Trang tính ' + n + '\n' + XLSX.utils.sheet_to_csv(wb.Sheets[n], { FS: ' | ', blankrows: false })).join('\n');
+    }
+    chu = (typeof vbLamSach === 'function' ? vbLamSach(chu) : chu).replace(/\n{3,}/g, '\n\n').trim();
+    if (!chu) return { loi: 'tệp không có chữ' };
+    return { chu: chu.slice(0, toiDa), cat: chu.length > toiDa };
+  } catch (e) { return { loi: 'không đọc được: ' + e.message }; }
+}
+/* gói nhiều tệp vào một .zip (lưu thẳng, không nén – tệp .docx đã nén sẵn) */
+const ZIP_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+async function zipGoi(tep) {
+  const enc = new TextEncoder(), phan = [], tm = []; let off = 0;
+  for (const f of tep) {
+    const d = new Uint8Array(await f.blob.arrayBuffer()), ten = enc.encode(f.ten); let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++) c = ZIP_CRC[(c ^ d[i]) & 255] ^ (c >>> 8); c = (c ^ 0xFFFFFFFF) >>> 0;
+    const h = new DataView(new ArrayBuffer(30)); [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [14, c, 4], [18, d.length, 4], [22, d.length, 4], [26, ten.length, 2]].forEach(([o, v, n]) => n === 4 ? h.setUint32(o, v, true) : h.setUint16(o, v, true));
+    const m = new DataView(new ArrayBuffer(46)); [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [16, c, 4], [20, d.length, 4], [24, d.length, 4], [28, ten.length, 2], [42, off, 4]].forEach(([o, v, n]) => n === 4 ? m.setUint32(o, v, true) : m.setUint16(o, v, true));
+    phan.push(h.buffer, ten, d); tm.push(m.buffer, ten); off += 30 + ten.length + d.length;
+  }
+  const sz = tm.reduce((s, x) => s + (x.byteLength || x.length), 0), e = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [8, tep.length, 2], [10, tep.length, 2], [12, sz, 4], [16, off, 4]].forEach(([o, v, n]) => n === 4 ? e.setUint32(o, v, true) : e.setUint16(o, v, true));
+  return new Blob(phan.concat(tm, [e.buffer]), { type: 'application/zip' });
+}
+function xnTepNhac(r, them) {                          // tệp lời nhắc .txt (CRLF + BOM để mở đúng tiếng Việt trên Windows)
+  return { ten: 'LoiNhac_ChatGPT - Nhom ' + xnTenNhom(r) + '.txt', blob: new Blob(['﻿' + C.aiLoiNhacNgoai((r.nhom && (r.nhom.ten || r.nhom)) || '', r.tv || [], them).replace(/\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' }) };
+}
+async function aiPdfNhom() {
+  const g = (AIS.ds || []).find(x => x.id === AIS.sel); if (!g) return toast('Chọn nhóm.', 'err');
+  if (!AIS.tu || !AIS.den || AIS.tu > AIS.den) return toast('Chọn khoảng ngày hợp lệ.', 'err');
+  const R = (v, l) => `<label class="ck"><input type="radio" name="xnDD" value="${v}" ${XN.dd === v ? 'checked' : ''} onchange="XN.dd=this.value"> ${l}</label>`;
+  const K = (k, l) => `<label class="ck"><input type="checkbox" id="xn_${k}" ${XN[k] ? 'checked' : ''} onchange="XN.${k}=this.checked"> ${l}</label>`;
+  modal('📄 Xuất nội dung nhóm + tệp lời nhắc ChatGPT', `<p style="margin-top:0">Xuất toàn bộ nội dung nhóm <b>${esc(g.ten || '')}</b> từ ${dfmt(AIS.tu)} đến ${dfmt(AIS.den)}: <b>tin nhắn</b> từng ngày, <b>ảnh</b> thu nhỏ, <b>báo cáo định kỳ</b>, <b>phiếu nhập / xuất kho</b>, <b>hồ sơ</b> (trích nội dung tệp Word, PDF, Excel), thành viên và <b>thống kê do hệ thống tính</b>. Kèm <b>tệp lời nhắc</b> để ChatGPT trả về tệp kết quả nạp lại được vào app.</p>
+    <div class="sec">Định dạng</div><div class="bar" style="gap:16px">${R('docx', '<b>Word (.docx)</b> – tạo ngay, sửa được')}${R('pdf', '<b>PDF</b> – in, chọn "Lưu dưới dạng PDF"')}</div>
+    <div class="sec">Chia tệp (chọn một hoặc nhiều)</div><div class="bar" style="gap:16px">${K('tong', 'Một tệp tổng')}${K('tuan', 'Mỗi tuần một tệp (Thứ Hai – Chủ nhật)')}${K('thang', 'Mỗi tháng một tệp')}</div>
+    <div class="fg" style="margin-top:6px"><label class="ck"><input type="checkbox" id="pdfAnh" checked> Kèm ảnh</label> <label class="f"><span>Tối đa ảnh / tệp</span><input id="pdfMax" type="number" min="0" max="400" value="150" style="width:90px"></label>
+      ${K('hoSo', 'Đọc nội dung hồ sơ (Word, PDF, Excel, txt)')} <label class="f"><span>Ký tự trích / hồ sơ</span><input id="xnHSMax" type="number" min="300" max="20000" value="2500" style="width:90px"></label>
+      <label class="ck"><input type="checkbox" id="xnNhac"> Chép cả lời nhắc vào đầu mỗi tệp nội dung</label> ${K('zip', 'Word nhiều tệp: gộp vào một tệp .zip')}</div>
+    <div class="sec">Yêu cầu thêm cho ChatGPT (tùy chọn – ghi vào tệp lời nhắc)</div><textarea id="pdfNhac" rows="3" style="width:100%;font-size:12px" placeholder="Ví dụ: chú ý tiến độ hạng mục cầu, đối chiếu vật tư thép nhập – xuất…"></textarea>
+    <div class="note small" style="margin-top:8px"><b>Quy trình:</b> ① tải lên ChatGPT một tệp nội dung + tệp lời nhắc → ② ChatGPT trả tệp <b>KetQua_….json</b> → ③ bấm <b>"📥 Nạp kết quả ChatGPT"</b> trong app: app kiểm tra, ghép với thống kê hệ thống và lưu thành báo cáo (xem, xuất Word / PDF / Excel như phân tích AI trong app).<br>⚠ Nội dung nhóm là thông tin nội bộ, có dữ liệu cá nhân CBCNV, hồ sơ, giá vật tư. Chỉ tải lên ChatGPT / AI bên ngoài khi Công ty cho phép; nên dùng tài khoản doanh nghiệp hoặc tắt chia sẻ dữ liệu để huấn luyện. Tệp theo tuần / tháng nhỏ hơn, AI đọc đầy đủ hơn.</div>
+    <p id="pdfTT" class="small muted"></p>`, { okText: 'Xuất tệp', onOk: async () => {
+      const tt = m => { const e = $('pdfTT'); if (e) e.textContent = m; };
+      if (!XN.tong && !XN.tuan && !XN.thang) throw new Error('Chọn ít nhất một cách chia tệp (tổng, tuần hoặc tháng).');
+      const kemAnh = $('pdfAnh').checked, toiDa = Math.max(0, Math.min(400, +$('pdfMax').value || 0)), them = $('pdfNhac').value, ghiNhac = $('xnNhac').checked, dd = XN.dd;
+      const hsMax = Math.max(300, Math.min(20000, +$('xnHSMax').value || 2500));
+      tt('Đang lấy nội dung nhóm…');
+      const moiNgay = []; for (let d = AIS.tu; d <= AIS.den && moiNgay.length < 400; d = xnCong(d, 1)) moiNgay.push({ ngay: d });
+      const khung = xnPhan({ nhom: g.ten, tu: AIS.tu, den: AIS.den, ngay: moiNgay }, XN).map(p => [p.tu, p.den]);   // thống kê hệ thống cho từng khoảng
+      const r = await api('chat.nhatky', { ht: AIS.sel, tu: AIS.tu, den: AIS.den, khoang: khung });
+      if (!r.ngay.length) throw new Error('Không có hoạt động nào trong khoảng ngày đã chọn.');
+      const ps = xnPhan(r, XN).map(p => { const rr = xnCat(r, p), [tong, chon] = kemAnh ? xnChonAnh(rr, toiDa) : [0, new Set()]; return Object.assign(p, { rr, tong, chon }); });
+      if (!ps.length) throw new Error('Không có tuần / tháng nào có hoạt động.');
+      const can = [...new Set(ps.flatMap(p => [...p.chon]))], anh = {}; let xong = 0;
+      const hang = can.slice(), tai = async () => { while (hang.length) { const f = hang.shift();   // 4 luồng; quyền xem báo cáo (không cần là thành viên nhóm)
+        try { const x = await api('ai.tep', { ht: AIS.sel, fileId: f, thumb: 1 }, { quiet: true }); anh[f] = { mime: x.mime, data: x.data }; } catch (e) { }
+        xong++; tt('Đang tải ảnh ' + xong + '/' + can.length + '…'); } };
+      await Promise.all([tai(), tai(), tai(), tai()]);
+      const hoSo = {};
+      if (XN.hoSo && (r.tep || []).length) { const ds = r.tep.slice(0, 120); for (let i = 0; i < ds.length; i++) { tt('Đang đọc hồ sơ ' + (i + 1) + '/' + ds.length + ': ' + ds[i].ten); hoSo[ds[i].fileId] = await xnDocTep(ds[i], hsMax); } }
+      const nhacTep = ghiNhac ? C.aiLoiNhacNgoai(g.ten || '', r.tv || [], them) : '', tepNhac = xnTepNhac(r, them);
+      if (dd === 'pdf') {
+        APP.xnPS = { ps, anh, nhac: nhacTep, hoSo, tepNhac };
+        if (ps.length === 1) { setTimeout(() => { xnIn(ps[0], anh, nhacTep, hoSo); aiLuuBlob(tepNhac.blob, tepNhac.ten); }, 50); return; }
+        setTimeout(() => xnDsPdf(), 50); return;
+      }
+      const D = await napDocx(), tep = [];
+      for (let i = 0; i < ps.length; i++) { const p = ps[i]; tt('Đang tạo Word ' + (i + 1) + '/' + ps.length + ': ' + p.nhan + '…');
+        const a = {}; p.chon.forEach(f => { if (anh[f]) a[f] = anh[f]; });
+        tep.push({ ten: p.ten + '.docx', blob: await khoiSangDocx(D, xnKhoi(p.rr, p, a, nhacTep, p.tong, p.chon.size, hoSo), 'Nội dung nhóm – ' + p.nhan) }); }
+      if (tep.length > 1 && XN.zip) { const ten = 'Nhom ' + xnTenNhom(r) + ` - ${tep.length} tep + loi nhac (${xnNgan(r.tu)}-${xnNgan(r.den)}.${r.den.slice(0, 4)}).zip`; aiLuuBlob(await zipGoi(tep.concat([tepNhac])), ten); toast('Đã tạo ' + ten, 'ok'); }
+      else { for (const t of tep.concat([tepNhac])) { aiLuuBlob(t.blob, t.ten); await new Promise(o => setTimeout(o, 700)); } toast('Đã tạo ' + tep.length + ' tệp Word và tệp lời nhắc.', 'ok'); }
+      APP.xnKQ = tep.map(t => t.ten);
+    } });
+}
+function xnIn(p, anh, nhac, hoSo) {
+  const a = {}; p.chon.forEach(f => { if (anh[f]) a[f] = anh[f]; });
+  $('print').innerHTML = `<div class="aip aipn">${khoiSangHTML(xnKhoi(p.rr, p, a, nhac, p.tong, p.chon.size, hoSo))}</div>`;
+  const cu = document.title; document.title = p.ten;      // tên tệp gợi ý khi "Lưu dưới dạng PDF"
+  setTimeout(() => { window.print(); setTimeout(() => document.title = cu, 1500); }, 400);
+  toast('Trong hộp in chọn "Lưu dưới dạng PDF".', 'ok');
+}
+function xnDsPdf() {
+  const X = APP.xnPS; if (!X) return;
+  modal('📄 ' + X.ps.length + ' tệp PDF sẵn sàng', `<p style="margin-top:0">Trình duyệt chỉ lưu được từng PDF một: bấm <b>In / Lưu PDF</b> lần lượt cho từng tệp, trong hộp in chọn <b>"Lưu dưới dạng PDF"</b> (tên tệp đã gợi ý sẵn). Nhớ tải <b>tệp lời nhắc</b> để đưa vào ChatGPT cùng tệp PDF.</p>
+    <p><button class="btn" onclick="aiLuuBlob(APP.xnPS.tepNhac.blob,APP.xnPS.tepNhac.ten)">⬇ Tải tệp lời nhắc ChatGPT (.txt)</button></p>
+    <div class="tw"><table><thead><tr><th>Tệp</th><th>Khoảng ngày</th><th>Dòng</th><th>Ảnh</th><th></th></tr></thead><tbody>${X.ps.map((p, i) => `<tr><td><b>${esc(p.nhan)}</b></td><td>${dfmt(p.tu)} – ${dfmt(p.den)}</td><td>${p.rr.ngay.reduce((s, n) => s + n.dong.length, 0)}</td><td>${p.chon.size}</td>
+      <td><button class="btn sm" id="xnB${i}" onclick="this.textContent='✓ Đã in – in lại';xnIn(APP.xnPS.ps[${i}],APP.xnPS.anh,APP.xnPS.nhac,APP.xnPS.hoSo)">In / Lưu PDF</button></td></tr>`).join('')}</tbody></table></div>`, { size: 'lg', okText: 'Xong' });
+}
+/* ---- v3.64: NẠP KẾT QUẢ CHATGPT (JSON theo tệp lời nhắc) → báo cáo phân tích trong app ---- */
+function xnDocJSON(t) {                                // lấy đối tượng JSON từ chữ ChatGPT trả về (khối ```json, chú thích //, dấu phẩy thừa)
+  t = String(t || '').replace(/^﻿/, '');
+  const m = /```(?:json)?\s*([\s\S]*?)```/i.exec(t); if (m && m[1].includes('{')) t = m[1];
+  const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b < a) throw new Error('Không thấy khối JSON { … } trong nội dung.');
+  t = t.slice(a, b + 1);
+  try { return JSON.parse(t); } catch (e) { }
+  let o = '', s = false, q = '';                         // bỏ chú thích ngoài chuỗi, dấu phẩy thừa trước } ]
+  for (let i = 0; i < t.length; i++) { const c = t[i];
+    if (s) { o += c; if (c === '\\') { o += t[++i] || ''; } else if (c === q) s = false; continue; }
+    if (c === '"') { s = true; q = c; o += c; continue; }
+    if (c === '/' && t[i + 1] === '/') { while (i < t.length && t[i] !== '\n') i++; o += '\n'; continue; }
+    o += c; }
+  o = o.replace(/,(\s*[}\]])/g, '$1').replace(/[“”]/g, '"');
+  try { return JSON.parse(o); } catch (e) { throw new Error('JSON chưa hợp lệ: ' + e.message + '. Yêu cầu ChatGPT "xuất lại đúng JSON hợp lệ theo tệp lời nhắc".'); }
+}
+function aiNapGPT() {
+  const g = (AIS.ds || []).find(x => x.id === AIS.sel); if (!g) return toast('Chọn nhóm.', 'err');
+  APP.napKQ = null;
+  modal('📥 Nạp kết quả ChatGPT', `<p style="margin-top:0">Nhóm <b>${esc(g.ten || '')}</b>. Chọn tệp kết quả ChatGPT trả về (<b>KetQua_….json</b>, hoặc .txt / .md / .docx có khối JSON), hoặc dán nội dung vào ô dưới.</p>
+    <div class="bar"><label class="btn">📂 Chọn tệp kết quả<input type="file" class="hide" accept=".json,.txt,.md,.docx,application/json,text/plain,${MIME_DOCX}" onchange="aiNapTep(this)"></label><span id="napTep" class="small muted"></span></div>
+    <textarea id="napChu" rows="8" style="width:100%;font-size:12px;margin-top:8px" placeholder='Dán JSON ChatGPT trả về: { "loai": "TAPACO-KQ-PHANTICH", … }' oninput="aiNapXem()"></textarea>
+    <div id="napXem" class="small" style="margin-top:6px"></div>
+    <div class="note small" style="margin-top:8px">App không tin nguyên văn kết quả: chỉ nhận ngày nhóm có hoạt động, tài khoản là thành viên, mã chứng từ có trong nhóm; <b>thống kê cá nhân, tỷ lệ nộp báo cáo do hệ thống tự tính lại</b>; số liệu báo cáo định kỳ được đối chiếu, bù phần thiếu. Nhóm phải đã "Lưu trữ" (báo cáo lưu vào thư mục 4. Phân tích AI trên Drive).</div>`, {
+    okText: 'Kiểm tra và nạp', onOk: async () => {
+      aiNapXem(); const X = APP.napKQ; if (!X || !X.o) throw new Error(X && X.loi ? X.loi : 'Chưa có nội dung kết quả.');
+      if (X.canhBao && !confirm(X.canhBao + '\n\nVẫn nạp?')) return false;
+      const kq = await api('ai.nap', { ht: AIS.sel, kq: X.o, tu: X.tu, den: X.den });
+      const k = kq.napKiem || {};
+      AIS.kq = aiChuan(kq); AIS.tab = 'tq'; aiTaiBC(); render(); window.scrollTo(0, 0);
+      toast(`Đã nạp: nhật ký ${k.soNgayNhan} ngày từ ChatGPT` + (k.soNgayBu ? ` (+${k.soNgayBu} ngày bù từ báo cáo định kỳ)` : '') + ` / ${k.soNgayHD} ngày có hoạt động, ${k.soKhiaCoDanhGia} khía cạnh có đánh giá` + (k.boNgay || k.boNguoi || k.boChungTu ? ` · bỏ ${k.boNgay} ngày, ${k.boNguoi} người, ${k.boChungTu} mã chứng từ không khớp` : ''), 'ok');
+    } });
+}
+async function aiNapTep(inp) {
+  const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
+  try { if (f.size > 8 * 1048576) throw new Error('Tệp lớn quá 8 MB.');
+    $('napChu').value = /\.docx$/i.test(f.name) || f.type === MIME_DOCX ? await docxVanBan(await f.arrayBuffer()) : await f.text();
+    $('napTep').textContent = f.name; aiNapXem();
+  } catch (e) { toast(e.message, 'err'); }
+}
+function aiNapXem() {
+  const el = $('napXem'), t = $('napChu') ? $('napChu').value : ''; if (!el) return;
+  if (!t.trim()) { APP.napKQ = null; el.innerHTML = ''; return; }
+  try {
+    const o = xnDocJSON(t), g = (AIS.ds || []).find(x => x.id === AIS.sel) || {}, A = x => Array.isArray(x) ? x : [];
+    const tu = /^\d{4}-\d{2}-\d{2}$/.test(o.tu) ? o.tu : AIS.tu, den = /^\d{4}-\d{2}-\d{2}$/.test(o.den) ? o.den : AIS.den, cb = [];
+    if (o.loai && o.loai !== 'TAPACO-KQ-PHANTICH') throw new Error('Không phải tệp kết quả phân tích nhóm của TAPACO ("loai" khác).');
+    if (o.nhom && boDauVN(o.nhom) !== boDauVN(g.ten || '')) cb.push('Tên nhóm trong kết quả ("' + o.nhom + '") khác nhóm đang chọn ("' + (g.ten || '') + '").');
+    if (!o.tu || !o.den) cb.push('Kết quả không ghi khoảng ngày – dùng khoảng đang chọn ' + dfmt(tu) + ' – ' + dfmt(den) + '.');
+    APP.napKQ = { o, tu, den, canhBao: cb.join('\n') };
+    el.innerHTML = `<div class="ok-b" style="padding:6px 8px;border:1px solid var(--line);border-radius:8px">✓ Đọc được JSON · <b>${dfmt(tu)} – ${dfmt(den)}</b> · ${A(o.ngay).length} ngày nhật ký · ${A(o.danhGia).length} khía cạnh · ${A(o.caNhan).length} cá nhân · ${A(o.giaiPhap).length} giải pháp · ${A(o.chungTu).length} chứng từ · rủi ro: ${esc(o.mucRuiRo || '—')}${o.model ? ' · ' + esc(o.model) : ''}</div>${cb.length ? `<div class="note w" style="margin-top:6px">${cb.map(esc).join('<br>')}</div>` : ''}`;
+  } catch (e) { APP.napKQ = { loi: e.message }; el.innerHTML = `<div class="note w">${esc(e.message)}</div>`; }
+}
+function boDauVN(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 async function aiChay(tiep) {
   const ht = AIS.sel, g = AIS.ds.find(x => x.id === ht); if (!g) return;
   if (!AIS.tu || !AIS.den || AIS.tu > AIS.den) return toast('Chọn khoảng ngày hợp lệ.', 'err');
@@ -16610,12 +17344,14 @@ async function aiChay(tiep) {
   }
   R.loi = ''; R.xong = false;
   const B = (b, tt, ct) => { b.tt = tt; if (ct !== undefined) b.ct = ct; if (APP.view === 'aibc') render(); };
-  const goi = async (p) => { let x = null; for (let lan = 0; lan < 2 && !x; lan++) { try { x = await api('ai.phantich', Object.assign({ job: R.job }, p), { quiet: true }); } catch (e) { if (lan || /hết hạn|không hợp lệ|Khóa API|model|Thiếu/.test(e.message)) throw e; } } return x; };
+  /* v3.60: máy chủ đã tự chờ + thử model dự phòng; ở đây chỉ thử lại 1 lần cho lỗi mạng / quá tải (đợi 15 giây), không thử lại khi hết hạn mức ngày */
+  const goi = async (p) => { let x = null; for (let lan = 0; lan < 2 && !x; lan++) { try { x = await api('ai.phantich', Object.assign({ job: R.job }, p), { quiet: true }); } catch (e) { if (lan || /hết hạn|HẾT HẠN MỨC|không hợp lệ|Khóa API|model|Thiếu/.test(e.message)) throw e; await new Promise(r => setTimeout(r, /quá tải|503|529/.test(e.message) ? 15000 : 3000)); } } return x; };
   try {
     if (!R.job) {
       B(R.buoc[0], 'dang'); await aiLuuTru(true); B(R.buoc[0], 'xong');
-      B(R.buoc[1], 'dang'); const bd = await api('ai.phantich', { buoc: 'batdau', ht, tu: AIS.tu, den: AIS.den, xemAnh: AIS.xemAnh }, { quiet: true });
-      R.job = bd.job; R.dot = bd.dot; B(R.buoc[1], 'xong', bd.dot.length + ' đợt · ' + bd.dot.reduce((s, d) => s + d.soNgay, 0) + ' ngày có hoạt động');
+      B(R.buoc[1], 'dang'); const bd = await api('ai.phantich', { buoc: 'batdau', ht, tu: AIS.tu, den: AIS.den, xemAnh: AIS.xemAnh, boDem: !!AIS.boDem }, { quiet: true });
+      const daCo = bd.dot.filter(d => d.daCo).length;
+      R.job = bd.job; R.dot = bd.dot; B(R.buoc[1], 'xong', bd.dot.length + ' đợt · ' + bd.dot.reduce((s, d) => s + d.soNgay, 0) + ' ngày có hoạt động' + (daCo ? ' · ' + daCo + ' đợt dùng lại kết quả đã phân tích' : '') + (bd.soGoiAI != null ? ' · ước tính ' + bd.soGoiAI + ' lượt gọi AI' : ''));
       bd.dot.forEach((d, k) => R.buoc.push({ k: 'p' + k, i: k, t: `AI lập nhật ký đợt ${k + 1}/${bd.dot.length}: ${dfmt(d.tu).slice(0, 5)} – ${dfmt(d.den)}`, tt: 'cho' }));
       R.buoc.push({ k: 'tong1', t: 'AI lập bức tranh tổng thể, đánh giá 18 khía cạnh', tt: 'cho' }, { k: 'tong2', t: 'AI đánh giá nhân sự, nhà thầu phụ, nhà cung cấp, giải pháp', tt: 'cho' },
         { k: 'lap', t: 'Lập báo cáo (Google Docs, PDF)', tt: 'cho' }, { k: 'lapnk', t: 'Lập nhật ký thi công (Google Docs, PDF) – song song với bước tổng hợp', tt: 'cho' },
@@ -16627,11 +17363,11 @@ async function aiChay(tiep) {
     const chay = async (b, fn) => { if (!chua(b)) return; B(b, 'dang'); try { await fn(b); } catch (e) { B(b, 'loi'); throw e; } };
     const dots = R.buoc.filter(b => b.k[0] === 'p' && chua(b)), loiDot = [];
     let iD = 0;
-    const tho = async () => { while (iD < dots.length) { const b = dots[iD++]; try { await chay(b, async () => { const x = await goi({ buoc: 'phan', i: b.i }); B(b, 'xong', [x.soThiCong ? x.soThiCong + ' công tác' : '', x.soVatTu ? x.soVatTu + ' vật tư' : '', x.soKienNghi ? x.soKienNghi + ' kiến nghị' : '', x.soSuKien ? x.soSuKien + ' sự kiện' : ''].filter(Boolean).join(', ')); }); } catch (e) { loiDot.push(e); } } };
-    await Promise.all([tho(), tho(), tho()]);
+    const tho = async () => { while (iD < dots.length) { const b = dots[iD++]; try { await chay(b, async () => { const x = await goi({ buoc: 'phan', i: b.i }); B(b, 'xong', [x.soThiCong ? x.soThiCong + ' công tác' : '', x.soVatTu ? x.soVatTu + ' vật tư' : '', x.soKienNghi ? x.soKienNghi + ' kiến nghị' : '', x.soSuKien ? x.soSuKien + ' sự kiện' : '', x.tuDem ? 'dùng lại kết quả đã lưu (không gọi AI)' : '', /dự phòng/.test(x.model || '') ? 'AI ' + x.model : ''].filter(Boolean).join(', ')); }); } catch (e) { loiDot.push(e); } } };
+    await Promise.all([tho(), tho()]);   // v3.60: 2 đợt song song (bớt lỗi quá tải / giới hạn số lượt mỗi phút)
     if (loiDot.length) throw loiDot[0];
     const nhanhTong = async () => {
-      await chay(bk('tong1'), async b => { const x = await goi({ buoc: 'tong1' }); B(b, 'xong', (x.mucRuiRo ? 'rủi ro ' + x.mucRuiRo.toLowerCase() + ', ' : '') + x.soKhia + '/18 khía cạnh có dữ liệu'); });
+      await chay(bk('tong1'), async b => { const x = await goi({ buoc: 'tong1' }); B(b, 'xong', (x.mucRuiRo ? 'rủi ro ' + x.mucRuiRo.toLowerCase() + ', ' : '') + x.soKhia + '/18 khía cạnh có dữ liệu' + (/dự phòng/.test(x.model || '') ? ' · AI ' + x.model : '')); });
       await chay(bk('tong2'), async b => { const x = await goi({ buoc: 'tong2' }); B(b, 'xong', x.soGiaiPhap + ' giải pháp'); });
       await chay(bk('lap'), async b => { R.kq = await api('ai.phantich', { buoc: 'lap', job: R.job }, { quiet: true }); B(b, 'xong', R.kq.loiDoc ? 'không tạo được Google Docs: ' + R.kq.loiDoc : ''); });
     };
@@ -16759,6 +17495,7 @@ function aiRpHTML() {
       ${k.xlsxId || k.docUrl || k.pdfId ? `<div class="muted small" style="width:100%;text-align:right">Đã lưu trên Drive: ${[k.docUrl ? 'Google Docs' : '', k.pdfId ? 'PDF báo cáo' : '', k.nkPdfId ? 'PDF nhật ký' : '', k.xlsxId ? 'Excel' : '', k.jsonId ? 'dữ liệu gốc (JSON)' : ''].filter(Boolean).join(' · ')}</div>` : ''}
       <h2 style="margin-top:12px">Báo cáo phân tích: ${esc(k.nhom.ten)}${k.nhom.loai === 'rieng' ? ' <span class="pill">trò chuyện riêng</span>' : ''}</h2>
       <div class="muted small">${dfmt(k.tu)} – ${dfmt(k.den)} · Lập bởi ${esc(k.taoBoiTen)} lúc ${aiTuGio(k.taoLuc)} · ${esc(AI_NCC[k.ai.ncc] || k.ai.ncc)} (${esc(k.ai.model)})${k.ai.xemAnh ? ' · có xem ảnh' : ''}</div>
+      ${k.ai.ncc === 'ngoai' ? '<div class="note" style="margin-top:8px">Báo cáo lập từ <b>kết quả ChatGPT nạp vào app</b>: thống kê (tin nhắn, ngày tương tác, nghỉ có đơn, báo cáo định kỳ) do hệ thống tính; nhật ký, nhận xét, đánh giá do AI bên ngoài lập – app đã lọc ngày, tài khoản, mã chứng từ không khớp. Cần đối chiếu chứng từ gốc trước khi sử dụng.</div>' : ''}
       ${k.ai.ncc === 'demo' ? '<div class="note w" style="margin-top:8px">Bản dùng thử: nội dung tổng hợp, nhận xét do bộ phân tích mẫu tạo từ dữ liệu, không phải AI thật. Bản chính thức dùng Gemini hoặc Claude.</div>' : ''}
       <div class="tabs ai-tabs">${TABS.map(([kk, l]) => `<a class="${kk === tab ? 'on' : ''}" onclick="AIS.tab='${kk}';render()">${l}</a>`).join('')}</div></div>
     <div class="card">${b}<p class="note" style="margin-top:14px">Số liệu thống kê (tin nhắn, ngày tương tác, ngày nghỉ có đơn, báo cáo định kỳ) do hệ thống tính. Tổng hợp, trích xuất, nhận xét do AI lập, cần đối chiếu chứng từ gốc trước khi sử dụng.</p></div>`;
@@ -16823,7 +17560,7 @@ function khoiSangHTML(K) {
       case 'ngat': return '<div class="ngat"></div>';
       case 'ky': return `<table class="ky"><tr>${x.x.map(t => `<td><b>${esc(t)}</b><br><i>(Ký, ghi rõ họ tên)</i></td>`).join('')}</tr></table>`;
       case 'bang': { const tong = (x.rong || []).reduce((s, w) => s + w, 0); return `<table>${x.rong && x.rong.length === x.rows[0].length ? `<colgroup>${x.rong.map(w => `<col style="width:${(w / tong * 100).toFixed(1)}%">`).join('')}</colgroup>` : ''}<thead><tr>${x.rows[0].map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${x.rows.slice(1).map(r => `<tr>${r.map(c => `<td>${nl(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`; }
-      case 'anh': return `<figure><img src="data:${x.mime};base64,${x.data}"><figcaption>${esc(x.x || '')}</figcaption></figure>`;
+      case 'anh': return `<figure${x.w ? ` style="max-width:${x.w}px"` : ''}><img src="data:${x.mime};base64,${x.data}"><figcaption>${esc(x.x || '')}</figcaption></figure>`;
     }
     return '';
   }).join('');
@@ -16872,7 +17609,7 @@ async function khoiSangDocx(D, K, tieuDe) {
         margins: { top: 40, bottom: 40, left: 80, right: 80 }, shading: i === 0 ? { type: ShadingType.CLEAR, color: 'auto', fill: 'DCE4F1' } : undefined, children: [c && typeof c === 'object' && c.url ? new Paragraph({ children: [new D.ExternalHyperlink({ link: c.url, children: [new TextRun({ text: c.x, size: 20, color: '1155CC', underline: {} })] })] }) : P(c, {}, { size: 20, bold: i === 0 })] })) })) }));
       kids.push(new Paragraph({ children: [], spacing: { after: 60 } }));
     } else if (k.t === 'anh') {
-      const [ww, hh] = await kich(k.data), W = Math.min(420, ww), H = Math.round(hh * W / ww);
+      const [ww, hh] = await kich(k.data), W = Math.min(k.w || 420, ww), H = Math.round(hh * W / ww);
       kids.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: /png/.test(k.mime) ? 'png' : 'jpg', data: Uint8Array.from(atob(k.data), c => c.charCodeAt(0)), transformation: { width: W, height: H } })] }));
       kids.push(P(k.x || '', { alignment: AlignmentType.CENTER, spacing: { after: 160 } }, { italics: true, size: 19, color: '4A5672' }));
     }
@@ -18145,7 +18882,7 @@ function moTaNguoi(nguoi) {
   return (nguoi || []).map(a => {
     if (a === 'tbp') return 'Trưởng phòng / Chỉ huy trưởng của người đề nghị';
     if (a.startsWith('r:')) return C.ROLES[a.slice(2)] || a.slice(2);
-    const u = (APP.D.users || []).find(x => 'u:' + x.username === a) || Object.values(APP.D.qlBP || {}).flat().find(x => 'u:' + x.username === a);
+    const u = (APP.D.users || []).find(x => 'u:' + x.username === a) || Object.values(APP.D.qlBP || {}).flat().find(x => 'u:' + x.username === a) || ((typeof CVS !== 'undefined' && CVS.meta && CVS.meta.danhBa) || []).find(x => 'u:' + x.username === a);
     return u ? (u.hoTen || u.username) + (u.role && C.ROLE_QL.includes(u.role) ? ' (' + C.ROLES[u.role] + ')' : '') : a.slice(2);
   }).join(', ');
 }

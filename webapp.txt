@@ -4,4 +4,5 @@
 # Lấy URL: Apps Script -> Triển khai -> Quản lý bản triển khai -> URL ứng dụng web (đuôi /exec).
 # Đổi máy chủ: sửa URL ở đây và đưa tệp lên lại - mọi máy tự nhận khi mở app, yêu cầu đăng nhập lại.
 # Ví dụ: https://script.google.com/macros/s/AKfycb..../exec
+
 https://script.google.com/macros/s/AKfycbw7aMr-feYQa37MPdmKqBHnpu_-upZUnr7Vvyw_ikcCC64yZioI56hatsYWlRsAIi2FlA/exec
