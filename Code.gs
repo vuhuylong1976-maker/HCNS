@@ -971,7 +971,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.69';
+  var VERSION = '3.70';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1374,6 +1374,7 @@ var HRCORE = (function () {
 
   var DEFAULT_CFG = {
     congTy: 'CÔNG TY CỔ PHẦN TAPACO VIỆT NAM',
+    anSinhNhat: false,                 // v3.70: true = ẩn sinh nhật CBCNV trên bảng tin
     phanQuyen: {},                                  // v3.8: bảng phân quyền tích chọn (rỗng = mặc định)
     diaChiCongTy: 'Hà Nội',
     mstCongTy: '',
@@ -4933,7 +4934,7 @@ var HRCORE = (function () {
       u.lastLogin = env.now(); D('Users');
       log(s, 'login', '');
       if (can(u.role, 'view_all')) { applyDueRaises(); chamDutDenHan(); }
-      var dl = loadAll(s); dl.soCB = soCanhBao(s); dl.svVer = VERSION;
+      var dl = loadAll(s); dl.soCB = soCanhBao(s); dl.svVer = VERSION; dl.sinhNhat = sinhNhatDS();
       return { token: token, user: publicUser(u), data: dl };
     };
 
@@ -4948,8 +4949,22 @@ var HRCORE = (function () {
       if (can(s.role, 'view_all')) { applyDueRaises(); chamDutDenHan(); }
       var u = T('Users').filter(function (x) { return x.username === s.username; })[0];
       var d = loadAll(s); d.soCB = soCanhBao(s); d.svVer = VERSION;   // v3.50: app so phiên bản máy chủ, báo khi Code.gs chưa cập nhật
+      d.sinhNhat = sinhNhatDS();
       return { user: publicUser(u), data: d };
     };
+    /* v3.70: SINH NHẬT CBCNV trong tháng (và 7 ngày đầu tháng sau) cho bảng tin – chỉ NGÀY / THÁNG, không năm sinh, không tuổi.
+       Cài đặt "anSinhNhat" tắt toàn bộ. Chỉ CBCNV đang làm việc. */
+    function sinhNhatDS() {
+      var c = getCfg(); if (c.anSinhNhat === true || c.anSinhNhat === 'true') return { tat: true, ds: [] };
+      var hom = env.today(), th = hom.slice(5, 7), sau = new Date(Date.UTC(+hom.slice(0, 4), +th, 1)).toISOString().slice(5, 7);
+      var tk = {}; T('Users').forEach(function (u) { if (u.maNV && String(u.active) !== 'false' && u.active !== false) tk[u.maNV] = u.username; });
+      var ds = T('NhanVien').filter(function (n) { return n.trangThai !== 'Đã nghỉ việc' && /^\d{4}-\d{2}-\d{2}/.test(String(n.ngaySinh || '')); }).map(function (n) {
+        var m = String(n.ngaySinh).slice(5, 7), d = String(n.ngaySinh).slice(8, 10);
+        if (m !== th && !(m === sau && +d <= 7)) return null;
+        return { hoTen: n.hoTen, chucVu: n.chucVu || '', phongBan: n.phongBan || '', thang: m, ngay: d, username: tk[n.maNV] || '', gioiTinh: n.gioiTinh || '' };
+      }).filter(Boolean).sort(function (a, b) { return (a.thang + a.ngay) < (b.thang + b.ngay) ? -1 : (a.thang + a.ngay) > (b.thang + b.ngay) ? 1 : a.hoTen.localeCompare(b.hoTen); });
+      return { hom: hom, thang: th, ds: ds };
+    }
     function soCanhBao(s) {                         // số cảnh báo chấm công cần mình làm: QL – chờ giải trình; người kiểm tra – đã giải trình chờ kết luận
       if (CCKT_ROLES.indexOf(s.role) < 0) return 0;
       return T('CanhBaoCC').filter(function (x) { return x.trangThai === 'Đã giải trình'; }).length;

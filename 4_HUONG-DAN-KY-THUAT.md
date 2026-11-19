@@ -1833,6 +1833,10 @@ Cài đặt → Mẫu phiếu lương & bảng lương → **Bảng lương**: d
 - `ltCtx().kho` (phiếu không hủy), `ltNgays` gồm ngày phiếu; `ltNhatKy` thêm "## Phiếu nhập / xuất kho"; `ltBCNgay` thêm tệp + tóm tắt. `khoTongHop/khoTongTxt` → `ltThongKe().kho`, `aiTongHopTxt`, `aiKhoi` mục VI. `chat.nhatky`: bc thêm cột tệp – tóm tắt, `tkKy[].kho`.
 - Client: `BCT`, `bcTachChu` (docx/xlsx/pdf lớp chữ/ảnh), `bcTepChon`, `bcAIDien`; `xnKhoi` bảng tổng hợp chi phí vật tư. Test smoke92.
 
+## 4m47. v3.70 – Phiên bản trên thanh bên, sinh nhật trên bảng tin
+- `load`/`login` trả `sinhNhat = sinhNhatDS()`: {hom, thang, ds:[{hoTen, chucVu, phongBan, thang, ngay, username, gioiTinh}]} – NV không "Đã nghỉ việc", sinh trong tháng hiện tại hoặc ngày 1–7 tháng sau; không trả năm sinh. `cfg.anSinhNhat` = true → {tat:true}.
+- Client: `verVe/verInfo` (#sdVer, so `svVer` qua `mcCu`), `snHero/snSide/snChuc/snChucMung`. Test smoke93.
+
 ## 8. Bảo mật
 
 - Mật khẩu lưu dạng băm SHA-256 kèm chuỗi muối riêng từng tài khoản; không ai đọc được mật khẩu gốc.

@@ -926,6 +926,8 @@ Vai trò `nhanvien` chỉ nhận: hồ sơ mình, quá trình mình, lên lươn
 
 ### 5cp. v3.69 – Báo cáo định kỳ: tải tệp PDF/Word/Excel/ảnh → AI điền mục + tóm tắt thông số (chat.bcai), lưu tệp + tóm tắt với bản nộp. AI phân tích nhóm đọc báo cáo + phiếu kho từng ngày; hệ thống cộng chi phí vật tư (khoTongHop) cho đánh giá và báo cáo; xuất nội dung có tóm tắt tệp, tổng hợp kho. Test smoke92.
 
+### 5cq. v3.70 – Thanh bên hiện phiên bản (cảnh báo máy chủ cũ); bảng tin: chúc mừng sinh nhật hôm nay (gửi lời chúc qua tin nhắn riêng) và danh sách sinh nhật trong tháng – chỉ ngày/tháng, tắt được trong Cài đặt. Test smoke93.
+
 ## 6. API (action)
 
 `ping, login, logout, load, changePassword, nv.save, nv.import, nv.delete, qt.save, qt.delete, ll.save, ll.decide, ll.delete, kt.save (nhiều maNVs), kt.decide (nhiều ids), kt.delete, cc.save, bl.calc, ky.move, yk.create, yk.reply, np.create, np.decide, np.cancel, quytrinh.save, congthuc.save, congthuc.test, tl.upload, tl.update, tl.get, tl.delete, user.save, user.bulk, user.delete, cfg.save, log.list`.

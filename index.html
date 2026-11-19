@@ -1188,6 +1188,17 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 .kho-sk{display:inline-block;width:14px;height:14px;border:2px solid var(--or,#f08a24);border-right-color:transparent;border-radius:50%;margin-right:8px;vertical-align:-2px;animation:khoQuay .8s linear infinite}
 @keyframes khoSk{from{background-position:200% 0}to{background-position:0 0}}@keyframes khoQuay{to{transform:rotate(360deg)}}
 .kho-moi{animation:khoMoi .35s ease-out both}@keyframes khoMoi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* v3.70: phiên bản trên thanh bên, sinh nhật trên bảng tin */
+.sd-ver{display:block;margin-top:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#c9d3e6;border-radius:10px;padding:1px 8px;font-size:10.5px;cursor:pointer;width:max-content;font-family:inherit}
+.sd-ver:hover{background:rgba(255,255,255,.16)}.sd-ver.cu{border-color:#f0a24a;color:#ffd29a}.sd-ver-w{color:#ffb44a}
+.sn-hero{position:relative;overflow:hidden;background:linear-gradient(120deg,#fff4e5,#ffe9f0 55%,#eef4ff);border:1px solid #ffd3a8}
+.sn-hero h2{margin:0 0 6px;font-size:17px}.sn-hero p{margin:0 0 8px}
+.sn-bg{position:absolute;right:12px;top:6px;font-size:34px;opacity:.35;pointer-events:none}
+.sn-ds{display:flex;flex-wrap:wrap;gap:8px}.sn-ng{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #f3d9bd;border-radius:12px;padding:6px 10px}
+.sn-ng>span:nth-child(2){display:flex;flex-direction:column}
+.sn-li{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line,#e5e8ef)}.sn-li>span:nth-child(2){flex:1;display:flex;flex-direction:column}
+.sn-d{font-weight:700;color:var(--or,#e07a1f);min-width:42px}.sn-li.qua{opacity:.55}.sn-li.nay{background:#fff4e5;border-radius:8px;padding:5px 6px}
 </style>
 </head>
 <body>
@@ -1209,7 +1220,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 
 <div id="app" class="hide">
   <aside id="side">
-    <div class="brand"><canvas id="sdLogo" width="88" height="88"></canvas><div><b>TAPACO</b><span>Nhân sự – Tiền lương</span></div></div>
+    <div class="brand"><canvas id="sdLogo" width="88" height="88"></canvas><div><b>TAPACO</b><span>Nhân sự – Tiền lương</span><button type="button" id="sdVer" class="sd-ver" onclick="verInfo()" title="Phiên bản ứng dụng"></button></div></div>
     <nav class="nav" id="nav"></nav>
   </aside>
   <div id="main">
@@ -1249,7 +1260,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.69';
+  var VERSION = '3.70';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1652,6 +1663,7 @@ var HRCORE = (function () {
 
   var DEFAULT_CFG = {
     congTy: 'CÔNG TY CỔ PHẦN TAPACO VIỆT NAM',
+    anSinhNhat: false,                 // v3.70: true = ẩn sinh nhật CBCNV trên bảng tin
     phanQuyen: {},                                  // v3.8: bảng phân quyền tích chọn (rỗng = mặc định)
     diaChiCongTy: 'Hà Nội',
     mstCongTy: '',
@@ -5211,7 +5223,7 @@ var HRCORE = (function () {
       u.lastLogin = env.now(); D('Users');
       log(s, 'login', '');
       if (can(u.role, 'view_all')) { applyDueRaises(); chamDutDenHan(); }
-      var dl = loadAll(s); dl.soCB = soCanhBao(s); dl.svVer = VERSION;
+      var dl = loadAll(s); dl.soCB = soCanhBao(s); dl.svVer = VERSION; dl.sinhNhat = sinhNhatDS();
       return { token: token, user: publicUser(u), data: dl };
     };
 
@@ -5226,8 +5238,22 @@ var HRCORE = (function () {
       if (can(s.role, 'view_all')) { applyDueRaises(); chamDutDenHan(); }
       var u = T('Users').filter(function (x) { return x.username === s.username; })[0];
       var d = loadAll(s); d.soCB = soCanhBao(s); d.svVer = VERSION;   // v3.50: app so phiên bản máy chủ, báo khi Code.gs chưa cập nhật
+      d.sinhNhat = sinhNhatDS();
       return { user: publicUser(u), data: d };
     };
+    /* v3.70: SINH NHẬT CBCNV trong tháng (và 7 ngày đầu tháng sau) cho bảng tin – chỉ NGÀY / THÁNG, không năm sinh, không tuổi.
+       Cài đặt "anSinhNhat" tắt toàn bộ. Chỉ CBCNV đang làm việc. */
+    function sinhNhatDS() {
+      var c = getCfg(); if (c.anSinhNhat === true || c.anSinhNhat === 'true') return { tat: true, ds: [] };
+      var hom = env.today(), th = hom.slice(5, 7), sau = new Date(Date.UTC(+hom.slice(0, 4), +th, 1)).toISOString().slice(5, 7);
+      var tk = {}; T('Users').forEach(function (u) { if (u.maNV && String(u.active) !== 'false' && u.active !== false) tk[u.maNV] = u.username; });
+      var ds = T('NhanVien').filter(function (n) { return n.trangThai !== 'Đã nghỉ việc' && /^\d{4}-\d{2}-\d{2}/.test(String(n.ngaySinh || '')); }).map(function (n) {
+        var m = String(n.ngaySinh).slice(5, 7), d = String(n.ngaySinh).slice(8, 10);
+        if (m !== th && !(m === sau && +d <= 7)) return null;
+        return { hoTen: n.hoTen, chucVu: n.chucVu || '', phongBan: n.phongBan || '', thang: m, ngay: d, username: tk[n.maNV] || '', gioiTinh: n.gioiTinh || '' };
+      }).filter(Boolean).sort(function (a, b) { return (a.thang + a.ngay) < (b.thang + b.ngay) ? -1 : (a.thang + a.ngay) > (b.thang + b.ngay) ? 1 : a.hoTen.localeCompare(b.hoTen); });
+      return { hom: hom, thang: th, ds: ds };
+    }
     function soCanhBao(s) {                         // số cảnh báo chấm công cần mình làm: QL – chờ giải trình; người kiểm tra – đã giải trình chờ kết luận
       if (CCKT_ROLES.indexOf(s.role) < 0) return 0;
       return T('CanhBaoCC').filter(function (x) { return x.trangThai === 'Đã giải trình'; }).length;
@@ -12472,6 +12498,7 @@ function startApp() {
   $('whoName').textContent = APP.user.hoTen || APP.user.username;
   $('whoRole').textContent = C.ROLES[APP.user.role];
   $('whoAv').textContent = initials(APP.user.hoTen || APP.user.username);
+  verVe(); setTimeout(snChucMung, 1500);
   const b = $('banner');
   if (!APP.api) { b.classList.remove('hide'); b.innerHTML = 'Chế độ dùng thử: dữ liệu mẫu, chỉ lưu trên trình duyệt này. Khi triển khai, kết nối Google Sheets qua <a href="#" onclick="openServerCfg(event)">Cấu hình máy chủ</a>.'; }
   else b.classList.add('hide');
@@ -19800,6 +19827,7 @@ function vBT() {
   return `<div class="bt-wrap"><div class="bt-main">
     <div class="bt-hero"><div><h1>Bảng tin ${esc((cfg().congTy || 'Công ty').replace(/^CÔNG TY CỔ PHẦN\s*/i, ''))}</h1><p>Thông báo, chính sách – quy định, tin nội bộ và hoạt động của Công ty.</p></div>
       ${can('bantin') ? `<button class="btn pri" onclick="btForm()">+ Đăng bài</button>` : ''}</div>
+    ${snHero()}
     ${btStrip()}
     ${can('bantin') ? `<div class="card bt-comp" onclick="btForm()"><span class="av">${initials(APP.user.hoTen || APP.user.username)}</span><span class="ph">Chia sẻ thông báo, chính sách, hoạt động với CBCNV…</span><span class="bt-ci"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 8"/></svg>Ảnh</span><span class="bt-ci"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg>Văn bản</span></div>` : ''}
     ${canXN.length && f.loai !== 'xn' ? `<div class="bp-ack need"><span><b>Bạn có ${canXN.length} văn bản cần xác nhận đã đọc.</b></span><button class="btn pri sm" onclick="APP.filt.bt.loai='xn';render()">Xem ngay</button></div>` : ''}
@@ -19811,7 +19839,59 @@ function vBT() {
     ${APP.user.maNV ? side('Cần bạn xác nhận' + (canXN.length ? ` <span class="pill bad">${canXN.length}</span>` : ''), canXN, '✓ Bạn đã xác nhận tất cả văn bản.') : ''}
     ${pins.length ? side('Đang ghim', pins, '') : ''}
     ${side('Chính sách – quy định', cs, 'Chưa có văn bản.')}
+    ${snSide()}
   </aside></div>`;
+}
+/* ===== v3.70: PHIÊN BẢN trên thanh bên + SINH NHẬT CBCNV trên bảng tin ===== */
+function verVe() {
+  const e = $('sdVer'); if (!e) return;
+  const cu = APP.api && mcCu();
+  e.innerHTML = `Phiên bản ${esc(C.VERSION)}${cu ? ' <span class="sd-ver-w" title="Máy chủ chưa cập nhật">⚠</span>' : ''}`;
+  e.classList.toggle('cu', !!cu);
+}
+function verInfo() {
+  const sv = APP.D && APP.D.svVer, cu = APP.api && mcCu();
+  modal('Phiên bản ứng dụng', `<table class="t"><tbody>
+      <tr><td>Ứng dụng (giao diện)</td><td><b>${esc(C.VERSION)}</b></td></tr>
+      <tr><td>Máy chủ Apps Script</td><td><b>${APP.api ? esc(sv || 'trước 3.50') : 'Bản dùng thử (không có máy chủ)'}</b> ${cu ? '<span class="pill bad">cũ hơn ứng dụng</span>' : APP.api ? '<span class="pill ok">khớp</span>' : ''}</td></tr>
+    </tbody></table>
+    ${cu ? '<div class="note w" style="margin-top:8px">Máy chủ đang chạy bản cũ hơn ứng dụng – một số chức năng mới sẽ báo lỗi. Quản trị dán Code.gs mới (thư mục 2_MayChu_AppsScript) → Triển khai → Quản lý bản triển khai → Sửa → Phiên bản: Mới → Triển khai.</div>' : ''}
+    <p class="small muted">Ứng dụng tự cập nhật khi có bản mới; nếu vẫn thấy bản cũ, tải lại trang (Ctrl + F5) hoặc mở lại ứng dụng.</p>`, { okText: 'Đóng' });
+}
+const SN_LOI = ['Chúc mừng sinh nhật! Chúc anh/chị luôn mạnh khỏe, hạnh phúc và thành công.', 'Sinh nhật vui vẻ! Chúc một tuổi mới nhiều niềm vui, sức khỏe và may mắn.', 'Chúc mừng sinh nhật! Chúc mọi kế hoạch trong tuổi mới đều thuận lợi, gia đình hạnh phúc.'];
+function snDs() { const x = APP.D && APP.D.sinhNhat; return x && !x.tat ? x : null; }
+function snHomNay() { const x = snDs(); if (!x) return []; const h = todayS().slice(5); return x.ds.filter(n => n.thang + '-' + n.ngay === h); }
+function snLaToi(n) { return !!(n.username && APP.user && n.username === APP.user.username); }
+async function snChuc(u, ten) {                      // mở trò chuyện riêng, điền sẵn lời chúc (người gửi sửa được rồi bấm gửi)
+  if (!u) return toast(ten + ' chưa có tài khoản ứng dụng để nhận lời chúc.', 'err');
+  const r = await run(() => api('chat.open', { username: u })); if (!r) return;
+  CH.ht[r.id] = Object.assign(CH.ht[r.id] || {}, r); CH.q = '';
+  if (!CH.draft[r.id]) CH.draft[r.id] = '🎂 ' + SN_LOI[Math.floor(Math.random() * SN_LOI.length)];
+  chOpen(r.id);
+}
+function snHero() {                                   // thẻ chúc mừng đầu bảng tin (sinh nhật hôm nay)
+  const hn = snHomNay(); if (!hn.length) return '';
+  const toi = hn.find(snLaToi), khac = hn.filter(n => !snLaToi(n));
+  return `<div class="card sn-hero"><div class="sn-bg">🎉🎂🎈</div>
+    ${toi ? `<h2>🎂 Chúc mừng sinh nhật ${esc(toi.hoTen)}!</h2><p>${esc(cfg().congTy || 'Công ty')} chúc ${toi.gioiTinh === 'Nữ' ? 'chị' : 'anh'} tuổi mới thật nhiều sức khỏe, niềm vui, hạnh phúc và thành công.</p>` : ''}
+    ${khac.length ? `<h2>${toi ? 'Cùng sinh nhật hôm nay' : '🎂 Chúc mừng sinh nhật hôm nay'} – ${dfmt(todayS()).slice(0, 5)}</h2>
+      <div class="sn-ds">${khac.map(n => `<div class="sn-ng"><span class="av">${initials(n.hoTen)}</span><span><b>${esc(n.hoTen)}</b><span class="small muted">${esc([n.chucVu, n.phongBan].filter(Boolean).join(' · '))}</span></span>
+        ${n.username ? `<button class="btn sm pri" onclick="snChuc('${esc(n.username)}','${esc(n.hoTen)}')">🎁 Gửi lời chúc</button>` : ''}</div>`).join('')}</div>` : ''}</div>`;
+}
+function snSide() {                                   // danh sách sinh nhật trong tháng (cột phải bảng tin)
+  const x = snDs(); if (!x || !x.ds.length) return '';
+  const h = todayS().slice(5), th = x.thang;
+  const trong = x.ds.filter(n => n.thang === th), sau = x.ds.filter(n => n.thang !== th);
+  const dong = n => { const k = n.thang + '-' + n.ngay, cls = k === h ? 'nay' : k < h && n.thang === th ? 'qua' : ''; return `<div class="sn-li ${cls}"><span class="sn-d">${n.ngay}/${n.thang}</span><span><b>${esc(n.hoTen)}${cls === 'nay' ? ' 🎂' : ''}</b><span class="small muted">${esc(n.phongBan || n.chucVu || '')}</span></span>${cls === 'nay' && n.username && !snLaToi(n) ? `<button class="btn sm" onclick="snChuc('${esc(n.username)}','${esc(n.hoTen)}')" title="Gửi lời chúc">🎁</button>` : ''}</div>`; };
+  return `<div class="card bt-s sn-s"><h2>🎂 Sinh nhật tháng ${+th} <span class="pill">${trong.length}</span></h2>${trong.map(dong).join('') || '<p class="muted small">Không có.</p>'}
+    ${sau.length ? `<div class="small muted" style="margin:8px 0 4px">Đầu tháng sau</div>${sau.map(dong).join('')}` : ''}
+    <p class="small muted" style="margin-top:8px">Chỉ hiện ngày / tháng sinh của CBCNV đang làm việc.</p></div>`;
+}
+function snChucMung() {                               // lời nhắc 1 lần / ngày khi mở ứng dụng
+  const hn = snHomNay(); if (!hn.length || !APP.user) return;
+  const k = 'tphr_sn_' + APP.user.username, hom = todayS(); if (LS.get(k, '') === hom) return; LS.set(k, hom);
+  const toi = hn.find(snLaToi);
+  toast(toi ? '🎂 Chúc mừng sinh nhật ' + toi.hoTen + '! Chúc bạn tuổi mới thật nhiều niềm vui và thành công.' : '🎂 Hôm nay sinh nhật: ' + hn.map(n => n.hoTen).join(', ') + ' – vào Bảng tin gửi lời chúc nhé!', 'ok');
 }
 /* tin nổi bật: dải trượt đầu bảng tin + cửa sổ nổi khi mở app */
 const btNoiBat = o => o.trangThai === 'Đăng' && o.noiBat === 'Có' && (!o.noiBatDen || o.noiBatDen >= todayS());
@@ -22074,6 +22154,7 @@ function pqMacDinh() {
 /* ====================== CÀI ĐẶT ====================== */
 const CFG_F = [
   { sec: 'Thông tin công ty' }, { k: 'congTy', l: 'Tên công ty', w: 'w2' }, { k: 'diaChiCongTy', l: 'Địa chỉ' }, { k: 'mstCongTy', l: 'Mã số thuế' },
+  { k: 'anSinhNhat', l: 'Sinh nhật CBCNV trên bảng tin', t: 'select', o: [['false', 'Hiện (chỉ ngày / tháng, không năm sinh)'], ['true', 'Ẩn']], blank: false, w: 'w2' },
   { sec: 'Mức lương cơ sở – tối thiểu – bảo hiểm (lương cơ sở, lương tối thiểu vùng: xem bảng "Quy định theo thời kỳ" phía dưới)' },
   { k: 'heSoTranBHXH', l: 'Trần BHXH, BHYT (× lương cơ sở)', t: 'num' }, { k: 'heSoTranBHTN', l: 'Trần BHTN (× lương TT vùng)', t: 'num' },
   { k: 'nld_bhxh', l: 'BHXH – NLĐ (%)', t: 'num' }, { k: 'nld_bhyt', l: 'BHYT – NLĐ (%)', t: 'num' }, { k: 'nld_bhtn', l: 'BHTN – NLĐ (%)', t: 'num' },
