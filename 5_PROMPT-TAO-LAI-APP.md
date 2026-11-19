@@ -920,6 +920,12 @@ Vai trò `nhanvien` chỉ nhận: hồ sơ mình, quá trình mình, lên lươn
 
 ### 5cm. v3.66 – Phiếu nhập/xuất kho: chụp / tải ảnh chứng từ (in hoặc viết tay) → OCR + AI (chat.khoai) tự điền bảng vật tư và đầu phiếu, ô AI tô vàng, "Cần kiểm tra", người lập soát trước khi gửi. Test smoke89.
 
+### 5cn. v3.67 – Loại HĐ: thêm HĐ dịch vụ, HĐ khoán cá nhân (dân sự: lương khoán, không BH, khấu trừ 10% theo ngưỡng từng kỳ 2 tr / 5 tr). Mẫu HĐ chuẩn .docx theo loại HĐ có trường trộn {{…}}, GĐ duyệt; "In HĐ" trộn hồ sơ + HĐ + công ty ký → Word (chưa duyệt: BẢN NHÁP). Test t75, smoke90.
+
+### 5co. v3.68 – Phiếu kho đọc nhanh: gửi ảnh thẳng cho AI ngay khi nén (song song lưu Drive), bỏ OCR Drive ở lần đầu (nút Đọc kỹ), JSON dạng mảng gọn, model nhanh; đọc song song từng ảnh, dòng chờ trong bảng, điền dần, nhớ kết quả theo ảnh. Test t76, smoke91.
+
+### 5cp. v3.69 – Báo cáo định kỳ: tải tệp PDF/Word/Excel/ảnh → AI điền mục + tóm tắt thông số (chat.bcai), lưu tệp + tóm tắt với bản nộp. AI phân tích nhóm đọc báo cáo + phiếu kho từng ngày; hệ thống cộng chi phí vật tư (khoTongHop) cho đánh giá và báo cáo; xuất nội dung có tóm tắt tệp, tổng hợp kho. Test smoke92.
+
 ## 6. API (action)
 
 `ping, login, logout, load, changePassword, nv.save, nv.import, nv.delete, qt.save, qt.delete, ll.save, ll.decide, ll.delete, kt.save (nhiều maNVs), kt.decide (nhiều ids), kt.delete, cc.save, bl.calc, ky.move, yk.create, yk.reply, np.create, np.decide, np.cancel, quytrinh.save, congthuc.save, congthuc.test, tl.upload, tl.update, tl.get, tl.delete, user.save, user.bulk, user.delete, cfg.save, log.list`.

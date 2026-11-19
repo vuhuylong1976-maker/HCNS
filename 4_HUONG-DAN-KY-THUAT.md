@@ -1818,6 +1818,21 @@ Cài đặt → Mẫu phiếu lương & bảng lương → **Bảng lương**: d
 - `chat.khoai {ht, fileIds[≤4], loai}`: ảnh phải là TepChat của nhóm; OCR `ocrDrive` (JPG/PNG…) + ảnh gửi AI (`KHO_HE`, loai 'phieukho'); chuẩn hóa số kiểu VN; trả {loaiChungTu, loai, ngay, soCT, doiTac, nguoiGiaoNhan, hangMuc, dong[], tongTien, doTinCay, canKiemTra[], ocr}. Không ghi dữ liệu – chỉ gợi ý điền.
 - Client: `khoAIDoc(ids, thay)` gọi sau `khoAnhChon` (nếu bật `khoAIon`), `khoAIDien` thay dòng trống / dòng AI cũ, ô `.aifill`. Demo trả dữ liệu "(mẫu)". Test smoke89.
 
+## 4m44. v3.67 – Loại HĐ dân sự, mẫu hợp đồng chuẩn, in HĐ
+- `LOAI_HD` thêm 'HĐ dịch vụ', 'HĐ khoán cá nhân' (`HD_DANSU`), thuộc `HD_VANGLAI`, `HD_KHONG_BH`; `apHD` → loaiLuong 'khoan'; `nv.save` ép 'khoan'; `hdMoTa().danSu`. Thuế, BH theo kỳ qua `cfgTheoKy` (MOC_LUAT_MD) như cũ.
+- Bảng `MauHD`; `mauhd.ds/luu/duyet/tai/xoa` (edit_nv; duyệt: admin/giamdoc; thay tệp → Chờ duyệt). Tệp lưu Drive thư mục "Mẫu hợp đồng".
+- Client: `zipDoc/zipMo` (DecompressionStream deflate-raw), `mhdTimTruong/mhdThay` (ghép trường trộn bị Word tách nhiều run, theo từng đoạn văn; document/header/footer), `mhdTron` (zipGoi), `mhdDuLieu` (NV + dòng HĐ + công ty thành viên `congTyTV` thêm daiDien, chucVuDD, dienThoai, soTK, nganHang), `mhdQL/mhdForm/mhdKhung/hdIn`. Test t75, smoke90.
+
+## 4m45. v3.68 – Đọc nhanh phiếu kho
+- `chat.khoai {ht, anh:[{mime,data}], loai}`: ảnh gửi kèm (≤4, ≤3 MB b64, JPG/PNG/WEBP), không đọc Drive; OCR Drive chỉ khi `ocr:true` (nút Đọc kỹ, theo fileIds). `KHO_HE` yêu cầu JSON gọn `{lct,loai,ngay,soCT,doiTac,ngn,hm,d:[[ten,quyCach,dv,sl,donGia,thanhTien,ghiChu]],tong,tc,kt}`; vẫn nhận dạng cũ. maxTok 2000, `nhanh:true`.
+- gas `aiEnv_.goi`: `o.nhanh` → Gemini Pro đổi sang gemini-flash-latest, tắt thinking Gemini 2.x; GPT-5 reasoning_effort 'minimal'.
+- Client: `khoAnhChon` xử lý từng ảnh song song, `khoAIDocNhanh` gọi ngay sau `chNen`, `khoChoDong` (dòng chờ + đếm giây), `khoAIDien(r,thay,nguon)` chèn theo thứ tự ảnh (`tr[data-nguon]`), hiệu ứng `.kho-moi`, `KHO_AI_NHO` nhớ theo băm ảnh. Test t76, smoke91.
+
+## 4m46. v3.69 – Báo cáo định kỳ đọc tệp; AI đọc phiếu kho, chi phí vật tư
+- `chat.bcai {mucId, ky, chu, anh[], quet[fileId]}`: AI điền theo mẫu (`gt` theo id mục, làm sạch theo kiểu so/chon/cokhong/ngay/bang/chữ) + `tt` tóm tắt; loai 'bctep', `nhanh`. `chat.nopbc` nhận `tep[{fileId}]` (TepChat của nhóm), `tomTat` → `giaTri._tep`, `_tomTat`.
+- `ltCtx().kho` (phiếu không hủy), `ltNgays` gồm ngày phiếu; `ltNhatKy` thêm "## Phiếu nhập / xuất kho"; `ltBCNgay` thêm tệp + tóm tắt. `khoTongHop/khoTongTxt` → `ltThongKe().kho`, `aiTongHopTxt`, `aiKhoi` mục VI. `chat.nhatky`: bc thêm cột tệp – tóm tắt, `tkKy[].kho`.
+- Client: `BCT`, `bcTachChu` (docx/xlsx/pdf lớp chữ/ảnh), `bcTepChon`, `bcAIDien`; `xnKhoi` bảng tổng hợp chi phí vật tư. Test smoke92.
+
 ## 8. Bảo mật
 
 - Mật khẩu lưu dạng băm SHA-256 kèm chuỗi muối riêng từng tài khoản; không ai đọc được mật khẩu gốc.
