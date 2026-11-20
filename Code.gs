@@ -971,7 +971,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.71';
+  var VERSION = '3.74';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1040,7 +1040,8 @@ var HRCORE = (function () {
     botqd: ['admin', 'giamdoc', 'tchc'],                             // Sửa quy định của trợ lý trong Tin nhắn
     xem_bp: ['truongphong', 'cht'],                                  // v3.38: xem nhân sự bộ phận mình (danh sách, quá trình, đơn nghỉ)
     tu_xem: ['giamdoc', 'tchc', 'kttruong', 'ktcongno', 'ktluong', 'truongphong', 'cht', 'nhanvien'],   // hồ sơ, phiếu lương… của chính mình (cố định)
-    sua_pq: ['admin', 'giamdoc']                                     // v3.38: sửa bảng phân quyền
+    sua_pq: ['admin', 'giamdoc'],                                    // v3.38: sửa bảng phân quyền
+    khoTH: ['admin', 'giamdoc', 'tchc', 'ktluong', 'ktcongno', 'kttruong']   // v3.73: Tổng hợp nhập – xuất kho mọi nhóm / công trình
   };
   /* ===== BẢNG PHÂN QUYỀN TÍCH CHỌN ĐƯỢC (v3.8) =====
      Giám đốc, Quản trị tích chọn ở Tài khoản → Bảng phân quyền; lưu cfg.phanQuyen = { quyền: [vai trò] }.
@@ -1049,6 +1050,7 @@ var HRCORE = (function () {
   var PQ_NHOM = [
     { ten: 'Hồ sơ & nhân sự', ds: [['view_all', 'Xem toàn bộ hồ sơ, lương, quá trình'], ['edit_nv', 'Hồ sơ, quá trình công tác, phòng ban – công trình, điều động'], ['tailieu', 'Xem tài liệu đính kèm của mọi CBCNV'], ['propose', 'Lập đề xuất nâng lương, khen thưởng – kỷ luật'], ['approve', 'Phê duyệt nâng lương, khen thưởng – kỷ luật'], ['duyetThue', 'Phê duyệt cam kết thu nhập, ủy quyền quyết toán, hồ sơ thuế TNCN']] },
     { ten: 'Văn bản & thông tin', ds: [['bantin', 'Đăng Bảng tin'], ['congvan', 'Xem toàn bộ sổ công văn đến – đi'], ['vanthu', 'Văn thư: vào sổ công văn, tải bản quét, AI đọc văn bản, lưu hồ sơ']] },
+ { ten: 'Kho vật tư', ds: [['khoTH', 'Tổng hợp nhập – xuất kho của mọi nhóm / công trình (người khác: chỉ nhóm mình tham gia)']] },
     { ten: 'Giám sát & AI', ds: [['aiNhom', 'Phân tích nhóm (AI): lưu trữ, phân tích, xem báo cáo mọi nhóm'], ['ccQuanLy', 'Chấm công GPS – quản lý: lượt chấm, ảnh, bản đồ, duyệt, công tác, kiểm tra AI, vị trí ngoài phạm vi'], ['danhgia', 'Đánh giá tổng hợp CBCNV (AI)'], ['botqd', 'Sửa quy định của trợ lý trong Tin nhắn']] },
     { ten: 'Hệ thống', ds: [['users', 'Quản lý tài khoản (ngoài Quản trị: chỉ tài khoản Nhân viên)'], ['doimk', 'Đặt lại mật khẩu cho tài khoản khác'], ['log', 'Xem nhật ký thao tác'], ['quytrinh', 'Cài đặt quy trình & người duyệt'], ['config', 'Cài đặt tham số, nhóm – loại đề xuất'], ['congthuc', 'Lập công thức tính lương']] },
     { ten: 'Theo chức danh', ds: [['xem_bp', 'Xem nhân sự bộ phận mình (danh sách, quá trình công tác, đơn nghỉ của bộ phận)'], ['tu_xem', 'Hồ sơ, phiếu lương, đơn nghỉ, ý kiến của chính mình'], ['sua_pq', 'Sửa bảng phân quyền này']] }
@@ -1264,6 +1266,25 @@ var HRCORE = (function () {
     return viTriBuoc(steps, t) >= 0 ? t : steps[0].id;
   }
   function buocTheoLoai(steps, loai) { return steps.filter(function (b) { return b.loai === loai; })[0]; }
+  /* v3.74: KIỂM TRA CÁC MỤC BỔ SUNG TRƯỚC KHI KHÓA / TRÌNH GIÁM ĐỐC.
+     Bảng lương tính được ngay sau chấm công (tạm tính); các bước sau (công nợ: tạm ứng, ăn ca, thu ứng, khấu trừ khác; TCHC: phạt / khấu trừ
+     quy chế; lập bảng lương: truy lĩnh, khoán, năng suất) chưa làm → liệt kê là CÒN THIẾU. Một bước tính là "đã làm" khi kỳ đã chuyển qua bước đó.
+     cc = dòng chấm công của kỳ. Trả { buoc:[{id,ten,loai,nguoi,muc,xong,dangLam,so}], conThieu, tamTinh }. */
+  var MUC_BS = { congno: ['Tạm ứng', 'Ăn ca', 'Thu ứng', 'Khấu trừ khác'], vipham: ['Phạt vi phạm / khấu trừ quy chế', 'Bồi thường thiệt hại'], tinhluong: ['Truy lĩnh', 'Tiền khoán việc', 'Hệ số năng suất'] };
+  function kiemTraBoSung(steps, trangThai, cc) {
+    var i = viTriBuoc(steps, trangThai), dem = function (f) { return (cc || []).filter(f).length; };
+    var so = {
+      congno: { 'Tạm ứng': dem(function (x) { return num(x.tamUng) > 0; }), 'Ăn ca': dem(function (x) { return num(x.tienAnThu) > 0; }), 'Thu ứng': dem(function (x) { return num(x.thuUng) > 0; }), 'Khấu trừ khác': dem(function (x) { return num(x.khauTruKhac) > 0; }) },
+      vipham: { 'Phạt vi phạm / khấu trừ quy chế': dem(function (x) { var a = parseJSON(x.chiTietPhat, []); return Array.isArray(a) && a.some(function (v) { return v.loai !== 'Bồi thường thiệt hại'; }); }), 'Bồi thường thiệt hại': dem(function (x) { var a = parseJSON(x.chiTietPhat, []); return Array.isArray(a) && a.some(function (v) { return v.loai === 'Bồi thường thiệt hại'; }); }) },
+      tinhluong: { 'Truy lĩnh': dem(function (x) { return num(x.truyLinh) > 0; }), 'Tiền khoán việc': dem(function (x) { return num(x.tienKhoan) > 0; }), 'Hệ số năng suất': dem(function (x) { var n = parseJSON(x.chamNS, null); return !!(n && n.d && Object.keys(n.d).length); }) }
+    };
+    var out = steps.map(function (b, j) {
+      if (!MUC_BS[b.loai]) return null;
+      return { id: b.id, ten: b.ten, loai: b.loai, nguoi: b.nguoi, muc: MUC_BS[b.loai], xong: i > j, dangLam: i === j, so: so[b.loai] };
+    }).filter(Boolean);
+    var an = dem(function (x) { var a = parseJSON(x.chiTietAn, null); return !!(a && Object.keys(a).length); });
+    return { buoc: out, conThieu: out.some(function (b) { return !b.xong; }), soChamAn: an, tamTinh: out.some(function (b) { return !b.xong && b.loai !== 'tinhluong'; }) };
+  }
   function kiemTraQTLuong(steps) {
     if (!Array.isArray(steps) || steps.length < 3) return 'Quy trình lương cần ít nhất 3 bước.';
     var dem = {}, ids = {};
@@ -1306,7 +1327,7 @@ var HRCORE = (function () {
       'bhxh', 'bhyt', 'bhtn', 'doanPhi', 'tnChiuThue', 'giamTru', 'tnTinhThue', 'thueTNCN', 'boiThuong', 'tamUng',
       'khauTruKhac', 'thucLinh', 'bhxhDN', 'bhytDN', 'bhtnDN', 'kpcdDN', 'ghiChu', 'ctTamUng', 'ctViPham', 'ctCong', 'congTy', 'cheDoLuat', 'cachThue', 'traThayBHCT', 'soBua', 'tienAnThu', 'thuUng', 'tongNo', 'anCaMien', 'otThue', 'otThucLinh', 'ctHD'],
     KyLuong: ['ky', 'trangThai', 'ngayCongChuan', 'nguoiTinh', 'ngayTinh', 'nguoiDuyet', 'ngayDuyet', 'soNguoi',
-      'tongThuNhap', 'tongThucLinh', 'maKiemTra', 'quyTrinh', 'congThuc', 'capNhat'],
+      'tongThuNhap', 'tongThucLinh', 'maKiemTra', 'quyTrinh', 'congThuc', 'capNhat', 'tamTinh'],
     MucHuong: ['id', 'maNV', 'hieuLuc', 'giaTri', 'cu', 'soQD', 'lyDo', 'trangThai', 'nguoiTao', 'taoLuc', 'nguoiDuyet', 'ngayDuyet', 'ghiChuDuyet'],
     NghiPhep: ['id', 'maNV', 'hoTen', 'loai', 'tuNgay', 'denNgay', 'buoi', 'soNgay', 'lyDo', 'chungTu', 'trangThai',
       'nguoiTao', 'taoLuc', 'luongDuyet', 'capDuyet', 'lichSu', 'nguoiDuyet', 'ngayDuyet', 'ghiChuDuyet'],
@@ -1333,7 +1354,7 @@ var HRCORE = (function () {
       'xepLoai', 'ketLuan', 'nguoiChot', 'chotLuc', 'congBo', 'nvPhanHoi', 'phLuc', 'capNhat'],
     KiemTraCong: ['id', 'ngayGhi', 'gioGhi', 'hoTen', 'maNV', 'viTriChamCong', 'viTriNgoaiPhamVi', 'khoangCach', 'gioDo', 'boPhan', 'username', 'diemCC', 'latCC', 'lngCC', 'banKinh', 'lat', 'lng', 'doChinhXac', 'vuotBanKinh', 'banDo', 'hoiThoai', 'baoCao', 'ghiChu'],
     CanhBaoCC: ['id', 'khoa', 'dotId', 'maNV', 'hoTen', 'boPhan', 'ngay', 'nhom', 'ma', 'mucDo', 'moTa', 'luotIds', 'trangThai', 'nhacLuc', 'nguoiNhac', 'hanGT', 'giaiTrinh', 'ketQua', 'nguoiGT', 'gtLuc', 'xuLy', 'nguoiXL', 'xlLuc', 'taoLuc', 'capNhat'],
-    PhieuKho: ['id', 'hoiThoai', 'soPhieu', 'loai', 'ngay', 'kho', 'doiTac', 'hangMuc', 'nguoiGiaoNhan', 'soCT', 'dong', 'anh', 'ghiChu', 'nguoiLap', 'hoTenLap', 'taoLuc', 'msgId', 'trangThai', 'lyDoHuy', 'nguoiHuy', 'capNhat'],
+    PhieuKho: ['id', 'hoiThoai', 'soPhieu', 'loai', 'ngay', 'kho', 'doiTac', 'hangMuc', 'nguoiGiaoNhan', 'soCT', 'dong', 'anh', 'ghiChu', 'nguoiLap', 'hoTenLap', 'taoLuc', 'msgId', 'trangThai', 'lyDoHuy', 'nguoiHuy', 'capNhat', 'tep'],   // v3.73: tep = chứng từ PDF / Word / Excel kèm phiếu
     TepChat: ['fileId', 'hoiThoai', 'ten', 'mime', 'kichThuoc', 'nguoiTai', 'thoiGian', 'msgId', 'seq', 'w', 'h', 'thuMuc', 'thumbId'],
     PheDuyet: ['id', 'ky', 'tu', 'den', 'tuTen', 'denTen', 'hanhDong', 'nguoi', 'vaiTro', 'thoiGian', 'ghiChu'],
     BotQuyDinh: ['id', 'nhom', 'tieuDe', 'noiDung', 'lienKet', 'vanBan', 'hieuLuc', 'trangThai', 'nguoiSua', 'capNhat'],
@@ -5979,7 +6000,18 @@ var HRCORE = (function () {
       var m = chatGhi(s, c.h.id, loai, nd, { tep: tep ? JSON.stringify(tep) : '', traLoi: tr });
       if (tep) { t.msgId = m.id; t.seq = m.seq; t.w = tep.w; t.h = tep.h; D('TepChat'); }
       c.tv.daDoc = m.seq; D('ThanhVien');
+      chatNhac(s, c.h, nd, req.nhac);
       return { msg: m };
+    };
+    /* v3.72: NHẮC TÊN (@) trong nhóm – người được nhắc nhận thông báo riêng, kể cả khi đã tắt thông báo nhóm.
+       Chỉ nhận tài khoản là thành viên và có "@Họ tên" thật trong nội dung; "@all" = cả nhóm. */
+    function chatNhac(s, h, nd, ds) {
+      if (h.loai !== 'nhom' || !Array.isArray(ds) || !ds.length || !pushBat()) return;
+      var tv = chatMem(h.id).map(function (t) { return t.username; }).filter(function (u) { return u !== s.username; }), ai = [];
+      if (ds.indexOf('@all') >= 0 && /@(Tất cả|all)(?![\wÀ-ỹ])/i.test(nd)) ai = tv;
+      else ds.slice(0, 50).forEach(function (u) { if (tv.indexOf(u) >= 0 && nd.indexOf('@' + chatTen(u)) >= 0 && ai.indexOf(u) < 0) ai.push(u); });
+      if (!ai.length) return;
+      bao(ai, { loai: 'tn', t: (s.hoTen || s.username) + ' nhắc đến bạn trong ' + (h.ten || 'nhóm'), b: String(nd).replace(/\s+/g, ' ').slice(0, 160), tag: 'nhac_' + h.id, mo: '#chat=' + h.id });
     };
     /* v3.32: tải tệp + gửi tin trong 1 lần gọi (req.gui); ảnh kèm ảnh thu nhỏ (f.thumb) để khung chat tải nhanh.
        Trên Apps Script, tệp được ghi vào Drive TRƯỚC khi lấy khóa (req._pre do máy chủ đặt, không nhận từ máy khách) – không chặn người khác. */
@@ -6499,7 +6531,7 @@ var HRCORE = (function () {
       if (dong.length > 60) err('Tối đa 60 dòng vật tư mỗi phiếu.');
       return dong;
     }
-    function khoPub(p) { var o = Object.assign({}, p); o.dong = parseJSON(p.dong, []); o.anh = parseJSON(p.anh, []); return o; }
+    function khoPub(p) { var o = Object.assign({}, p); o.dong = parseJSON(p.dong, []); o.anh = parseJSON(p.anh, []); o.tep = parseJSON(p.tep, []); return o; }
     H['chat.kho'] = function (req, s) {
       var c = chatCan(s, req.ht), r = req.row || {};
       if (c.h.trangThai) err('Nhóm đã giải tán.');
@@ -6514,16 +6546,21 @@ var HRCORE = (function () {
         return { t: t, o: { fileId: t.fileId, ten: t.ten, mime: t.mime, w: num(a.w), h: num(a.h), moTa: String(a.moTa || '').slice(0, 120) } };
       });
       if (req.batBuocAnh && !anh.length) err('Cần ít nhất 1 ảnh (hàng hóa / biên bản / hóa đơn).');
+      var tepK = (Array.isArray(req.tep) ? req.tep : []).slice(0, 10).map(function (a) {     // v3.73: chứng từ PDF / Word / Excel
+        var t = T('TepChat').filter(function (x) { return x.fileId === String((a && a.fileId) || ''); })[0];
+        if (!t || t.hoiThoai !== c.h.id || t.nguoiTai !== s.username || t.msgId) err('Tệp chứng từ không hợp lệ hoặc đã dùng – tải lại tệp.');
+        return { t: t, o: { fileId: t.fileId, ten: t.ten, mime: t.mime, kichThuoc: num(t.kichThuoc) } };
+      });
       var a = T('PhieuKho'), ky = ngay.slice(0, 7).replace('-', ''), tien = r.loai === 'nhap' ? 'PN' : 'PX', stt = a.filter(function (x) { return x.hoiThoai === c.h.id && x.loai === r.loai && String(x.soPhieu).indexOf(tien + '-' + ky + '-') === 0; }).length + 1;
       var p = { id: newId(), hoiThoai: c.h.id, soPhieu: tien + '-' + ky + '-' + ('00' + stt).slice(-3), loai: r.loai, ngay: ngay, kho: String(r.kho || c.h.ten || '').trim().slice(0, 150),
         doiTac: String(r.doiTac || '').trim().slice(0, 200), hangMuc: String(r.hangMuc || '').trim().slice(0, 200), nguoiGiaoNhan: String(r.nguoiGiaoNhan || '').trim().slice(0, 120), soCT: String(r.soCT || '').trim().slice(0, 80),
-        dong: JSON.stringify(dong), anh: JSON.stringify(anh.map(function (x) { return x.o; })), ghiChu: String(r.ghiChu || '').trim().slice(0, 1000),
+        dong: JSON.stringify(dong), anh: JSON.stringify(anh.map(function (x) { return x.o; })), tep: JSON.stringify(tepK.map(function (x) { return x.o; })), ghiChu: String(r.ghiChu || '').trim().slice(0, 1000),
         nguoiLap: s.username, hoTenLap: s.hoTen || s.username, taoLuc: env.now(), trangThai: 'Đã lập', capNhat: env.now() };
       var tong = dong.reduce(function (t, d) { return t + d.thanhTien; }, 0);
       var tom = KHO_LOAI[p.loai] + ' ' + p.soPhieu + ' – ' + dong.slice(0, 3).map(function (d) { return d.ten + ' ' + String(d.sl).replace('.', ',') + (d.dv ? ' ' + d.dv : ''); }).join('; ') + (dong.length > 3 ? '; +' + (dong.length - 3) + ' dòng' : '') + (anh.length ? ' · ' + anh.length + ' ảnh' : '');
       var m = chatGhi(s, c.h.id, 'kho', tom, { tep: JSON.stringify({ pk: p.id, so: p.soPhieu, loai: p.loai, ngay: ngay, soDong: dong.length, tong: tong, dong: dong.slice(0, 4).map(function (d) { return [d.ten, d.sl, d.dv]; }), anh: anh.slice(0, 4).map(function (x) { return x.o; }), soAnh: anh.length }) });
       p.msgId = m.id; a.push(p); D('PhieuKho');
-      anh.forEach(function (x) { x.t.msgId = m.id; x.t.seq = m.seq; x.t.w = x.o.w; x.t.h = x.o.h; }); if (anh.length) D('TepChat');
+      anh.forEach(function (x) { x.t.msgId = m.id; x.t.seq = m.seq; x.t.w = x.o.w; x.t.h = x.o.h; }); tepK.forEach(function (x) { x.t.msgId = m.id; x.t.seq = m.seq; }); if (anh.length || tepK.length) D('TepChat');
       c.tv.daDoc = m.seq; D('ThanhVien');
       chatBao(chatMem(c.h.id).map(function (x) { return x.username; }));
       log(s, 'chat.kho', p.soPhieu + ' (' + c.h.ten + '): ' + dong.length + ' dòng, ' + anh.length + ' ảnh');
@@ -6539,7 +6576,7 @@ var HRCORE = (function () {
       + '6) "quyCach": kích thước, mác, chủng loại (D16, PCB40, 1x2, Ø110…) tách khỏi tên nếu rõ. 7) Đơn giá, thành tiền: chỉ khi chứng từ ghi.\n'
       + 'Chỉ trả về MỘT đối tượng JSON GỌN (v3.68: mỗi dòng vật tư là MỘT MẢNG để trả lời nhanh): {"lct":"phiếu nhập kho|phiếu xuất kho|phiếu giao hàng|hóa đơn|biên bản giao nhận|khác","loai":"nhap|xuat|",'
       + '"ngay":"YYYY-MM-DD hoặc rỗng","soCT":"số chứng từ","doiTac":"nhà cung cấp / bên giao (phiếu nhập) hoặc đơn vị nhận (phiếu xuất)","ngn":"người giao nhận","hm":"hạng mục sử dụng (nếu có)",'
-      + '"d":[["tên","quy cách","ĐVT",số lượng,đơn giá|null,thành tiền|null,"ghi chú"]],"tong":số|null,"tc":"cao|trung bình|thấp","kt":["dòng 3: số lượng mờ"]}. Không viết gì ngoài JSON, không xuống dòng thừa.';
+      + '"d":[["tên","quy cách","ĐVT",số lượng,đơn giá|null,thành tiền|null,"ghi chú"]],"tong":số|null,"tc":"cao|trung bình|thấp","kt":["dòng 3: số lượng mờ"],"tt":"tóm tắt chứng từ 1–3 câu: loại, số, bên giao/nhận, số dòng, tổng tiền"}. Không viết gì ngoài JSON, không xuống dòng thừa.';
     H['chat.khoai'] = function (req, s) {
       var c = chatCan(s, req.ht);
       var ids = (Array.isArray(req.fileIds) ? req.fileIds : [req.fileId]).filter(Boolean).slice(0, 4);
@@ -6554,7 +6591,15 @@ var HRCORE = (function () {
           anh.push({ nhan: 'Ảnh ' + (i + 1) + ' – chứng từ kho:', mime: a.mime, data: String(a.data) });
         });
         ids = [];
-      } else if (!ids.length) err('Chưa có ảnh phiếu để đọc.');
+      } else if (!ids.length && !req.chu && !(req.quet || []).length) err('Chưa có ảnh / tệp phiếu để đọc.');
+      // v3.73: chứng từ dạng tệp – chữ Word / Excel / PDF có lớp chữ do máy người dùng tách sẵn; PDF quét: OCR Google Drive theo fileId
+      if (req.chu) chu.push('=== NỘI DUNG TỆP CHỨNG TỪ ===\n' + lamSachChu(String(req.chu)).slice(0, 50000));
+      (Array.isArray(req.quet) ? req.quet : []).slice(0, 3).forEach(function (fid) {
+        var t = T('TepChat').filter(function (x) { return x.fileId === String(fid); })[0];
+        if (!t || t.hoiThoai !== c.h.id) err('Tệp không thuộc nhóm này.');
+        if (demo) return; var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { }
+        if (x) chu.push('=== ' + t.ten + ' (OCR) ===\n' + x.slice(0, 20000));
+      });
       ids.forEach(function (fid, i) {
         var t = T('TepChat').filter(function (x) { return x.fileId === String(fid); })[0];
         if (!t || t.hoiThoai !== c.h.id) err('Ảnh không thuộc nhóm này – tải lại ảnh.');
@@ -6565,7 +6610,7 @@ var HRCORE = (function () {
       });
       var nd = 'Nhóm / công trình: ' + aiTenHT(c.h) + '. Ngày hôm nay: ' + env.today() + '.\n'
         + (req.loai === 'xuat' ? 'Người dùng đang lập PHIẾU XUẤT KHO.\n' : req.loai === 'nhap' ? 'Người dùng đang lập PHIẾU NHẬP KHO.\n' : '')
-        + (chu.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' + chu.join('\n\n') : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+        + (chu.length ? (anh.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' : '=== NỘI DUNG CHỨNG TỪ (từ tệp) ===\n') + chu.join('\n\n') : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
       var o = aiO(aiGoi({ he: KHO_HE, nd: nd, anh: anh, maxTok: 2000, nhanh: true, loai: 'phieukho', duLieu: { demo: demo, loai: req.loai || '' } }));
       if (Array.isArray(o.d)) o.dong = o.d.map(function (x) { return Array.isArray(x) ? { ten: x[0], quyCach: x[1], dv: x[2], sl: x[3], donGia: x[4], thanhTien: x[5], ghiChu: x[6] } : x; });   // dạng gọn → dạng đầy đủ
       ['loaiChungTu:lct', 'nguoiGiaoNhan:ngn', 'hangMuc:hm', 'tongTien:tong', 'doTinCay:tc', 'canKiemTra:kt'].forEach(function (p) { var k = p.split(':'); if (o[k[0]] == null && o[k[1]] != null) o[k[0]] = o[k[1]]; });
@@ -6577,7 +6622,20 @@ var HRCORE = (function () {
       log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + anh.length + ' ảnh → ' + dong.length + ' dòng' + (chu.length ? ' (OCR)' : ' (đọc nhanh)'));
       return { loaiChungTu: aiS(o.loaiChungTu, 40), loai: o.loai === 'nhap' || o.loai === 'xuat' ? o.loai : '', ngay: ngay, soCT: aiS(o.soCT, 80), doiTac: aiS(o.doiTac, 200), nguoiGiaoNhan: aiS(o.nguoiGiaoNhan, 120), hangMuc: aiS(o.hangMuc, 200),
         dong: dong, tongTien: sNum(o.tongTien), doTinCay: ['cao', 'trung bình', 'thấp'].indexOf(String(o.doTinCay || '').toLowerCase()) >= 0 ? String(o.doTinCay).toLowerCase() : '',
-        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: chu.join('\n\n').slice(0, 20000), demo: !!o.demo || demo };
+        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: req.chu ? '' : chu.join('\n\n').slice(0, 20000), tomTat: aiS(o.tt || o.tomTat, 600), demo: !!o.demo || demo };
+    };
+    /* v3.73: TỔNG HỢP NHẬP – XUẤT KHO – gom MỌI phiếu (mọi lần báo cáo kho) của các nhóm / công trình vào một bộ dữ liệu để lập báo cáo.
+       Quyền khoTH: mọi nhóm; người khác: các nhóm mình là thành viên. */
+    H['kho.tonghop'] = function (req, s) {
+      var tu = parseD(req.tu) ? req.tu : '0000-01-01', den = parseD(req.den) ? req.den : '9999-12-31';
+      var tatCa = can(s.role, 'khoTH'), cua = {};
+      if (!tatCa) T('ThanhVien').forEach(function (t) { if (t.username === s.username && !t.roi) cua[t.hoiThoai] = 1; });
+      var ten = {}; T('HoiThoai').forEach(function (h) { ten[h.id] = h.ten || ''; });
+      var ds = T('PhieuKho').filter(function (p) { return (tatCa || cua[p.hoiThoai]) && p.ngay >= tu && p.ngay <= den && (req.coHuy || p.trangThai !== 'Đã hủy'); })
+        .sort(function (a, b) { return a.ngay < b.ngay ? -1 : a.ngay > b.ngay ? 1 : (a.soPhieu < b.soPhieu ? -1 : 1); });
+      if (ds.length > 8000) ds = ds.slice(-8000);
+      var nhom = {}; ds.forEach(function (p) { nhom[p.hoiThoai] = ten[p.hoiThoai] || '(nhóm đã xóa)'; });
+      return { ds: ds.map(function (p) { var o = khoPub(p); o.tenNhom = nhom[p.hoiThoai]; delete o.msgId; return o; }), nhom: Object.keys(nhom).map(function (k) { return { id: k, ten: nhom[k] }; }), tatCa: tatCa, tu: tu, den: den };
     };
     H['chat.khods'] = function (req, s) {        // danh sách phiếu của nhóm theo kỳ (thành viên nhóm xem được)
       var c = chatCan(s, req.ht), tu = parseD(req.tu) ? req.tu : '', den = parseD(req.den) ? req.den : '';
@@ -10062,6 +10120,44 @@ var HRCORE = (function () {
       var out = kyData(ky); out.thieu = r.thieu; return out;
     };
 
+    /* v3.74: TÍNH LƯƠNG NGAY SAU CHẤM CÔNG (tạm tính) – bấm được ở mọi bước trước "Phê duyệt"; chưa có tạm ứng / phạt / ăn ca vẫn tính,
+       trả danh sách mục còn thiếu để chuyển sang các bước bổ sung trước khi khóa / trình Giám đốc. Không chuyển bước. */
+    function kiemTraKy(ky, k, thieu) {
+      var kt = kiemTraBoSung(buocKy(k), k.trangThai, T('ChamCong').filter(function (x) { return x.ky === ky; }));
+      kt.buoc.forEach(function (b) { b.nguoiTen = tenNguoi(b.nguoi); delete b.nguoi; });
+      kt.thieuCong = thieu || [];
+      var bl = T('BangLuong').filter(function (x) { return x.ky === ky; });
+      kt.huu = bl.length ? huuChuaXacMinh(ky, bl, T('NhanVien'), cfgTheoKy(getCfg(), ky)).map(function (n) { return n.hoTen; }) : [];
+      kt.duKhoa = !kt.conThieu && !kt.thieuCong.length && !kt.huu.length && bl.length > 0;
+      return kt;
+    }
+    function duocTamTinh(s, k) {
+      var b = buocHienTai(k), st = buocKy(k);
+      if (!b || b.loai === 'pheduyet') err('Kỳ lương đã trình duyệt / đã khóa – không tính lại.');
+      var bTL = buocTheoLoai(st, 'tinhluong');
+      if (!(laNguoiXuLy(s, b.nguoi) || (bTL && laNguoiXuLy(s, bTL.nguoi)) || s.role === 'giamdoc' || s.role === 'admin')) err('Chỉ người xử lý bước hiện tại, kế toán lương hoặc Giám đốc được tính lương.');
+      return b;
+    }
+    H['bl.tamtinh'] = function (req, s) {
+      var ky = req.ky; if (!validKy(ky)) err('Kỳ lương không hợp lệ.');
+      var k = kyRow(ky, true), b = duocTamTinh(s, k);
+      if (Array.isArray(req.rows) && req.rows.length && FIELDS_LOAI[b.loai] && b.loai !== 'vipham' && laNguoiXuLy(s, b.nguoi)) {   // lưu số đang nhập rồi tính (1 lần gọi)
+        if (num(req.ngayCongChuan) && (b.loai === 'chamcong' || b.loai === 'tinhluong')) k.ngayCongChuan = num(req.ngayCongChuan);
+        ccNguoi = s.hoTen || s.username; ghiCC(ky, b, req.rows); D('ChamCong');
+      }
+      if (!T('ChamCong').some(function (x) { return x.ky === ky; })) err('Chưa có dữ liệu chấm công kỳ ' + ky + '.');
+      var r = recalc(ky, s), kt = kiemTraKy(ky, k, r.thieu);
+      k.tamTinh = kt.tamTinh ? 1 : ''; D('KyLuong');
+      log(s, 'bl.tamtinh', ky + ': ' + r.bl.length + ' người' + (kt.conThieu ? ' (tạm tính, còn thiếu bổ sung)' : ''));
+      var out = kyData(ky); out.thieu = r.thieu; out.kiemTra = kt; return out;
+    };
+    H['bl.kiemtra'] = function (req, s) {        // chỉ đọc: danh sách mục còn thiếu (dùng khi Giám đốc phê duyệt nhanh)
+      var ky = req.ky; if (!validKy(ky)) err('Kỳ lương không hợp lệ.');
+      var k = kyRow(ky, true), thieu = [];
+      T('NhanVien').forEach(function (nv) { if (dangLamTrongKy(nv, ky) && !T('ChamCong').some(function (x) { return x.ky === ky && x.maNV === nv.maNV; })) thieu.push(nv.maNV + ' ' + nv.hoTen); });
+      return kiemTraKy(ky, k, thieu);
+    };
+
     H['ky.move'] = function (req, s) {
       var ky = req.ky; if (!validKy(ky)) err('Kỳ lương không hợp lệ.');
       var k = kyRow(ky, true), st = buocKy(k), from = k.trangThai, to = req.to;
@@ -10078,6 +10174,9 @@ var HRCORE = (function () {
         var rr = recalc(ky, s);
         if (rr.thieu.length) err('Còn ' + rr.thieu.length + ' người chưa có chấm công: ' + rr.thieu.slice(0, 5).join(', ') + '.');
         if (!rr.bl.length) err('Bảng lương trống.');
+        var ktG = kiemTraBoSung(st, from, T('ChamCong').filter(function (x) { return x.ky === ky; })), chuaL = ktG.buoc.filter(function (x) { return !x.xong; });
+        if (chuaL.length && !req.boQuaThieu) err('Còn bước bổ sung chưa thực hiện: ' + chuaL.map(function (x) { return x.ten + ' (' + x.muc.join(', ') + ')'; }).join('; ') + '. Chuyển sang các bước này để nhập trước khi khóa, hoặc xác nhận phê duyệt bỏ qua.');
+        if (chuaL.length) note = (note ? note + ' · ' : '') + 'Phê duyệt khi chưa thực hiện: ' + chuaL.map(function (x) { return x.ten; }).join(', ');
         b = { nguoi: ['r:' + s.role], loai: 'pheduyet' }; i = j - 1;
       }
       if (j === i + 1) {
@@ -10096,7 +10195,7 @@ var HRCORE = (function () {
           k.tongThuNhap = bl.reduce(function (t, x) { return t + num(x.tongThuNhap); }, 0);
           k.tongThucLinh = bl.reduce(function (t, x) { return t + num(x.thucLinh); }, 0);
           k.maKiemTra = env.hash(JSON.stringify(bl.map(function (x) { return [x.maNV, x.tongThuNhap, x.bhxh, x.thueTNCN, x.thucLinh]; }))).slice(0, 12).toUpperCase();
-          k.nguoiDuyet = s.hoTen || s.username; k.ngayDuyet = env.now();
+          k.nguoiDuyet = s.hoTen || s.username; k.ngayDuyet = env.now(); k.tamTinh = '';
           hd = viTriBuoc(st, from) < st.length - 1 ? 'Giám đốc phê duyệt (bỏ qua bước: ' + st.slice(viTriBuoc(st, from)).filter(function (x) { return x.loai !== 'pheduyet'; }).map(function (x) { return x.ten; }).join(', ') + ')' : 'Phê duyệt';
         } else hd = i === 0 ? 'Gửi' : (st[j].loai === 'pheduyet' ? 'Trình duyệt' : 'Chuyển');
       } else if (j < i) {
@@ -11008,7 +11107,7 @@ var HRCORE = (function () {
         soNguoi: Object.keys(nguoi).length };
     };
 
-    var READ_ONLY = ['bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
+    var READ_ONLY = ['bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
       'ping', 'log.list', 'cv.ocr', 'chat.init', 'chat.poll', 'chat.history', 'chat.file', 'chat.files',
       'ai.nhom', 'ai.thu', 'ai.models', 'ai.phantich', 'ai.taifile', 'gps.cuatoi', 'gps.ds', 'gps.anh', 'gps.tonghop', 'gps.ct.ds', 'ai.ds', 'ai.xem', 'ai.tep', 'ai.tepluu', 'ai.doctep', 'chat.nhatky', 'push.cuatoi', 'push.trangthai', 'cckt.ds', 'cckt.ai', 'vitri.ds', 'dgt.ds', 'dgt.xem', 'dgt.ai', 'dgt.cuatoi', 'bot.ds', 'bot.hoi', 'bot.nhatky'];   // phân tích AI chạy lâu: không giữ khóa ghi (chỉ ghi Drive, bộ nhớ đệm)
 
@@ -11036,7 +11135,7 @@ var HRCORE = (function () {
   return {
     VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, aiLoiNhacNgoai: aiLoiNhacNgoai, HD_DANSU: HD_DANSU, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, blGiaTri: blGiaTri, BL_THEM: BL_THEM, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
     BIEN_HT: BIEN_HT, matKhauTheoNV: matKhauTheoNV, tenBien: tenBien, xlMauTamUng: xlMauTamUng, docTamUng: docTamUng, docTien: docTien, docNgay: docNgay, nhanLoaiTU: nhanLoaiTU, dauVaoTinhLuong: dauVaoTinhLuong, astExcel: astExcel, ctExcel: ctExcel, cotXL: cotXL, xlBangTinh: xlBangTinh, xlBangLuongThang: xlBangLuongThang, xlNam: xlNam, xlCaNhan: xlCaNhan, xlChiPhi: xlChiPhi, sangXLSX: sangXLSX, khoanCo: khoanCo, amSangDuong: amSangDuong, lichLeTheoLuat: lichLeTheoLuat, cleanLe: cleanLe, LOAI_LE: LOAI_LE, KY_HIEU: KY_HIEU, DON_KH: DON_KH, ngayTheoDon: ngayTheoDon, cleanNgay: cleanNgay, tongHopNgay: tongHopNgay, NHOM_VP: NHOM_VP, thu: thu, ROLE_QL: ROLE_QL, normRole: normRole, tenDangNhap: tenDangNhap, ROLES_MOTA: ROLES_MOTA, BT_LOAI: BT_LOAI, CAM_XUC: CAM_XUC, memChat: memChat, CT_PHANLOAI: CT_PHANLOAI, CT_VAITRO: CT_VAITRO, CT_MAU: CT_MAU, nlvTrongKy: nlvTrongKy, bienNLV: bienNLV, CT_LUONG_MD: CT_LUONG_MD, BIEN_KY_MD: BIEN_KY_MD, CT_DONGBH_MD: CT_DONGBH_MD, BUOC_XONG: BUOC_XONG, LOAI_BUOC: LOAI_BUOC, FIELDS_LOAI: FIELDS_LOAI,
-    buocLuong: buocLuong, viTriBuoc: viTriBuoc, buocTheoLoai: buocTheoLoai, laNguoiXuLy: laNguoiXuLy, kiemTraQTLuong: kiemTraQTLuong,
+    buocLuong: buocLuong, viTriBuoc: viTriBuoc, buocTheoLoai: buocTheoLoai, kiemTraBoSung: kiemTraBoSung, MUC_BS: MUC_BS, laNguoiXuLy: laNguoiXuLy, kiemTraQTLuong: kiemTraQTLuong,
     CV_HUONG: CV_HUONG, CV_LOAI: CV_LOAI, CV_KHAN: CV_KHAN, CV_TT_DEN: CV_TT_DEN, CV_TT_DI: CV_TT_DI, CV_HET: CV_HET,
     CV_CS: CV_CS, CV_CS_OK: CV_CS_OK,
     DX_TT: DX_TT, DX_MO: DX_MO, DX_XONG: DX_XONG, QT_DX_MD: QT_DX_MD, NHOM_DX_MD: NHOM_DX_MD, DX_CACH: DX_CACH,
