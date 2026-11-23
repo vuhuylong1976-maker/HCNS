@@ -1217,6 +1217,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 .kho-th{position:relative}.ctg-tag{position:absolute;left:4px;top:4px;font-size:10px;line-height:1.4;padding:0 5px;border-radius:6px;background:rgba(22,101,52,.85);color:#fff;pointer-events:none}.ctg-tag:empty{display:none}.ctg-tag.trung{background:#b45309}.ctg-tag.loi{background:#6b7280}
 .kho-ls{list-style:none;padding:0;margin:6px 0}.kho-ls li{padding:6px 8px;border-left:3px solid var(--orange,#f97316);background:var(--soft,#f6f7f9);margin-bottom:4px;border-radius:4px}
 .zc.kho.xoa{opacity:.6}
+.bot-nhanh{color:#166534}.bot-ngoai{color:#9a3412}
 .tt-ds{list-style:none;padding:0;margin:8px 0 10px}.tt-ds li{padding:6px 8px 6px 30px;border-radius:8px;margin-bottom:4px;position:relative;background:var(--soft,#f6f7f9)}
 .tt-ds li:before{position:absolute;left:9px;top:6px;font-weight:700}.tt-ds .tt-ok:before{content:'✓';color:var(--ok,#1a7f37)}.tt-ds .tt-x:before{content:'✗';color:var(--bad,#c62828)}.tt-ds .tt-w:before{content:'!';color:var(--orange-d,#b45309)}
 </style>
@@ -1280,7 +1281,7 @@ label.ck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-spa
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.77';
+  var VERSION = '3.80';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1788,6 +1789,7 @@ var HRCORE = (function () {
   var DEFAULT_CFG = {
     congTy: 'CÔNG TY CỔ PHẦN TAPACO VIỆT NAM',
     anSinhNhat: false,                 // v3.70: true = ẩn sinh nhật CBCNV trên bảng tin
+    botAINgoai: true,                  // v3.80: trợ lý quy định – câu hỏi ngoài văn bản công ty thì AI trả lời theo kiến thức chung (false = không)
     phanQuyen: {},                                  // v3.8: bảng phân quyền tích chọn (rỗng = mặc định)
     diaChiCongTy: 'Hà Nội',
     mstCongTy: '',
@@ -6895,6 +6897,8 @@ var HRCORE = (function () {
         if (demo) return; var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { }
         if (x) chu += '\n\n=== ' + t.ten + ' (OCR) ===\n' + x.slice(0, 20000);
       });
+      var ocB = ocrAnhKem(anh, String(req.cach || ''));                   // v3.79: Google Drive OCR cho ảnh báo cáo
+      if (ocB.chu.length) chu += '\n\n=== CHỮ TỪ ẢNH BÁO CÁO (Google Drive OCR – có thể sai dấu, bảng bị tách dòng) ===\n' + ocB.chu.join('\n\n'); anh = ocB.giuAnh;
       if (!chu.trim() && !anh.length && !demo) err('Không đọc được nội dung tệp báo cáo.');
       var mau = (ch.mau || []).map(function (f) { return '- id "' + f.id + '": ' + f.ten + ' – ' + ({ so: 'số', chon: 'chọn 1 trong: ' + (f.luaChon || []).join(' / '), cokhong: 'Có / Không', ngay: 'ngày YYYY-MM-DD', dai: 'đoạn văn', bang: 'bảng [{"ten","so","dv"}] – dòng có sẵn: ' + (f.dong || []).map(function (d) { return d.ten + (d.dv ? ' (' + d.dv + ')' : ''); }).join(', ') + (f.them ? '; được thêm dòng khác' : '') }[f.kieu] || 'chữ ngắn'); }).join('\n');
       var he = 'Bạn là trợ lý ban chỉ huy công trường Công ty TAPACO. Đọc TỆP BÁO CÁO (chữ đã tách, ảnh) và điền vào MẪU BÁO CÁO ĐỊNH KỲ của nhóm. '
@@ -6916,7 +6920,7 @@ var HRCORE = (function () {
         } catch (e) { }
       });
       log(s, 'chat.bcai', m.tieuDe + ': điền ' + Object.keys(ra).length + ' mục');
-      return { giaTri: ra, tomTat: aiS(o.tt || o.tomTat, 4000), canKiemTra: aiDs(o.kt, 10).map(function (x) { return aiS(x, 150); }).filter(Boolean), demo: !!o.demo || demo };
+      return { giaTri: ra, tomTat: aiS(o.tt || o.tomTat, 4000), canKiemTra: aiDs(o.kt, 10).map(function (x) { return aiS(x, 150); }).filter(Boolean), demo: !!o.demo || demo, cach: ocB.cach, tOcr: ocB.tOcr, ocrLoi: ocB.loi, ocr: ocB.chu.join('\n\n').slice(0, 20000) };
     };
     /* ==================== v3.30: PHIẾU NHẬP / XUẤT KHO VẬT TƯ TRONG NHÓM CHAT ====================
        Thành viên nhóm (thủ kho, chỉ huy công trường…) lập phiếu nhập hoặc xuất kho kèm ảnh chụp / ảnh tải lên (hàng hóa, biên bản, hóa đơn).
@@ -7151,6 +7155,23 @@ var HRCORE = (function () {
       + 'Chỉ trả về MỘT đối tượng JSON GỌN (v3.68: mỗi dòng vật tư là MỘT MẢNG để trả lời nhanh): {"lct":"phiếu nhập kho|phiếu xuất kho|phiếu giao hàng|hóa đơn|biên bản giao nhận|khác","loai":"nhap|xuat|",'
       + '"ngay":"YYYY-MM-DD hoặc rỗng","soCT":"số chứng từ","doiTac":"nhà cung cấp / bên giao (phiếu nhập) hoặc đơn vị nhận (phiếu xuất)","ngn":"người giao nhận","hm":"hạng mục sử dụng (nếu có)",'
       + '"d":[["tên","quy cách","ĐVT",số lượng,đơn giá|null,thành tiền|null,"ghi chú"]],"tong":số|null,"tc":"cao|trung bình|thấp","kt":["dòng 3: số lượng mờ"],"tt":"tóm tắt chứng từ 1–3 câu: loại, số, bên giao/nhận, số dòng, tổng tiền"}. Không viết gì ngoài JSON, không xuống dòng thừa.';
+    /* v3.79: CÁCH ĐỌC ẢNH – 'drive': Google Drive OCR chuyển ảnh → chữ, AI chỉ sắp chữ vào bảng (không gửi ảnh, nhẹ & nhanh);
+       'ca2': OCR Drive + AI xem ảnh (kỹ nhất); 'anh': AI đọc thẳng ảnh. OCR lỗi / không ra chữ → tự chuyển sang AI đọc ảnh. */
+    function ocrAnhKem(anh, cach) {
+      var out = { chu: [], giuAnh: anh, cach: 'anh', tOcr: 0, loi: '' };
+      if (cach !== 'drive' && cach !== 'ca2') return out;
+      if (!env.ocrAnh) { out.loi = 'máy chủ chưa hỗ trợ OCR Google Drive'; return out; }
+      var t0 = Date.now(), ok = 0;
+      anh.forEach(function (a, i) {
+        var x = ''; try { x = lamSachChu(String(env.ocrAnh(a.data, a.mime) || '')); } catch (e) { out.loi = String(e && e.message || e).slice(0, 200); }
+        if (x.replace(/\s/g, '').length >= 20) { ok++; out.chu.push((anh.length > 1 ? '=== ẢNH ' + (i + 1) + ' ===\n' : '') + x.slice(0, 15000)); }
+      });
+      out.tOcr = Date.now() - t0;
+      if (ok === anh.length && ok) { out.cach = cach; if (cach === 'drive') out.giuAnh = []; }
+      else if (ok) out.cach = 'ca2';
+      else if (!out.loi) out.loi = 'không nhận ra chữ trong ảnh';
+      return out;
+    }
     H['chat.khoai'] = function (req, s) {
       var c = chatCan(s, req.ht);
       var ids = (Array.isArray(req.fileIds) ? req.fileIds : [req.fileId]).filter(Boolean).slice(0, 4);
@@ -7182,10 +7203,15 @@ var HRCORE = (function () {
         if (!demo && req.ocr && OCR_IMG.test(t.mime)) { var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { x = ''; } if (x.replace(/\s/g, '').length >= 10) chu.push((ids.length > 1 ? '=== ẢNH ' + (i + 1) + ' ===\n' : '') + x.slice(0, 15000)); }
         anh.push({ nhan: 'Ảnh ' + (i + 1) + ' – chứng từ kho:', mime: t.mime, data: f.data });
       });
+      var oc = inl.length ? ocrAnhKem(anh, String(req.cach || '')) : { chu: [], giuAnh: anh, cach: ids.length && req.ocr ? 'ca2' : 'anh', tOcr: 0, loi: '' };
+      var chuOcr = oc.chu; anh = oc.giuAnh;
       var nd = 'Nhóm / công trình: ' + aiTenHT(c.h) + '. Ngày hôm nay: ' + env.today() + '.\n'
         + (req.loai === 'xuat' ? 'Người dùng đang lập PHIẾU XUẤT KHO.\n' : req.loai === 'nhap' ? 'Người dùng đang lập PHIẾU NHẬP KHO.\n' : '')
-        + (chu.length ? (anh.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' : '=== NỘI DUNG CHỨNG TỪ (từ tệp) ===\n') + chu.join('\n\n') : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+        + (chuOcr.length ? (anh.length ? '=== CHỮ GOOGLE DRIVE OCR – đối chiếu với ảnh ===\n' : '=== CHỮ NHẬN DẠNG TỪ ẢNH CHỨNG TỪ (Google Drive OCR) – không có ảnh; chữ có thể sai dấu, bảng có thể bị tách cột thành từng dòng: ghép lại theo thứ tự cột (tên, quy cách, ĐVT, số lượng, đơn giá, thành tiền) ===\n') + chuOcr.join('\n\n') + '\n\n' : '')
+        + (chu.length ? (anh.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' : '=== NỘI DUNG CHỨNG TỪ (từ tệp) ===\n') + chu.join('\n\n') : chuOcr.length ? '' : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+      var tAi0 = Date.now();
       var o = aiO(aiGoi({ he: KHO_HE, nd: nd, anh: anh, maxTok: 2000, nhanh: true, loai: 'phieukho', duLieu: { demo: demo, loai: req.loai || '' } }));
+      var tAi = Date.now() - tAi0;
       if (Array.isArray(o.d)) o.dong = o.d.map(function (x) { return Array.isArray(x) ? { ten: x[0], quyCach: x[1], dv: x[2], sl: x[3], donGia: x[4], thanhTien: x[5], ghiChu: x[6] } : x; });   // dạng gọn → dạng đầy đủ
       ['loaiChungTu:lct', 'nguoiGiaoNhan:ngn', 'hangMuc:hm', 'tongTien:tong', 'doTinCay:tc', 'canKiemTra:kt'].forEach(function (p) { var k = p.split(':'); if (o[k[0]] == null && o[k[1]] != null) o[k[0]] = o[k[1]]; });
       var sNum = function (v) { if (v == null || v === '') return null; if (typeof v === 'number') return isFinite(v) ? v : null; var t = String(v).replace(/[^\d.,-]/g, ''); if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.'); else t = t.replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'); var n = parseFloat(t); return isFinite(n) ? n : null; };
@@ -7193,10 +7219,11 @@ var HRCORE = (function () {
         var sl = sNum(d.sl), dg = sNum(d.donGia), tt = sNum(d.thanhTien);
         return { ten: ten, quyCach: aiS(d.quyCach, 120), dv: aiS(d.dv, 20), sl: sl != null && sl > 0 ? Math.round(sl * 1000) / 1000 : '', donGia: dg != null && dg > 0 ? Math.round(dg) : '', thanhTien: tt != null && tt > 0 ? Math.round(tt) : '', ghiChu: aiS(d.ghiChu, 200) }; }).filter(Boolean);
       var ngay = parseD(o.ngay) && o.ngay <= env.today() ? o.ngay : '';
-      log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + anh.length + ' ảnh → ' + dong.length + ' dòng' + (chu.length ? ' (OCR)' : ' (đọc nhanh)'));
+      log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + (inl.length || ids.length) + ' ảnh → ' + dong.length + ' dòng (' + ({ drive: 'Drive OCR', ca2: 'OCR + ảnh', anh: 'AI đọc ảnh' })[oc.cach] + ')');
       return { loaiChungTu: aiS(o.loaiChungTu, 40), loai: o.loai === 'nhap' || o.loai === 'xuat' ? o.loai : '', ngay: ngay, soCT: aiS(o.soCT, 80), doiTac: aiS(o.doiTac, 200), nguoiGiaoNhan: aiS(o.nguoiGiaoNhan, 120), hangMuc: aiS(o.hangMuc, 200),
         dong: dong, tongTien: sNum(o.tongTien), doTinCay: ['cao', 'trung bình', 'thấp'].indexOf(String(o.doTinCay || '').toLowerCase()) >= 0 ? String(o.doTinCay).toLowerCase() : '',
-        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: req.chu ? '' : chu.join('\n\n').slice(0, 20000), tomTat: aiS(o.tt || o.tomTat, 600), demo: !!o.demo || demo };
+        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: req.chu ? '' : chuOcr.concat(chu).join('\n\n').slice(0, 20000), tomTat: aiS(o.tt || o.tomTat, 600), demo: !!o.demo || demo,
+        cach: oc.cach, tOcr: oc.tOcr, tAi: tAi, ocrLoi: oc.loi };
     };
     /* v3.73: TỔNG HỢP NHẬP – XUẤT KHO – gom MỌI phiếu (mọi lần báo cáo kho) của các nhóm / công trình vào một bộ dữ liệu để lập báo cáo.
        Quyền khoTH: mọi nhóm; người khác: các nhóm mình là thành viên. */
@@ -11340,7 +11367,8 @@ var HRCORE = (function () {
     var BOT_DUNG = { cua: 1, la: 1, co: 1, the: 1, nao: 1, gi: 1, va: 1, cho: 1, duoc: 1, bao: 1, toi: 1, minh: 1,
       khi: 1, thi: 1, ma: 1, voi: 1, trong: 1, den: 1, nhu: 1, sao: 1, can: 1, phai: 1, se: 1, da: 1, dang: 1,
       hay: 1, hoac: 1, ve: 1, moi: 1, nay: 1, do: 1, day: 1, mot: 1, nhung: 1, cac: 1, vay: 1, a: 1, ah: 1,
-      em: 1, anh: 1, chi: 1, xin: 1, hoi: 1, khong: 1, ty: 1, ra: 1, vao: 1, lam: 1, nguoi: 1, muon: 1 };
+      em: 1, anh: 1, chi: 1, xin: 1, hoi: 1, khong: 1, ty: 1, ra: 1, vao: 1, lam: 1, nguoi: 1, muon: 1,
+      nhieu: 1, dau: 1, tuc: 1, giup: 1, gium: 1, oi: 1, biet: 1, hien: 1, nhi: 1, nhe: 1 };   // v3.80: thêm từ để hỏi (bao nhiêu, ở đâu, thủ tục…)
 
     function botQuyen(s) { if (BOT_ROLES_QD.indexOf(s.role) < 0) err('Chỉ Giám đốc, TCHC hoặc Quản trị được sửa quy định của trợ lý.'); }
     function botSD(v, n) { return String(v == null ? '' : v).replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/[ \t\u00a0]+/g, ' ').trim(); }).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, n); }   // v3.57: giữ xuống dòng
@@ -11461,6 +11489,65 @@ var HRCORE = (function () {
     };
 
     /* hỏi bot: chỉ đọc, không giữ khóa ghi (gọi AI chạy lâu). Trình duyệt ghi nhật ký sau bằng bot.ghi */
+    /* ===== v3.80: TRA CỨU NHANH KHÔNG CẦN AI =====
+       Câu hỏi được tra thẳng trong mục quy định + văn bản gốc đã tải lên (chữ đã trích sẵn trong bộ đệm): chia văn bản theo Điều / đoạn,
+       chấm điểm theo âm tiết (bỏ dấu) có trọng số hiếm-gặp (idf) + cụm 2 âm tiết, trả NGUYÊN VĂN đoạn khớp nhất kèm nguồn – tính bằng mili giây.
+       Chỉ khi văn bản công ty KHÔNG có nội dung liên quan mới hỏi AI bằng kiến thức chung (ghi rõ không phải quy định công ty). */
+    var BOT_NHANH_PHU = 0.55;
+    function botDoanVB(t, nhan) {           // chia văn bản → các đoạn (theo Điều; Điều dài thì theo đoạn, giữ tiêu đề Điều)
+      var dong = String(t || '').split('\n'), khoi = [], cur = { tieu: '', ds: [] };
+      var laTieu = function (x) { return /^\s*(Điều|ĐIỀU)\s+\d+|^\s*(Chương|CHƯƠNG|Mục|MỤC)\s+[IVXLC\d]+/.test(x); };
+      dong.forEach(function (x) { if (laTieu(x)) { if (cur.ds.length || cur.tieu) khoi.push(cur); cur = { tieu: x.trim().slice(0, 160), ds: [] }; } else cur.ds.push(x); });
+      khoi.push(cur);
+      var out = [];
+      khoi.forEach(function (k) {
+        var than = k.ds.join('\n').replace(/\n{3,}/g, '\n\n').trim(); if (!than && !k.tieu) return;
+        if ((k.tieu + than).length <= 2200) { out.push({ nguon: nhan, tieu: k.tieu, chu: (k.tieu ? k.tieu + '\n' : '') + than }); return; }
+        var p = than.split(/\n\s*\n/), gom = '';
+        p.forEach(function (x) { if ((gom + x).length > 1400 && gom) { out.push({ nguon: nhan, tieu: k.tieu, chu: (k.tieu ? k.tieu + ' (trích)\n' : '') + gom.trim() }); gom = ''; } gom += x + '\n\n'; });
+        if (gom.trim()) out.push({ nguon: nhan, tieu: k.tieu, chu: (k.tieu ? k.tieu + ' (trích)\n' : '') + gom.trim() });
+      });
+      return out;
+    }
+    function botTraNhanh(hoi, tuHoi, qd, vb) {
+      var ds = [];
+      qd.forEach(function (x) { ds.push({ nguon: x.tieuDe + (x.vanBan ? ' (' + x.vanBan + ')' : ''), tieu: x.tieuDe, chu: x.noiDung, them: x.tieuDe + ' ' + x.tieuDe + ' ' + (x.nhom || ''), qd: x }); });
+      vb.forEach(function (v) { var t = ''; try { t = botNapChu(v, false); } catch (e) { t = ''; } if (t) botDoanVB(t, botVBNhan(v)).forEach(function (o) { o.vb = v; ds.push(o); }); });
+      if (!ds.length) return null;
+      var q = []; tuHoi.forEach(function (w) { if (q.indexOf(w) < 0) q.push(w); });
+      if (!q.length) return null;
+      ds.forEach(function (o) { var tv = botTu(((o.them || '') + ' ' + o.chu).replace(/%/g, ' phan tram ')), co = {}, bg = {}; for (var i = 0; i < tv.length; i++) { co[tv[i]] = 1; if (i) bg[tv[i - 1] + ' ' + tv[i]] = 1; } o.co = co; o.bg = bg; o.len = tv.length; });
+      var N = ds.length, idf = {};
+      var vang = [];
+      q.forEach(function (w) { var df = 0; ds.forEach(function (o) { if (o.co[w]) df++; }); if (!df) vang.push(w); else idf[w] = Math.log(1 + (N - df + 0.5) / (df + 0.5)); });
+      var tb = 0, nc = 0; Object.keys(idf).forEach(function (w) { tb += idf[w]; nc++; }); tb = nc ? tb / nc : 1;
+      vang.forEach(function (w) { idf[w] = Math.max(tb, 0.8); });   // từ không có trong văn bản nào: tính bằng mức trung bình → kéo độ phủ xuống vừa phải
+      var tong = q.reduce(function (t, w) { return t + idf[w]; }, 0);
+      ds.forEach(function (o) {
+        var m = 0, n = 0; q.forEach(function (w) { if (o.co[w]) { m += idf[w]; n++; } });
+        var b = 0; for (var i = 1; i < tuHoi.length; i++) if (o.bg[tuHoi[i - 1] + ' ' + tuHoi[i]]) b += (idf[tuHoi[i - 1]] + idf[tuHoi[i]]) / 2;
+        var tieu = o.tieu ? botKhop(tuHoi, o.tieu + ' ' + (o.qd ? o.qd.nhom || '' : '')).phu : 0;
+        o.phu = tong ? m / tong : 0; o.n = n;
+        o.diem = m + 1.2 * b + 3 * tieu - 0.4 * Math.log(1 + o.len / 300);
+      });
+      ds.sort(function (a, b) { return b.diem - a.diem; });
+      var top = ds[0], can = Math.min(2, q.length);
+      var dat = top.phu >= BOT_NHANH_PHU && top.n >= can;
+      if (!dat) return { dat: false, goiY: ds.filter(function (o) { return o.phu >= 0.35 && o.n >= 1; }).slice(0, 3).map(function (o) { return o.nguon + (o.tieu && o.tieu !== o.nguon ? ' – ' + o.tieu : ''); }), phu: top.phu };
+      var lay = [top], conLai = 2400 - top.chu.length;
+      ds.slice(1, 8).forEach(function (o) { if (lay.length < 3 && o.diem >= top.diem * 0.7 && o.phu >= BOT_NHANH_PHU * 0.9 && o.chu.length < conLai && lay.indexOf(o) < 0) { lay.push(o); conLai -= o.chu.length; } });
+      var nguon = [], txt = lay.map(function (o) {
+        var nh = o.nguon + (o.vb && o.tieu ? ' – ' + o.tieu.replace(/\s+/g, ' ').slice(0, 90) : '');
+        if (nguon.indexOf(nh) < 0) nguon.push(nh);
+        var noi = o.qd ? botDoanLQ(o.qd.noiDung, tuHoi, 1800) + (o.qd.lienKet ? '\n(Liên kết: ' + o.qd.lienKet + ')' : '') : botDoanLQ(o.chu, tuHoi, 1800);
+        return '📄 ' + (o.vb && o.tieu && noi.indexOf(o.tieu) === 0 ? o.nguon : nh) + '\n' + noi;
+      }).join('\n\n');
+      return { dat: true, traLoi: txt, nguon: nguon, nhom: top.qd ? top.qd.nhom || '' : (top.vb && top.vb.nhom) || '', phu: top.phu };
+    }
+    var BOT_NGOAI_HE = 'Bạn là trợ lý của Công ty CP TAPACO Việt Nam (xây dựng hạ tầng, dân dụng, công nghiệp). Câu hỏi này KHÔNG có trong văn bản quy định của công ty. '
+      + 'Trả lời bằng KIẾN THỨC CHUNG: pháp luật Việt Nam (lao động, BHXH, thuế TNCN, xây dựng, an toàn lao động…), kỹ thuật – nghiệp vụ xây dựng, kiến thức phổ thông. '
+      + 'Ngắn gọn, tối đa khoảng 180 từ, gạch đầu dòng, tiếng Việt. Nếu câu hỏi hỏi về chế độ / mức tiền / thủ tục / mẫu đơn RIÊNG của công ty thì KHÔNG đoán: nói rõ công ty chưa có văn bản về việc này trong hệ thống, đề nghị hỏi phòng TCHC; có thể nêu quy định pháp luật chung liên quan. '
+      + 'Dẫn luật thì ghi tên, số văn bản và nhắc người hỏi kiểm tra văn bản còn hiệu lực. Không bịa số liệu. Chỉ trả về nội dung trả lời (văn bản thường, không JSON).';
     H['bot.hoi'] = function (req, s) {
       var hoi = botS(req.hoi, 500);
       if (hoi.length < 5) err('Xin nhập câu hỏi rõ hơn (ít nhất 5 ký tự).');
@@ -11470,9 +11557,24 @@ var HRCORE = (function () {
           traLoi: 'Hệ thống chưa có quy định nào được nhập. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời, và đề nghị TCHC nhập quy chế công ty vào mục "Quy định công ty" của trợ lý.' };
       }
       var tuHoi = botTu(hoi), tg0 = Date.now();
-      var kTL = env.dem ? 'bh2_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan()).slice(0, 40) : '';
+      var kTL = env.dem ? 'bh3_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan() + (req.ai ? '|ai' : '')).slice(0, 40) : '';
       if (kTL) { var daCo = env.dem.lay(kTL); if (daCo) { try { var kq0 = JSON.parse(daCo); kq0.daDem = true; return kq0; } catch (e) { } } }   // v3.55: câu hỏi đã trả lời → trả ngay
       var luuTL = function (kq) { if (kTL && kq && kq.daTraLoi) env.dem.cat(kTL, JSON.stringify(kq), 21600); kq.ms = Date.now() - tg0; return kq; };
+      var cfgB = getCfg();
+      if (!req.ai) {                                   // v3.80: tra cứu nhanh trong văn bản – không gọi AI
+        var tn = botTraNhanh(hoi, tuHoi, qd, vb);
+        if (tn && tn.dat) return luuTL({ daTraLoi: true, dungAI: false, cheDo: 'tracuu', nguon: tn.nguon, nhom: tn.nhom, doKhop: Math.round(tn.phu * 100), traLoi: tn.traLoi });
+        var goiY = tn ? tn.goiY || [] : [];
+        if (cfgB.botAINgoai !== false && cfgB.botAINgoai !== 'false' && env.ai && env.ai.trangThai().coKhoa) {     // ngoài văn bản công ty → AI kiến thức chung (chỉ gửi câu hỏi)
+          try {
+            var tl = String(env.ai.goi({ he: BOT_NGOAI_HE, nd: 'CÂU HỎI: ' + hoi, anh: [], maxTok: 700, nhanh: true, loai: 'botngoai', duLieu: { hoi: hoi } }) || '').replace(/^```\w*|```$/g, '').trim().slice(0, 4000);
+            if (tl) return luuTL({ daTraLoi: true, dungAI: true, cheDo: 'ngoai', nguon: ['Kiến thức chung (AI) – không phải quy định công ty'], nhom: '', thieu: hoi, goiY: goiY,
+              traLoi: tl + (goiY.length ? '\n\nVăn bản công ty có thể liên quan (chưa khớp rõ): ' + goiY.join('; ') + '.' : '') });
+          } catch (e) { }
+        }
+        return { daTraLoi: false, dungAI: false, cheDo: 'khong', nguon: [], nhom: '', thieu: hoi, goiY: goiY, ms: Date.now() - tg0,
+          traLoi: 'Chưa tìm thấy nội dung này trong quy định / văn bản công ty đã đưa vào hệ thống.' + (goiY.length ? ' Văn bản có thể liên quan: ' + goiY.join('; ') + '.' : '') + ' Đề nghị Anh/Chị liên hệ phòng TCHC; câu hỏi đã được ghi nhận để TCHC bổ sung.' };
+      }
 
       /* chọn nguồn liên quan: toàn bộ mục quy định ngắn (xếp theo điểm), và tối đa 3 văn bản gốc liên quan nhất */
       var qdXep = qd.map(function (x) {
@@ -11699,7 +11801,7 @@ var HRCORE = (function () {
         soNguoi: Object.keys(nguoi).length };
     };
 
-    var READ_ONLY = ['ctg.kiem', 'ctg.tai', 'ctg.ds', 'bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
+    var READ_ONLY = ['chat.khoai', 'chat.bcai', 'ctg.kiem', 'ctg.tai', 'ctg.ds', 'bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
       'ping', 'log.list', 'cv.ocr', 'chat.init', 'chat.poll', 'chat.history', 'chat.file', 'chat.files',
       'ai.nhom', 'ai.thu', 'ai.models', 'ai.phantich', 'ai.taifile', 'gps.cuatoi', 'gps.ds', 'gps.anh', 'gps.tonghop', 'gps.ct.ds', 'ai.ds', 'ai.xem', 'ai.tep', 'ai.tepluu', 'ai.doctep', 'chat.nhatky', 'push.cuatoi', 'push.trangthai', 'cckt.ds', 'cckt.ai', 'vitri.ds', 'dgt.ds', 'dgt.xem', 'dgt.ai', 'dgt.cuatoi', 'bot.ds', 'bot.hoi', 'bot.nhatky'];   // phân tích AI chạy lâu: không giữ khóa ghi (chỉ ghi Drive, bộ nhớ đệm)
 
@@ -11986,6 +12088,7 @@ const DEMO_AI = {
     if (o.loai === 'tong1') return JSON.stringify(demoTong1(d));
     if (o.loai === 'cckt') return JSON.stringify(demoCCKT(d));
     if (o.loai === 'bot') return JSON.stringify(demoBot(o));
+    if (o.loai === 'botngoai') return '- (BẢN DÙNG THỬ – câu trả lời mẫu) Câu hỏi không có trong văn bản công ty; bản thật AI trả lời theo kiến thức chung.\n- Với vấn đề pháp luật: tham khảo Bộ luật Lao động 2019 và văn bản hướng dẫn còn hiệu lực (mẫu).';
     if (o.loai === 'congvan') return JSON.stringify(demoCV(o));
     if (o.loai === 'bctep') { const gt = {}; (d.mau || []).forEach(f => { if (f.kieu === 'so') gt[f.id] = 18; else if (f.kieu === 'text' || f.kieu === 'dai') gt[f.id] = '(mẫu) Nội dung đọc từ tệp báo cáo'; else if (f.kieu === 'bang' && (f.dong || [])[0]) gt[f.id] = [{ ten: f.dong[0].ten, so: 42, dv: f.dong[0].dv || '' }]; });
       return JSON.stringify({ demo: true, gt, tt: 'BẢN DÙNG THỬ – tóm tắt mô phỏng (mẫu):\n- Nhân lực 18 người\n- Đổ bê tông trụ T3: 42 m³\n- Thiết bị: cẩu 25T, máy bơm', kt: ['BẢN DÙNG THỬ: AI mô phỏng không đọc tệp thật – các ô là DỮ LIỆU MẪU.'] }); }
@@ -12122,7 +12225,7 @@ const MOCK = (() => {
       chat: C.memChat(st.t.TinNhan = st.t.TinNhan || [], CHAT_MEM),
       lichTrongPoll: true,
       sheetUrl: () => '',
-      luuTru: demoDrive(st), ai: DEMO_AI, ocr: () => 'CHỮ OCR MẪU – bản dùng thử không nhận dạng chữ thật từ tệp vừa tải lên (mẫu).\nSỞ GIAO THÔNG VẬN TẢI (mẫu)\nSố: 1234/SGTVT-QLCL (mẫu)\nV/v rà soát công tác an toàn giao thông, an toàn lao động trên công trường (mẫu)\nKính gửi: Công ty Cổ phần TAPACO Việt Nam (mẫu)\nĐề nghị Công ty báo cáo kết quả rà soát trước ngày … (mẫu).', tam: { get: k => DEMO_TAM[k] ? JSON.parse(DEMO_TAM[k]) : null, put: (k, v) => { DEMO_TAM[k] = JSON.stringify(v); } },
+      luuTru: demoDrive(st), ai: DEMO_AI, ocrAnh: () => 'PHIẾU GIAO HÀNG (mẫu) Số: GH-0123\nCông ty VLXD Minh Phát (mẫu)\nSTT Tên hàng ĐVT Số lượng Đơn giá Thành tiền\n1 Thép cuộn D8 kg 1.250 15.200 19.000.000\n2 Xi măng PCB40 tấn 12,5 1.450.000 18.125.000\n3 Đá dăm 1x2 m3 20 380.000 7.600.000\n(bản dùng thử – chữ OCR mẫu, không nhận dạng ảnh thật)', ocr: () => 'CHỮ OCR MẪU – bản dùng thử không nhận dạng chữ thật từ tệp vừa tải lên (mẫu).\nSỞ GIAO THÔNG VẬN TẢI (mẫu)\nSố: 1234/SGTVT-QLCL (mẫu)\nV/v rà soát công tác an toàn giao thông, an toàn lao động trên công trường (mẫu)\nKính gửi: Công ty Cổ phần TAPACO Việt Nam (mẫu)\nĐề nghị Công ty báo cáo kết quả rà soát trước ngày … (mẫu).', tam: { get: k => DEMO_TAM[k] ? JSON.parse(DEMO_TAM[k]) : null, put: (k, v) => { DEMO_TAM[k] = JSON.stringify(v); } },
       files: {
         put: f => { const id = 'demo' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); MOCK_FILES[id] = f.data; try { localStorage.setItem('tphr_f_' + id, f.data); } catch (e) { if (APP.api === '' && Object.keys(MOCK_FILES).length > 30) throw new Error('Bộ nhớ trình duyệt của bản dùng thử đã đầy. Bản chính thức lưu trên Google Drive.'); } return id; },
         get: id => { let d = MOCK_FILES[id]; if (!d) { try { d = localStorage.getItem('tphr_f_' + id); } catch (e) { } } return d ? { data: d } : null; },
@@ -14231,6 +14334,16 @@ const khoSL = v => (Math.round(num(v) * 1000) / 1000).toLocaleString('vi-VN', { 
 const CTG_MAX_MB = 10;
 async function ctgSha(f) { try { if (!crypto || !crypto.subtle) return ''; const h = await crypto.subtle.digest('SHA-256', await f.arrayBuffer()); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join(''); } catch (e) { return ''; } }
 function ctgMime(f) { const d = ((f.name.match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase(); return f.type || ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heif', webp: 'image/webp', pdf: 'application/pdf', docx: MIME_DOCX, xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel' })[d] || 'application/octet-stream'; }
+/* v3.78: bản gốc tải lên SAU khi AI đã đọc xong (nhường đường truyền cho AI), lần lượt từng tệp */
+let CTG_Q = Promise.resolve();
+function ctgXepHang(sau, f, ht, loai) { const p = CTG_Q.then(() => Promise.resolve(sau).catch(() => 0)).then(() => ctgTai(f, ht, loai)); CTG_Q = p.catch(() => 0); return p; }
+function aiKhoiDong() { try { if (!KHO_AM) { KHO_AM = 1; api('ping', {}, { quiet: true }).catch(() => 0).finally(() => setTimeout(() => KHO_AM = 0, 240000)); } } catch (e) { } }   // đánh thức máy chủ trước khi chụp
+let KHO_AM = 0;
+/* v3.79: CÁCH ĐỌC ẢNH – mặc định Google Drive OCR chuyển ảnh thành chữ rồi AI sắp vào bảng (không gửi ảnh cho AI) */
+const CACH_DOC = { drive: 'Google Drive OCR → AI điền bảng (nhanh)', ca2: 'Drive OCR + AI xem ảnh (kỹ nhất)', anh: 'AI đọc thẳng ảnh' };
+const cachDoc = () => { try { const v = localStorage.getItem('tphr_cachdoc'); return CACH_DOC[v] ? v : 'drive'; } catch (e) { return 'drive'; } };
+function cachDocHTML(id) { return `<label class="small" style="display:inline-flex;gap:4px;align-items:center">Đọc bằng <select id="${id}" class="sm" onchange="try{localStorage.setItem('tphr_cachdoc',this.value)}catch(e){}">${Object.keys(CACH_DOC).map(k => `<option value="${k}"${cachDoc() === k ? ' selected' : ''}>${CACH_DOC[k]}</option>`).join('')}</select></label>`; }
+function cachDocTxt(r) { if (!r || !r.cach) return ''; const g = x => (x / 1000).toFixed(1).replace('.', ','); return ({ drive: 'Google Drive OCR', ca2: 'Drive OCR + AI xem ảnh', anh: 'AI đọc ảnh' })[r.cach] + (r.cach !== 'anh' && r.tOcr != null ? ` (OCR ${g(r.tOcr)} s · AI ${g(r.tAi || 0)} s)` : r.tAi ? ` (AI ${g(r.tAi)} s)` : '') + (r.ocrLoi && r.cach === 'anh' && cachDoc() !== 'anh' ? ' – OCR Drive chưa dùng được: ' + r.ocrLoi + ', đã chuyển sang AI đọc ảnh' : ''); }
 async function ctgTai(f, ht, loai) {             // → { id, trung } | null (bản gốc quá lớn)
   if (f.size > CTG_MAX_MB * 1048576) { toast('"' + f.name + '": bản gốc ' + (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB > ' + CTG_MAX_MB + ' MB – chỉ lưu bản nén.', 'err'); return null; }
   const [sha, data] = await Promise.all([ctgSha(f), btB64(f)]);
@@ -14263,7 +14376,7 @@ async function khoGoiY(htId) {     // gợi ý tên vật tư, đơn vị từ c
     if ($('khoDV')) $('khoDV').innerHTML = [...new Set([...dv, 'kg', 'tấn', 'm', 'm2', 'm3', 'cây', 'bao', 'cái', 'bộ', 'thùng', 'lít', 'cuộn', 'tấm', 'viên'])].map(t => `<option value="${esc(t)}">`).join('');
   } catch (e) { }
 }
-function chKhoForm(loai) {
+function chKhoForm(loai) { aiKhoiDong();
   const h = CH.ht[CH.sel]; if (!h) return;
   KHO.anh = []; KHO.tep = []; KHO.dang = 0; KHO.sua = null; loai = loai || 'nhap';
   modal('Phiếu nhập / xuất kho – ' + chTen(h), `<div class="seg" style="margin-bottom:8px;display:flex;gap:24px">${['nhap', 'xuat'].map(k => `<label class="ck"><input type="radio" name="khoLoai" value="${k}"${k === loai ? ' checked' : ''} onchange="khoLoaiDoi()"> <b>${KHO_LOAI[k]}</b></label>`).join(' ')}</div>
@@ -14276,6 +14389,7 @@ function chKhoForm(loai) {
     <div class="sec">Ảnh hàng hóa, biên bản, hóa đơn</div>
     <div class="bar"><label class="btn pri sm">📷 Chụp ảnh<input type="file" accept="image/*" capture="environment" class="hide" onchange="khoAnhChon(this)"></label><label class="btn sm">🖼 Tải ảnh lên<input type="file" accept="image/*" multiple class="hide" onchange="khoAnhChon(this)"></label><label class="btn sm">📎 Tải tệp (PDF, Word, Excel)<input type="file" id="khoTepIn" multiple class="hide" accept="application/pdf,.docx,.xls,.xlsx,.txt,image/*" onchange="khoTepChon(this)"></label><span class="muted small" id="khoAnhSt">Tối đa 12 ảnh; ảnh được nén trước khi gửi.</span></div>
     <div class="bar" style="margin-top:4px"><label class="ck small"><input type="checkbox" id="khoAIon" ${KHO.aiTat ? '' : 'checked'} onchange="KHO.aiTat=!this.checked"> ${typeof AI_IC !== 'undefined' ? AI_IC : '🤖'} Ảnh phiếu / hóa đơn / biên bản: tự đọc (OCR + AI) và <b>điền bảng vật tư</b></label>
+      ${cachDocHTML('khoCach')}
       <button class="btn sm" type="button" id="khoAIbtn" onclick="khoAIDoc(null,true)" style="display:none" title="Đọc lại tất cả ảnh, có thêm nhận dạng chữ (OCR) – chậm hơn, dùng khi chữ khó đọc">Đọc kỹ (OCR) tất cả ảnh → điền lại bảng</button></div>
     <div id="khoAIst" class="small"></div>
     <div id="khoAnh" class="kho-anh"></div><div id="khoTepDS"></div>
@@ -14296,18 +14410,20 @@ async function khoAnhChon(inp) {
     if (KHO.anh.length >= 12) { toast('Tối đa 12 ảnh mỗi phiếu.', 'err'); return; }
     if (!/^image\//.test(f.type)) { toast('"' + f.name + '" không phải ảnh.', 'err'); return; }
     const x = { id: 'k' + Date.now() + Math.random(), ten: f.name, dang: true, tt: i }; KHO.anh.push(x); KHO.dang++; khoAnhVe();
-    KHO.dang++; x.gocDang = true;                       // v3.76: bản gốc (không nén) → chứng từ gốc trên Drive, chạy song song
-    ctgTai(f, htId, 'kho').then(g => { if (g) { x.goc = g.id; x.trung = g.trung; if ((g.trung || []).length) khoTrungBao(x); } else x.gocLoi = 'quá lớn'; })
-      .catch(e => { x.gocLoi = e.message; toast('Chưa lưu được bản gốc "' + f.name + '": ' + e.message, 'err'); })
-      .finally(() => { x.gocDang = false; KHO.dang--; khoAnhVe(); });
+    KHO.dang++; x.gocDang = true;
+    let aiXong = Promise.resolve();
     try {
       const a = await chNen(f);
       Object.assign(x, { url: 'data:' + a.mime + ';base64,' + a.data, w: a.w || 0, h: a.h || 0 }); khoAnhVe();
-      if (doc && /^image\/(jpeg|png|webp)$/.test(a.mime)) khoAIDocNhanh(x, a);
+      if (doc && /^image\/(jpeg|png|webp)$/.test(a.mime)) aiXong = khoAIDocNhanh(x, a);   // v3.78: AI đọc trước, ưu tiên đường truyền
+      // v3.76: bản gốc (không nén) → chứng từ gốc trên Drive; v3.78: xếp hàng sau khi AI đọc xong
+      ctgXepHang(aiXong, f, htId, 'kho').then(g => { if (g) { x.goc = g.id; x.trung = g.trung; if ((g.trung || []).length) khoTrungBao(x); } else x.gocLoi = 'quá lớn'; })
+        .catch(e => { x.gocLoi = e.message; toast('Chưa lưu được bản gốc "' + f.name + '": ' + e.message, 'err'); })
+        .finally(() => { x.gocDang = false; KHO.dang--; khoAnhVe(); });
       const up = await api('chat.upload', { ht: htId, file: { name: a.name || f.name, mime: a.mime, data: a.data, thumb: a.thumb || '' } }, { quiet: true });
       Object.assign(x, { fileId: up.fileId, dang: false });
       CH.img[up.fileId] = { url: x.url, mime: a.mime, name: f.name };
-    } catch (e) { toast(e.message, 'err'); KHO.anh = KHO.anh.filter(y => y !== x); }
+    } catch (e) { toast(e.message, 'err'); KHO.anh = KHO.anh.filter(y => y !== x); if (x.gocDang && !x.url) { x.gocDang = false; KHO.dang--; } }
     KHO.dang--; khoAnhVe();
   });
   await Promise.all(viec);
@@ -14369,12 +14485,12 @@ function khoChoDong(x, bat) {                          // dòng chờ (hiệu �
   const tm = setInterval(() => { if (!tr.isConnected) return clearInterval(tm); dem.textContent = ((Date.now() - t0) / 1000).toFixed(1).replace('.', ','); }, 100);
 }
 async function khoAIDocNhanh(x, a) {
-  const st = $('khoAIst'), loai = (document.querySelector('input[name=khoLoai]:checked') || {}).value || 'nhap', khoa = khoBam(a.data) + loai, t0 = Date.now();
+  const st = $('khoAIst'), loai = (document.querySelector('input[name=khoLoai]:checked') || {}).value || 'nhap', cach = cachDoc(), khoa = khoBam(a.data) + loai + cach, t0 = Date.now();
   KHO.docDang = (KHO.docDang || 0) + 1; x.daDocAI = true;
-  if (st) st.innerHTML = `<span class="small">${typeof AI_IC !== 'undefined' ? AI_IC : ''} AI đang đọc ${KHO.docDang} ảnh chứng từ…</span>`;
+  if (st) st.innerHTML = `<span class="small">${typeof AI_IC !== 'undefined' ? AI_IC : ''} ${cach === 'anh' ? 'AI đang đọc' : 'Google Drive đang nhận dạng chữ (OCR) rồi AI điền bảng –'} ${KHO.docDang} ảnh chứng từ…</span>`;
   khoChoDong(x, true);
   try {
-    const r = KHO_AI_NHO[khoa] || await api('chat.khoai', { ht: CH.sel, anh: [{ mime: a.mime, data: a.data }], loai }, { quiet: true });
+    const r = KHO_AI_NHO[khoa] || await api('chat.khoai', { ht: CH.sel, anh: [{ mime: a.mime, data: cach === 'anh' ? (a.ai || a.data) : a.data }], loai, cach }, { quiet: true });   // OCR dùng ảnh 1600 px cho rõ chữ
     KHO_AI_NHO[khoa] = r;
     if (!$('khoTbl')) return;
     khoChoDong(x, false);
@@ -14391,8 +14507,9 @@ function khoAIKQ(ms) {                                 // tổng hợp kết qu�
   const ds = KHO.anh.filter(x => x.kq), n = ds.reduce((s, x) => s + (x.kq.dong || []).length, 0), kt = ds.flatMap(x => x.kq.canKiemTra || []);
   const tc = ds.map(x => x.kq.doTinCay).filter(Boolean), tong = ds.reduce((s, x) => s + (num(x.kq.tongTien) || 0), 0), ocr = ds.map(x => x.kq.ocr).filter(Boolean).join('\n\n');
   st.innerHTML = n ? `<div class="note" style="margin:4px 0"><b>Đã đọc ${ds.length} ảnh → điền ${n} dòng vật tư</b>${ms ? ' sau ' + (ms / 1000).toFixed(1).replace('.', ',') + ' giây' : ''}${tc.length ? ' · độ tin cậy: ' + esc([...new Set(tc)].join(', ')) : ''}${tong ? ' · tổng tiền trên chứng từ: ' + money(tong) : ''}${KHO.docDang > 1 ? ' · còn ' + (KHO.docDang - 1) + ' ảnh đang đọc' : ''}.
+      ${ds.length && ds[ds.length - 1].kq.cach ? `<div class="muted">Cách đọc: ${esc(cachDocTxt(ds[ds.length - 1].kq))}</div>` : ''}
       Ô <span class="aifill" style="padding:0 4px">tô vàng</span> do AI điền – soát lại với chứng từ trước khi gửi.${kt.length ? `<div style="color:var(--bad);margin-top:4px">Cần kiểm tra: ${kt.map(esc).join(' · ')}</div>` : ''}
-      ${ocr ? ` <a href="#" onclick="event.preventDefault();this.nextElementSibling.classList.toggle('hide')">Xem chữ OCR</a><pre class="hide small" style="white-space:pre-wrap;max-height:180px;overflow:auto;background:var(--soft);padding:6px">${esc(ocr)}</pre>` : ''}</div>`
+      ${ocr ? ` <a href="#" onclick="event.preventDefault();this.nextElementSibling.classList.toggle('hide')">Xem chữ OCR (văn bản đã chuyển)</a><pre class="hide small" style="white-space:pre-wrap;max-height:180px;overflow:auto;background:var(--soft);padding:6px">${esc(ocr)}</pre>` : ''}</div>`
     : '<span class="muted">AI không tìm thấy bảng vật tư trong ảnh – nhập tay, chụp lại rõ, thẳng, đủ sáng, hoặc bấm "Đọc kỹ (OCR)".</span>';
   if ($('khoAIbtn')) $('khoAIbtn').style.display = '';
 }
@@ -21327,8 +21444,8 @@ function botBodyHTML() {
   if (!BOT.tin.length) {
     h += `<div class="bot-gt"><h3>Trợ lý quy định công ty</h3>
       <p>Trợ lý trả lời câu hỏi về <b>chế độ, quy định, biểu mẫu, chính sách</b> của Công ty, dựa trên quy chế và văn bản do phòng TCHC đưa vào hệ thống.</p>
-      <ul><li>Chỉ trả lời trong phạm vi văn bản công ty đã ban hành — <b>không tự suy luận, không tự đưa ra con số</b>.</li>
-        <li>Nội dung nào chưa có quy định thì trợ lý nói rõ là chưa có, và ghi nhận để TCHC bổ sung.</li>
+      <ul><li>⚡ Câu hỏi có trong văn bản công ty: trả lời <b>ngay</b> bằng <b>nguyên văn</b> quy định / văn bản đã tải lên, kèm căn cứ – không qua AI, không tự đưa ra con số.</li>
+        <li>🌐 Câu hỏi ngoài văn bản công ty: AI trả lời theo kiến thức chung, ghi rõ <b>không phải quy định công ty</b>; câu hỏi được ghi nhận để TCHC bổ sung.</li>
         <li>Việc riêng của từng người (lương, số ngày phép còn lại, khiếu nại…) đề nghị liên hệ TCHC hoặc trưởng bộ phận.</li>
         <li>Câu trả lời mang tính <b>tra cứu</b>; văn bản công ty và ý kiến của TCHC là căn cứ chính thức.</li></ul>
       ${d && d.loi ? `<p class="bot-loi">${esc(d.loi)}</p>` : ''}
@@ -21346,7 +21463,9 @@ function botTinHTML(m, i) {
   let h = `<div class="bot-m bot"><span class="cav g bot-av sm">${BOT_AV}</span><div class="bot-bb${kl}">${botBoCuc(m.nd)}`;
   if (m.daTraLoi && (m.nguon || []).length) h += `<div class="bot-ng"><b>Căn cứ:</b> ${m.nguon.map(n => `<span>${esc(n)}</span>`).join('')}</div>`;
   if (!m.daTraLoi && !m.loi) h += `<div class="bot-ng gh">Câu hỏi đã được ghi nhận để phòng TCHC xem xét bổ sung quy định.</div>`;
-  if (m.daTraLoi && m.dungAI === false) h += `<div class="bot-ng gh">Trích nguyên văn theo từ khóa (AI chưa bật hoặc tạm lỗi).</div>`;
+  if (m.cheDo === 'tracuu') h += `<div class="bot-ng gh bot-nhanh">⚡ Trích nguyên văn từ văn bản công ty – không qua AI${m.ms != null ? ' · ' + (m.ms < 1000 ? m.ms + ' ms' : (m.ms / 1000).toFixed(1).replace('.', ',') + ' giây') : ''}${m.daAI ? '' : ` · <a href="#" onclick="event.preventDefault();botHoiAI(${i})">Nhờ AI giải thích / tóm tắt</a>`}</div>`;
+  else if (m.cheDo === 'ngoai') h += `<div class="bot-ng gh bot-ngoai">🌐 Không có trong văn bản công ty – trả lời theo <b>kiến thức chung của AI</b>, chỉ để tham khảo. Câu hỏi đã được ghi nhận để TCHC bổ sung quy định nếu cần.</div>`;
+  else if (m.daTraLoi && m.dungAI === false) h += `<div class="bot-ng gh">Trích nguyên văn theo từ khóa (AI chưa bật hoặc tạm lỗi).</div>`;
   if (m.id && m.daTraLoi) h += `<div class="bot-dg">${m.huuIch
     ? `<span class="da">${m.huuIch === 'co' ? 'Cảm ơn Anh/Chị đã đánh giá.' : 'Đã ghi nhận. TCHC sẽ xem lại nội dung này.'}</span>`
     : `Câu trả lời có hữu ích không?<button onclick="botDanhGia(${i},'co')" title="Hữu ích">${BOT_IC.up}</button><button onclick="botDanhGia(${i},'khong')" title="Chưa hữu ích">${BOT_IC.down}</button>`}</div>`;
@@ -21368,7 +21487,7 @@ async function botGui() {
   /* v3.55: đếm giây khi chờ (AI đọc văn bản dài có thể mất 20–60 giây); mạng rớt giữa chừng thì hỏi lại 1 lần –
      máy chủ đã làm xong sẽ trả ngay từ bộ đệm câu trả lời */
   BOT.hoiLai = 0; const t0 = Date.now(), dongHo = setInterval(() => { if (BOT.hoiLai) return; const g = Math.round((Date.now() - t0) / 1000), el2 = $('botCho');
-    BOT.choTxt = g < 8 ? 'đang tra cứu quy định…' : g < 25 ? `AI đang đọc quy định, văn bản… ${g} giây` : `vẫn đang xử lý (${g} giây) – văn bản dài, xin chờ thêm…`; if (el2) el2.textContent = BOT.choTxt; }, 1000);
+    BOT.choTxt = g < 3 ? 'đang tra cứu văn bản công ty…' : g < 25 ? `không có trong văn bản – AI đang trả lời theo kiến thức chung… ${g} giây` : `vẫn đang xử lý (${g} giây), xin chờ thêm…`; if (el2) el2.textContent = BOT.choTxt; }, 1000);
   const hoiMC = async () => { try { return await api('bot.hoi', { hoi }, { quiet: true }); }
     catch (e) { if (!/Không kết nối được máy chủ/.test(e.message)) throw e;
       const g = Math.round((Date.now() - t0) / 1000); BOT.hoiLai = 1; BOT.choTxt = 'mạng bị ngắt khi chờ (' + g + ' giây) – đang hỏi lại…'; const el2 = $('botCho'); if (el2) el2.textContent = BOT.choTxt;
@@ -21377,7 +21496,7 @@ async function botGui() {
       catch (e2) { if (/Không kết nối được máy chủ/.test(e2.message)) throw new Error('Không nhận được trả lời từ máy chủ sau ' + Math.round((Date.now() - t0) / 1000) + ' giây' + (g > 25 ? ' – máy chủ xử lý quá lâu hoặc mạng điện thoại bị ngắt khi chờ (đừng tắt màn hình / chuyển app khi đang hỏi). Thử hỏi ngắn, cụ thể hơn; Quản trị bấm "Kiểm tra trợ lý" ở mục Quản lý để tìm chỗ chậm.' : ' – kiểm tra mạng hoặc địa chỉ máy chủ (Cài đặt → Cấu hình máy chủ).')); throw e2; } } };
   try {
     const r = await hoiMC();
-    const m = { ai: 'bot', nd: r.traLoi || '', nguon: r.nguon || [], daTraLoi: !!r.daTraLoi, dungAI: r.dungAI, ms: r.daDem ? 0 : r.ms };
+    const m = { ai: 'bot', nd: r.traLoi || '', nguon: r.nguon || [], daTraLoi: !!r.daTraLoi, dungAI: r.dungAI, ms: r.daDem ? 0 : r.ms, cheDo: r.cheDo || '', hoi, doKhop: r.doKhop };
     BOT.tin.push(m);
     try {
       const g = await api('bot.ghi', { hoi: hoi, traLoi: m.nd, nguon: m.nguon, nhom: r.nhom || '', daTraLoi: m.daTraLoi, dungAI: !!r.dungAI, thieu: r.thieu || '' }, { quiet: true });
@@ -21388,6 +21507,15 @@ async function botGui() {
   }
   clearInterval(dongHo); BOT.cho = false; BOT.choTxt = ''; botVe();
   if (!BOT.ds || BOT.ds.loi) botNapDS();
+}
+/* v3.80: câu đã tra cứu nhanh → nhờ AI đọc các văn bản đó để giải thích / tóm tắt (cách cũ, chậm hơn) */
+async function botHoiAI(i) {
+  const m = BOT.tin[i]; if (!m || !m.hoi || BOT.cho) return;
+  m.daAI = 1; BOT.cho = true; BOT.choTxt = 'AI đang đọc văn bản để giải thích…'; botVe();
+  try { const r = await api('bot.hoi', { hoi: m.hoi, ai: 1 }, { quiet: true });
+    BOT.tin.push({ ai: 'bot', nd: r.traLoi || '', nguon: r.nguon || [], daTraLoi: !!r.daTraLoi, dungAI: r.dungAI, ms: r.ms, cheDo: 'ai', hoi: m.hoi }); }
+  catch (e) { BOT.tin.push({ ai: 'bot', nd: 'AI chưa trả lời được: ' + e.message, loi: true }); }
+  BOT.cho = false; BOT.choTxt = ''; botVe();
 }
 async function botDanhGia(i, v) {
   const m = BOT.tin[i]; if (!m || !m.id) return;
@@ -21952,7 +22080,7 @@ function bcTepDSHTML() {
 }
 async function bcTachChu(f) {                        // → { chu } | { anh } | { quet: true }
   const ten = f.name.toLowerCase();
-  if (/^image\//.test(f.type)) { const a = await chNen(f); return { anh: { mime: a.mime, data: a.data }, nen: a }; }
+  if (/^image\//.test(f.type)) { const a = await chNen(f); return { anh: { mime: a.mime, data: cachDoc() === 'anh' ? (a.ai || a.data) : a.data }, nen: a }; }   // v3.78: bản nhẹ khi AI đọc thẳng; v3.79: OCR Drive dùng ảnh 1600 px
   const buf = await f.arrayBuffer();
   if (/\.docx$/.test(ten)) return { chu: await docxVanBan(buf) };
   if (/\.(xlsx|xls)$/.test(ten)) { if (!window.XLSX) return { chu: '' }; const wb = XLSX.read(new Uint8Array(buf), { type: 'array' }); return { chu: wb.SheetNames.slice(0, 5).map(n => '# Trang tính ' + n + '\n' + XLSX.utils.sheet_to_csv(wb.Sheets[n], { FS: ' | ', blankrows: false })).join('\n').slice(0, 40000) }; }
@@ -21969,14 +22097,15 @@ async function bcTachChu(f) {                        // → { chu } | { anh } | 
 }
 async function bcTepChon(inp) {
   const fs = [...inp.files]; inp.value = ''; if (!fs.length) return;
-  const st = $('bcAIst'), lan = ++BCT.lan, t0 = Date.now(), chu = [], anh = [], quet = [], cho = [];
+  const st = $('bcAIst'), lan = ++BCT.lan, t0 = Date.now(), chu = [], anh = [], quet = [], cho = [], gocCho = [];
+  let aiXongR; const aiXong = new Promise(r => aiXongR = r);       // v3.78: bản gốc ảnh tải sau khi AI đọc xong
   if (st) st.innerHTML = `<span class="small">${typeof AI_IC !== 'undefined' ? AI_IC : ''} Đang đọc ${fs.length} tệp báo cáo…</span>`;
   for (const f of fs) {
     if (BCT.tep.length >= 10) { toast('Tối đa 10 tệp mỗi báo cáo.', 'err'); break; }
     const t = { ten: f.name, xong: false }; BCT.tep.push(t);
     const tach = bcTachChu(f).catch(() => ({ chu: '' }));
     if (/^image\//.test(f.type)) { t.gocDang = true;      // v3.76: ảnh – lưu thêm bản gốc không nén làm chứng từ gốc
-      t.gocP = ctgTai(f, BCT.ht, 'baocao').then(g => { if (g) t.goc = g.id; }).catch(e => toast('Chưa lưu được bản gốc "' + f.name + '": ' + e.message, 'err')).finally(() => { t.gocDang = false; if ($('bcTepDS')) $('bcTepDS').innerHTML = bcTepDSHTML(); });
+      t.gocP = ctgXepHang(aiXong, f, BCT.ht, 'baocao').then(g => { if (g) t.goc = g.id; }).catch(e => toast('Chưa lưu được bản gốc "' + f.name + '": ' + e.message, 'err')).finally(() => { t.gocDang = false; if ($('bcTepDS')) $('bcTepDS').innerHTML = bcTepDSHTML(); });
     } else ctgSha(f).then(h => { t.sha = h; });
     const luu = tach.then(async k => {                   // lưu tệp vào thư mục nhóm (ảnh lưu bản nén)
       const data = k.nen ? k.nen.data : await btB64(f), mime = k.nen ? k.nen.mime : (f.type || (/\.docx$/i.test(f.name) ? MIME_DOCX : 'application/octet-stream'));
@@ -21989,13 +22118,15 @@ async function bcTepChon(inp) {
   }
   if ($('bcTepDS')) $('bcTepDS').innerHTML = bcTepDSHTML();
   if (quet.length) { if (st) st.innerHTML = '<span class="small">PDF dạng ảnh quét – đang lưu để nhận dạng chữ (OCR)…</span>'; await Promise.all(cho); }
-  if (!chu.length && !anh.length && !quet.some(t => t.fileId)) { if (st) st.innerHTML = '<span class="muted">Không đọc được nội dung tệp – nhập tay các mục.</span>'; return; }
+  if (!chu.length && !anh.length && !quet.some(t => t.fileId)) { aiXongR(); if (st) st.innerHTML = '<span class="muted">Không đọc được nội dung tệp – nhập tay các mục.</span>'; return; }
+  if (st && anh.length) st.innerHTML = `<span class="small">${typeof AI_IC !== 'undefined' ? AI_IC : ''} ${cachDoc() === 'anh' ? 'AI đang đọc' : 'Google Drive đang nhận dạng chữ (OCR) –'} ${anh.length} ảnh${chu.length ? ' + ' + chu.length + ' tệp' : ''}…</span>`;
   try {
-    const r = await api('chat.bcai', { mucId: BCT.id, ky: BCT.ky, chu: chu.join('\n\n'), anh: anh.slice(0, 4), quet: quet.filter(t => t.fileId).map(t => t.fileId) }, { quiet: true });
+    const r = await api('chat.bcai', { mucId: BCT.id, ky: BCT.ky, chu: chu.join('\n\n'), anh: anh.slice(0, 4), quet: quet.filter(t => t.fileId).map(t => t.fileId), cach: ($('bcCach') || {}).value || cachDoc() }, { quiet: true });
     if (lan !== BCT.lan || !$('bcTomTat')) return;
     const n = bcAIDien(r);
-    st.innerHTML = `<div class="note" style="margin:6px 0"><b>AI đã đọc ${fs.length} tệp → điền ${n} mục${r.tomTat ? ' và tóm tắt' : ''}</b> sau ${((Date.now() - t0) / 1000).toFixed(1).replace('.', ',')} giây. Ô <span class="aifill" style="padding:0 4px">tô vàng</span> do AI điền – soát lại trước khi nộp.${(r.canKiemTra || []).length ? `<div style="color:var(--bad);margin-top:4px">Cần kiểm tra: ${r.canKiemTra.map(esc).join(' · ')}</div>` : ''}</div>`;
+    st.innerHTML = `<div class="note" style="margin:6px 0"><b>AI đã đọc ${fs.length} tệp → điền ${n} mục${r.tomTat ? ' và tóm tắt' : ''}</b> sau ${((Date.now() - t0) / 1000).toFixed(1).replace('.', ',')} giây. Ô <span class="aifill" style="padding:0 4px">tô vàng</span> do AI điền – soát lại trước khi nộp.${r.cach && anh.length ? `<div class="muted">Cách đọc ảnh: ${esc(cachDocTxt(r))}${r.ocr ? ` · <a href="#" onclick="event.preventDefault();this.parentNode.nextElementSibling.classList.toggle('hide')">Xem chữ OCR</a>` : ''}</div>${r.ocr ? `<pre class="hide small" style="white-space:pre-wrap;max-height:180px;overflow:auto;background:var(--soft);padding:6px">${esc(r.ocr)}</pre>` : ''}` : ''}${(r.canKiemTra || []).length ? `<div style="color:var(--bad);margin-top:4px">Cần kiểm tra: ${r.canKiemTra.map(esc).join(' · ')}</div>` : ''}</div>`;
   } catch (e) { if (st) st.innerHTML = `<span style="color:var(--bad)">AI chưa đọc được tệp: ${esc(e.message)}. Tệp vẫn được đính kèm – nhập tay các mục.</span>`; }
+  finally { aiXongR(); }
 }
 function bcAIDien(r) {
   const x = chMucOf(BCT.id); if (!x) return 0; let n = 0;
@@ -22017,12 +22148,12 @@ function bcAIDien(r) {
   const tt = $('bcTomTat'); if (tt && r.tomTat) { tt.value = (tt.value.trim() ? tt.value.trim() + '\n' : '') + r.tomTat; vang(tt); }
   return n;
 }
-function chDienBC(id, ky) {
+function chDienBC(id, ky) { aiKhoiDong();
   const x = chMucOf(id); if (!x) return toast('Yêu cầu báo cáo không còn.', 'err');
   const cu = (x.traLoi.find(t => t.ky === ky && t.username === chMe()) || {}).giaTri || {};
   BCT.id = id; BCT.ky = ky; BCT.ht = x.hoiThoai || CH.sel; BCT.tep = (cu._tep || []).map(t => Object.assign({ xong: true }, t)); BCT.lan = 0;
   modal(x.tieuDe + ' – ngày ' + dfmt(ky), `${x.noiDung ? `<div class="note" style="margin-bottom:10px">${esc(x.noiDung)}</div>` : ''}
-    <div class="bc-tep"><div class="bar"><label class="btn pri">📷 Chụp ảnh<input type="file" accept="image/*" capture="environment" class="hide" onchange="bcTepChon(this)"></label><label class="btn">📎 Tải tệp báo cáo (PDF, Word, Excel, ảnh)<input type="file" multiple class="hide" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="bcTepChon(this)"></label>
+    <div class="bc-tep"><div class="bar"><label class="btn pri">📷 Chụp ảnh<input type="file" accept="image/*" capture="environment" class="hide" onchange="bcTepChon(this)"></label><label class="btn">📎 Tải tệp báo cáo (PDF, Word, Excel, ảnh)<input type="file" multiple class="hide" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="bcTepChon(this)"></label>${cachDocHTML('bcCach')}
       <span class="small muted">PDF, Word, Excel, ảnh – ${typeof AI_IC !== 'undefined' ? AI_IC : ''} AI đọc, tóm tắt thông số chính và điền hộ các mục bên dưới (ô vàng)</span></div>
       <div id="bcTepDS">${bcTepDSHTML()}</div><div id="bcAIst" class="small"></div></div>
     <div class="zl-form">${x.cauHinh.mau.map(f => `<label class="f ${f.batBuoc ? 'req' : ''}"><span>${esc(f.ten)}</span>${bcOHTML(f, cu[f.id])}</label>`).join('')}
@@ -22139,8 +22270,8 @@ async function chNen(file) {
   if (file.type === 'image/gif') return { data: await btB64(file), mime: file.type, name: file.name, w: 0, h: 0 };
   const bmp = await anhMo(file);
   const ve = (max, q) => { const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k), cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(bmp, 0, 0, w, h); return { d: cv.toDataURL('image/jpeg', q).split(',')[1], w, h }; };
-  const a = ve(1600, 0.82), t = ve(480, 0.7); try { bmp.close && bmp.close(); } catch (e) { }
-  return { data: a.d, thumb: t.d, mime: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg', w: a.w, h: a.h };
+  const a = ve(1600, 0.82), t = ve(480, 0.7), ai = ve(1400, 0.72); try { bmp.close && bmp.close(); } catch (e) { }   // v3.78: bản riêng cho AI đọc – nhẹ hơn ~35%
+  return { data: a.d, thumb: t.d, ai: ai.d, mime: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg', w: a.w, h: a.h };
 }
 async function chUp(file) {
   const htId = CH.sel; if (!htId) return;
@@ -22931,6 +23062,7 @@ function pqMacDinh() {
 const CFG_F = [
   { sec: 'Thông tin công ty' }, { k: 'congTy', l: 'Tên công ty', w: 'w2' }, { k: 'diaChiCongTy', l: 'Địa chỉ' }, { k: 'mstCongTy', l: 'Mã số thuế' },
   { k: 'anSinhNhat', l: 'Sinh nhật CBCNV trên bảng tin', t: 'select', o: [['false', 'Hiện (chỉ ngày / tháng, không năm sinh)'], ['true', 'Ẩn']], blank: false, w: 'w2' },
+  { k: 'botAINgoai', l: 'Trợ lý quy định: câu hỏi ngoài văn bản công ty', t: 'select', o: [['true', 'AI trả lời theo kiến thức chung (ghi rõ không phải quy định)'], ['false', 'Không dùng AI – chỉ báo chưa có quy định']], blank: false, w: 'w2' },
   { sec: 'Mức lương cơ sở – tối thiểu – bảo hiểm (lương cơ sở, lương tối thiểu vùng: xem bảng "Quy định theo thời kỳ" phía dưới)' },
   { k: 'heSoTranBHXH', l: 'Trần BHXH, BHYT (× lương cơ sở)', t: 'num' }, { k: 'heSoTranBHTN', l: 'Trần BHTN (× lương TT vùng)', t: 'num' },
   { k: 'nld_bhxh', l: 'BHXH – NLĐ (%)', t: 'num' }, { k: 'nld_bhyt', l: 'BHYT – NLĐ (%)', t: 'num' }, { k: 'nld_bhtn', l: 'BHTN – NLĐ (%)', t: 'num' },

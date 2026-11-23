@@ -201,7 +201,8 @@ function env_(db) {
         var file = DriveApp.getFileById(id), d = Utilities.base64Encode(file.getBlob().getBytes());
         fcCat_(id, d); return { data: d };
       },
-      ocr: function (id) { return ocrDrive_(id); },        // v3.37: đọc chữ ảnh / PDF bằng Google Drive (cần bật dịch vụ nâng cao "Drive API")
+      ocr: function (id) { return ocrDrive_(id); },
+      ocrAnh: function (b64, mime) { return ocrAnh_(b64, mime); },   // v3.79: OCR Google Drive cho ảnh gửi kèm (không cần lưu ảnh trước)        // v3.37: đọc chữ ảnh / PDF bằng Google Drive (cần bật dịch vụ nâng cao "Drive API")
       thumb: function (id) {                                // v3.32: ảnh cũ chưa có ảnh thu nhỏ riêng → dùng ảnh thu nhỏ của Drive (ảnh lớn)
         var c = fcLay_(id + '#t'); if (c) return { data: c, mime: 'image/png' };
         var f = DriveApp.getFileById(id); if (f.getSize() <= 150000) return null;
@@ -753,6 +754,25 @@ function ocrDrive_(id) {
   try { return DocumentApp.openById(gid).getBody().getText(); }
   finally { try { DriveApp.getFileById(gid).setTrashed(true); } catch (e) { } }
 }
+/* v3.79: OCR GOOGLE DRIVE CHO ẢNH GỬI KÈM – tải ảnh lên Drive dạng Google Docs (Drive tự nhận dạng chữ, tiếng Việt), xuất text, xóa bản tạm.
+   Dùng Drive REST qua UrlFetch (không cần bật dịch vụ nâng cao); quyền Drive của tài khoản chạy Apps Script. */
+function ocrAnh_(b64, mime) {
+  var tk = ScriptApp.getOAuthToken(), bd = 'tapaco' + Date.now();
+  var dau = Utilities.newBlob('--' + bd + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+    + JSON.stringify({ name: 'OCR_tam_' + Date.now(), mimeType: 'application/vnd.google-apps.document' })
+    + '\r\n--' + bd + '\r\nContent-Type: ' + mime + '\r\n\r\n').getBytes();
+  var cuoi = Utilities.newBlob('\r\n--' + bd + '--').getBytes();
+  var r = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&ocrLanguage=vi&fields=id', {
+    method: 'post', contentType: 'multipart/related; boundary=' + bd, payload: dau.concat(Utilities.base64Decode(b64), cuoi),
+    headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true });
+  if (r.getResponseCode() >= 300) throw new Error('Drive OCR: ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200));
+  var id = JSON.parse(r.getContentText()).id;
+  try {
+    var x = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + id + '/export?mimeType=text/plain', { headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true });
+    if (x.getResponseCode() >= 300) throw new Error('Drive OCR xuất chữ: ' + x.getResponseCode());
+    return x.getContentText('UTF-8');
+  } finally { try { UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + id, { method: 'delete', headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true }); } catch (e) { } }
+}
 function ocrTruoc_(req) {
   if (req.action !== 'tl.ocr' || !req.token || !req.fileId || req.text) return;
   if (!CacheService.getScriptCache().get('s_' + req.token)) return;
@@ -972,7 +992,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.77';
+  var VERSION = '3.80';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1480,6 +1500,7 @@ var HRCORE = (function () {
   var DEFAULT_CFG = {
     congTy: 'CÔNG TY CỔ PHẦN TAPACO VIỆT NAM',
     anSinhNhat: false,                 // v3.70: true = ẩn sinh nhật CBCNV trên bảng tin
+    botAINgoai: true,                  // v3.80: trợ lý quy định – câu hỏi ngoài văn bản công ty thì AI trả lời theo kiến thức chung (false = không)
     phanQuyen: {},                                  // v3.8: bảng phân quyền tích chọn (rỗng = mặc định)
     diaChiCongTy: 'Hà Nội',
     mstCongTy: '',
@@ -6587,6 +6608,8 @@ var HRCORE = (function () {
         if (demo) return; var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { }
         if (x) chu += '\n\n=== ' + t.ten + ' (OCR) ===\n' + x.slice(0, 20000);
       });
+      var ocB = ocrAnhKem(anh, String(req.cach || ''));                   // v3.79: Google Drive OCR cho ảnh báo cáo
+      if (ocB.chu.length) chu += '\n\n=== CHỮ TỪ ẢNH BÁO CÁO (Google Drive OCR – có thể sai dấu, bảng bị tách dòng) ===\n' + ocB.chu.join('\n\n'); anh = ocB.giuAnh;
       if (!chu.trim() && !anh.length && !demo) err('Không đọc được nội dung tệp báo cáo.');
       var mau = (ch.mau || []).map(function (f) { return '- id "' + f.id + '": ' + f.ten + ' – ' + ({ so: 'số', chon: 'chọn 1 trong: ' + (f.luaChon || []).join(' / '), cokhong: 'Có / Không', ngay: 'ngày YYYY-MM-DD', dai: 'đoạn văn', bang: 'bảng [{"ten","so","dv"}] – dòng có sẵn: ' + (f.dong || []).map(function (d) { return d.ten + (d.dv ? ' (' + d.dv + ')' : ''); }).join(', ') + (f.them ? '; được thêm dòng khác' : '') }[f.kieu] || 'chữ ngắn'); }).join('\n');
       var he = 'Bạn là trợ lý ban chỉ huy công trường Công ty TAPACO. Đọc TỆP BÁO CÁO (chữ đã tách, ảnh) và điền vào MẪU BÁO CÁO ĐỊNH KỲ của nhóm. '
@@ -6608,7 +6631,7 @@ var HRCORE = (function () {
         } catch (e) { }
       });
       log(s, 'chat.bcai', m.tieuDe + ': điền ' + Object.keys(ra).length + ' mục');
-      return { giaTri: ra, tomTat: aiS(o.tt || o.tomTat, 4000), canKiemTra: aiDs(o.kt, 10).map(function (x) { return aiS(x, 150); }).filter(Boolean), demo: !!o.demo || demo };
+      return { giaTri: ra, tomTat: aiS(o.tt || o.tomTat, 4000), canKiemTra: aiDs(o.kt, 10).map(function (x) { return aiS(x, 150); }).filter(Boolean), demo: !!o.demo || demo, cach: ocB.cach, tOcr: ocB.tOcr, ocrLoi: ocB.loi, ocr: ocB.chu.join('\n\n').slice(0, 20000) };
     };
     /* ==================== v3.30: PHIẾU NHẬP / XUẤT KHO VẬT TƯ TRONG NHÓM CHAT ====================
        Thành viên nhóm (thủ kho, chỉ huy công trường…) lập phiếu nhập hoặc xuất kho kèm ảnh chụp / ảnh tải lên (hàng hóa, biên bản, hóa đơn).
@@ -6843,6 +6866,23 @@ var HRCORE = (function () {
       + 'Chỉ trả về MỘT đối tượng JSON GỌN (v3.68: mỗi dòng vật tư là MỘT MẢNG để trả lời nhanh): {"lct":"phiếu nhập kho|phiếu xuất kho|phiếu giao hàng|hóa đơn|biên bản giao nhận|khác","loai":"nhap|xuat|",'
       + '"ngay":"YYYY-MM-DD hoặc rỗng","soCT":"số chứng từ","doiTac":"nhà cung cấp / bên giao (phiếu nhập) hoặc đơn vị nhận (phiếu xuất)","ngn":"người giao nhận","hm":"hạng mục sử dụng (nếu có)",'
       + '"d":[["tên","quy cách","ĐVT",số lượng,đơn giá|null,thành tiền|null,"ghi chú"]],"tong":số|null,"tc":"cao|trung bình|thấp","kt":["dòng 3: số lượng mờ"],"tt":"tóm tắt chứng từ 1–3 câu: loại, số, bên giao/nhận, số dòng, tổng tiền"}. Không viết gì ngoài JSON, không xuống dòng thừa.';
+    /* v3.79: CÁCH ĐỌC ẢNH – 'drive': Google Drive OCR chuyển ảnh → chữ, AI chỉ sắp chữ vào bảng (không gửi ảnh, nhẹ & nhanh);
+       'ca2': OCR Drive + AI xem ảnh (kỹ nhất); 'anh': AI đọc thẳng ảnh. OCR lỗi / không ra chữ → tự chuyển sang AI đọc ảnh. */
+    function ocrAnhKem(anh, cach) {
+      var out = { chu: [], giuAnh: anh, cach: 'anh', tOcr: 0, loi: '' };
+      if (cach !== 'drive' && cach !== 'ca2') return out;
+      if (!env.ocrAnh) { out.loi = 'máy chủ chưa hỗ trợ OCR Google Drive'; return out; }
+      var t0 = Date.now(), ok = 0;
+      anh.forEach(function (a, i) {
+        var x = ''; try { x = lamSachChu(String(env.ocrAnh(a.data, a.mime) || '')); } catch (e) { out.loi = String(e && e.message || e).slice(0, 200); }
+        if (x.replace(/\s/g, '').length >= 20) { ok++; out.chu.push((anh.length > 1 ? '=== ẢNH ' + (i + 1) + ' ===\n' : '') + x.slice(0, 15000)); }
+      });
+      out.tOcr = Date.now() - t0;
+      if (ok === anh.length && ok) { out.cach = cach; if (cach === 'drive') out.giuAnh = []; }
+      else if (ok) out.cach = 'ca2';
+      else if (!out.loi) out.loi = 'không nhận ra chữ trong ảnh';
+      return out;
+    }
     H['chat.khoai'] = function (req, s) {
       var c = chatCan(s, req.ht);
       var ids = (Array.isArray(req.fileIds) ? req.fileIds : [req.fileId]).filter(Boolean).slice(0, 4);
@@ -6874,10 +6914,15 @@ var HRCORE = (function () {
         if (!demo && req.ocr && OCR_IMG.test(t.mime)) { var x = ''; try { x = lamSachChu(ocrDrive(t.fileId)); } catch (e) { x = ''; } if (x.replace(/\s/g, '').length >= 10) chu.push((ids.length > 1 ? '=== ẢNH ' + (i + 1) + ' ===\n' : '') + x.slice(0, 15000)); }
         anh.push({ nhan: 'Ảnh ' + (i + 1) + ' – chứng từ kho:', mime: t.mime, data: f.data });
       });
+      var oc = inl.length ? ocrAnhKem(anh, String(req.cach || '')) : { chu: [], giuAnh: anh, cach: ids.length && req.ocr ? 'ca2' : 'anh', tOcr: 0, loi: '' };
+      var chuOcr = oc.chu; anh = oc.giuAnh;
       var nd = 'Nhóm / công trình: ' + aiTenHT(c.h) + '. Ngày hôm nay: ' + env.today() + '.\n'
         + (req.loai === 'xuat' ? 'Người dùng đang lập PHIẾU XUẤT KHO.\n' : req.loai === 'nhap' ? 'Người dùng đang lập PHIẾU NHẬP KHO.\n' : '')
-        + (chu.length ? (anh.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' : '=== NỘI DUNG CHỨNG TỪ (từ tệp) ===\n') + chu.join('\n\n') : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+        + (chuOcr.length ? (anh.length ? '=== CHỮ GOOGLE DRIVE OCR – đối chiếu với ảnh ===\n' : '=== CHỮ NHẬN DẠNG TỪ ẢNH CHỨNG TỪ (Google Drive OCR) – không có ảnh; chữ có thể sai dấu, bảng có thể bị tách cột thành từng dòng: ghép lại theo thứ tự cột (tên, quy cách, ĐVT, số lượng, đơn giá, thành tiền) ===\n') + chuOcr.join('\n\n') + '\n\n' : '')
+        + (chu.length ? (anh.length ? '=== CHỮ NHẬN DẠNG (OCR) – có thể sai, đối chiếu với ảnh ===\n' : '=== NỘI DUNG CHỨNG TỪ (từ tệp) ===\n') + chu.join('\n\n') : chuOcr.length ? '' : 'Không có chữ OCR – đọc trực tiếp từ ảnh.');
+      var tAi0 = Date.now();
       var o = aiO(aiGoi({ he: KHO_HE, nd: nd, anh: anh, maxTok: 2000, nhanh: true, loai: 'phieukho', duLieu: { demo: demo, loai: req.loai || '' } }));
+      var tAi = Date.now() - tAi0;
       if (Array.isArray(o.d)) o.dong = o.d.map(function (x) { return Array.isArray(x) ? { ten: x[0], quyCach: x[1], dv: x[2], sl: x[3], donGia: x[4], thanhTien: x[5], ghiChu: x[6] } : x; });   // dạng gọn → dạng đầy đủ
       ['loaiChungTu:lct', 'nguoiGiaoNhan:ngn', 'hangMuc:hm', 'tongTien:tong', 'doTinCay:tc', 'canKiemTra:kt'].forEach(function (p) { var k = p.split(':'); if (o[k[0]] == null && o[k[1]] != null) o[k[0]] = o[k[1]]; });
       var sNum = function (v) { if (v == null || v === '') return null; if (typeof v === 'number') return isFinite(v) ? v : null; var t = String(v).replace(/[^\d.,-]/g, ''); if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.'); else t = t.replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'); var n = parseFloat(t); return isFinite(n) ? n : null; };
@@ -6885,10 +6930,11 @@ var HRCORE = (function () {
         var sl = sNum(d.sl), dg = sNum(d.donGia), tt = sNum(d.thanhTien);
         return { ten: ten, quyCach: aiS(d.quyCach, 120), dv: aiS(d.dv, 20), sl: sl != null && sl > 0 ? Math.round(sl * 1000) / 1000 : '', donGia: dg != null && dg > 0 ? Math.round(dg) : '', thanhTien: tt != null && tt > 0 ? Math.round(tt) : '', ghiChu: aiS(d.ghiChu, 200) }; }).filter(Boolean);
       var ngay = parseD(o.ngay) && o.ngay <= env.today() ? o.ngay : '';
-      log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + anh.length + ' ảnh → ' + dong.length + ' dòng' + (chu.length ? ' (OCR)' : ' (đọc nhanh)'));
+      log(s, 'chat.khoai', aiTenHT(c.h) + ': ' + (inl.length || ids.length) + ' ảnh → ' + dong.length + ' dòng (' + ({ drive: 'Drive OCR', ca2: 'OCR + ảnh', anh: 'AI đọc ảnh' })[oc.cach] + ')');
       return { loaiChungTu: aiS(o.loaiChungTu, 40), loai: o.loai === 'nhap' || o.loai === 'xuat' ? o.loai : '', ngay: ngay, soCT: aiS(o.soCT, 80), doiTac: aiS(o.doiTac, 200), nguoiGiaoNhan: aiS(o.nguoiGiaoNhan, 120), hangMuc: aiS(o.hangMuc, 200),
         dong: dong, tongTien: sNum(o.tongTien), doTinCay: ['cao', 'trung bình', 'thấp'].indexOf(String(o.doTinCay || '').toLowerCase()) >= 0 ? String(o.doTinCay).toLowerCase() : '',
-        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: req.chu ? '' : chu.join('\n\n').slice(0, 20000), tomTat: aiS(o.tt || o.tomTat, 600), demo: !!o.demo || demo };
+        canKiemTra: aiDs(o.canKiemTra, 20).map(function (x) { return aiS(x, 150); }).filter(Boolean), ocr: req.chu ? '' : chuOcr.concat(chu).join('\n\n').slice(0, 20000), tomTat: aiS(o.tt || o.tomTat, 600), demo: !!o.demo || demo,
+        cach: oc.cach, tOcr: oc.tOcr, tAi: tAi, ocrLoi: oc.loi };
     };
     /* v3.73: TỔNG HỢP NHẬP – XUẤT KHO – gom MỌI phiếu (mọi lần báo cáo kho) của các nhóm / công trình vào một bộ dữ liệu để lập báo cáo.
        Quyền khoTH: mọi nhóm; người khác: các nhóm mình là thành viên. */
@@ -11032,7 +11078,8 @@ var HRCORE = (function () {
     var BOT_DUNG = { cua: 1, la: 1, co: 1, the: 1, nao: 1, gi: 1, va: 1, cho: 1, duoc: 1, bao: 1, toi: 1, minh: 1,
       khi: 1, thi: 1, ma: 1, voi: 1, trong: 1, den: 1, nhu: 1, sao: 1, can: 1, phai: 1, se: 1, da: 1, dang: 1,
       hay: 1, hoac: 1, ve: 1, moi: 1, nay: 1, do: 1, day: 1, mot: 1, nhung: 1, cac: 1, vay: 1, a: 1, ah: 1,
-      em: 1, anh: 1, chi: 1, xin: 1, hoi: 1, khong: 1, ty: 1, ra: 1, vao: 1, lam: 1, nguoi: 1, muon: 1 };
+      em: 1, anh: 1, chi: 1, xin: 1, hoi: 1, khong: 1, ty: 1, ra: 1, vao: 1, lam: 1, nguoi: 1, muon: 1,
+      nhieu: 1, dau: 1, tuc: 1, giup: 1, gium: 1, oi: 1, biet: 1, hien: 1, nhi: 1, nhe: 1 };   // v3.80: thêm từ để hỏi (bao nhiêu, ở đâu, thủ tục…)
 
     function botQuyen(s) { if (BOT_ROLES_QD.indexOf(s.role) < 0) err('Chỉ Giám đốc, TCHC hoặc Quản trị được sửa quy định của trợ lý.'); }
     function botSD(v, n) { return String(v == null ? '' : v).replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/[ \t\u00a0]+/g, ' ').trim(); }).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, n); }   // v3.57: giữ xuống dòng
@@ -11153,6 +11200,65 @@ var HRCORE = (function () {
     };
 
     /* hỏi bot: chỉ đọc, không giữ khóa ghi (gọi AI chạy lâu). Trình duyệt ghi nhật ký sau bằng bot.ghi */
+    /* ===== v3.80: TRA CỨU NHANH KHÔNG CẦN AI =====
+       Câu hỏi được tra thẳng trong mục quy định + văn bản gốc đã tải lên (chữ đã trích sẵn trong bộ đệm): chia văn bản theo Điều / đoạn,
+       chấm điểm theo âm tiết (bỏ dấu) có trọng số hiếm-gặp (idf) + cụm 2 âm tiết, trả NGUYÊN VĂN đoạn khớp nhất kèm nguồn – tính bằng mili giây.
+       Chỉ khi văn bản công ty KHÔNG có nội dung liên quan mới hỏi AI bằng kiến thức chung (ghi rõ không phải quy định công ty). */
+    var BOT_NHANH_PHU = 0.55;
+    function botDoanVB(t, nhan) {           // chia văn bản → các đoạn (theo Điều; Điều dài thì theo đoạn, giữ tiêu đề Điều)
+      var dong = String(t || '').split('\n'), khoi = [], cur = { tieu: '', ds: [] };
+      var laTieu = function (x) { return /^\s*(Điều|ĐIỀU)\s+\d+|^\s*(Chương|CHƯƠNG|Mục|MỤC)\s+[IVXLC\d]+/.test(x); };
+      dong.forEach(function (x) { if (laTieu(x)) { if (cur.ds.length || cur.tieu) khoi.push(cur); cur = { tieu: x.trim().slice(0, 160), ds: [] }; } else cur.ds.push(x); });
+      khoi.push(cur);
+      var out = [];
+      khoi.forEach(function (k) {
+        var than = k.ds.join('\n').replace(/\n{3,}/g, '\n\n').trim(); if (!than && !k.tieu) return;
+        if ((k.tieu + than).length <= 2200) { out.push({ nguon: nhan, tieu: k.tieu, chu: (k.tieu ? k.tieu + '\n' : '') + than }); return; }
+        var p = than.split(/\n\s*\n/), gom = '';
+        p.forEach(function (x) { if ((gom + x).length > 1400 && gom) { out.push({ nguon: nhan, tieu: k.tieu, chu: (k.tieu ? k.tieu + ' (trích)\n' : '') + gom.trim() }); gom = ''; } gom += x + '\n\n'; });
+        if (gom.trim()) out.push({ nguon: nhan, tieu: k.tieu, chu: (k.tieu ? k.tieu + ' (trích)\n' : '') + gom.trim() });
+      });
+      return out;
+    }
+    function botTraNhanh(hoi, tuHoi, qd, vb) {
+      var ds = [];
+      qd.forEach(function (x) { ds.push({ nguon: x.tieuDe + (x.vanBan ? ' (' + x.vanBan + ')' : ''), tieu: x.tieuDe, chu: x.noiDung, them: x.tieuDe + ' ' + x.tieuDe + ' ' + (x.nhom || ''), qd: x }); });
+      vb.forEach(function (v) { var t = ''; try { t = botNapChu(v, false); } catch (e) { t = ''; } if (t) botDoanVB(t, botVBNhan(v)).forEach(function (o) { o.vb = v; ds.push(o); }); });
+      if (!ds.length) return null;
+      var q = []; tuHoi.forEach(function (w) { if (q.indexOf(w) < 0) q.push(w); });
+      if (!q.length) return null;
+      ds.forEach(function (o) { var tv = botTu(((o.them || '') + ' ' + o.chu).replace(/%/g, ' phan tram ')), co = {}, bg = {}; for (var i = 0; i < tv.length; i++) { co[tv[i]] = 1; if (i) bg[tv[i - 1] + ' ' + tv[i]] = 1; } o.co = co; o.bg = bg; o.len = tv.length; });
+      var N = ds.length, idf = {};
+      var vang = [];
+      q.forEach(function (w) { var df = 0; ds.forEach(function (o) { if (o.co[w]) df++; }); if (!df) vang.push(w); else idf[w] = Math.log(1 + (N - df + 0.5) / (df + 0.5)); });
+      var tb = 0, nc = 0; Object.keys(idf).forEach(function (w) { tb += idf[w]; nc++; }); tb = nc ? tb / nc : 1;
+      vang.forEach(function (w) { idf[w] = Math.max(tb, 0.8); });   // từ không có trong văn bản nào: tính bằng mức trung bình → kéo độ phủ xuống vừa phải
+      var tong = q.reduce(function (t, w) { return t + idf[w]; }, 0);
+      ds.forEach(function (o) {
+        var m = 0, n = 0; q.forEach(function (w) { if (o.co[w]) { m += idf[w]; n++; } });
+        var b = 0; for (var i = 1; i < tuHoi.length; i++) if (o.bg[tuHoi[i - 1] + ' ' + tuHoi[i]]) b += (idf[tuHoi[i - 1]] + idf[tuHoi[i]]) / 2;
+        var tieu = o.tieu ? botKhop(tuHoi, o.tieu + ' ' + (o.qd ? o.qd.nhom || '' : '')).phu : 0;
+        o.phu = tong ? m / tong : 0; o.n = n;
+        o.diem = m + 1.2 * b + 3 * tieu - 0.4 * Math.log(1 + o.len / 300);
+      });
+      ds.sort(function (a, b) { return b.diem - a.diem; });
+      var top = ds[0], can = Math.min(2, q.length);
+      var dat = top.phu >= BOT_NHANH_PHU && top.n >= can;
+      if (!dat) return { dat: false, goiY: ds.filter(function (o) { return o.phu >= 0.35 && o.n >= 1; }).slice(0, 3).map(function (o) { return o.nguon + (o.tieu && o.tieu !== o.nguon ? ' – ' + o.tieu : ''); }), phu: top.phu };
+      var lay = [top], conLai = 2400 - top.chu.length;
+      ds.slice(1, 8).forEach(function (o) { if (lay.length < 3 && o.diem >= top.diem * 0.7 && o.phu >= BOT_NHANH_PHU * 0.9 && o.chu.length < conLai && lay.indexOf(o) < 0) { lay.push(o); conLai -= o.chu.length; } });
+      var nguon = [], txt = lay.map(function (o) {
+        var nh = o.nguon + (o.vb && o.tieu ? ' – ' + o.tieu.replace(/\s+/g, ' ').slice(0, 90) : '');
+        if (nguon.indexOf(nh) < 0) nguon.push(nh);
+        var noi = o.qd ? botDoanLQ(o.qd.noiDung, tuHoi, 1800) + (o.qd.lienKet ? '\n(Liên kết: ' + o.qd.lienKet + ')' : '') : botDoanLQ(o.chu, tuHoi, 1800);
+        return '📄 ' + (o.vb && o.tieu && noi.indexOf(o.tieu) === 0 ? o.nguon : nh) + '\n' + noi;
+      }).join('\n\n');
+      return { dat: true, traLoi: txt, nguon: nguon, nhom: top.qd ? top.qd.nhom || '' : (top.vb && top.vb.nhom) || '', phu: top.phu };
+    }
+    var BOT_NGOAI_HE = 'Bạn là trợ lý của Công ty CP TAPACO Việt Nam (xây dựng hạ tầng, dân dụng, công nghiệp). Câu hỏi này KHÔNG có trong văn bản quy định của công ty. '
+      + 'Trả lời bằng KIẾN THỨC CHUNG: pháp luật Việt Nam (lao động, BHXH, thuế TNCN, xây dựng, an toàn lao động…), kỹ thuật – nghiệp vụ xây dựng, kiến thức phổ thông. '
+      + 'Ngắn gọn, tối đa khoảng 180 từ, gạch đầu dòng, tiếng Việt. Nếu câu hỏi hỏi về chế độ / mức tiền / thủ tục / mẫu đơn RIÊNG của công ty thì KHÔNG đoán: nói rõ công ty chưa có văn bản về việc này trong hệ thống, đề nghị hỏi phòng TCHC; có thể nêu quy định pháp luật chung liên quan. '
+      + 'Dẫn luật thì ghi tên, số văn bản và nhắc người hỏi kiểm tra văn bản còn hiệu lực. Không bịa số liệu. Chỉ trả về nội dung trả lời (văn bản thường, không JSON).';
     H['bot.hoi'] = function (req, s) {
       var hoi = botS(req.hoi, 500);
       if (hoi.length < 5) err('Xin nhập câu hỏi rõ hơn (ít nhất 5 ký tự).');
@@ -11162,9 +11268,24 @@ var HRCORE = (function () {
           traLoi: 'Hệ thống chưa có quy định nào được nhập. Đề nghị Anh/Chị liên hệ phòng TCHC để được trả lời, và đề nghị TCHC nhập quy chế công ty vào mục "Quy định công ty" của trợ lý.' };
       }
       var tuHoi = botTu(hoi), tg0 = Date.now();
-      var kTL = env.dem ? 'bh2_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan()).slice(0, 40) : '';
+      var kTL = env.dem ? 'bh3_' + env.hash(botKhongDau(hoi).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + botPhienBan() + (req.ai ? '|ai' : '')).slice(0, 40) : '';
       if (kTL) { var daCo = env.dem.lay(kTL); if (daCo) { try { var kq0 = JSON.parse(daCo); kq0.daDem = true; return kq0; } catch (e) { } } }   // v3.55: câu hỏi đã trả lời → trả ngay
       var luuTL = function (kq) { if (kTL && kq && kq.daTraLoi) env.dem.cat(kTL, JSON.stringify(kq), 21600); kq.ms = Date.now() - tg0; return kq; };
+      var cfgB = getCfg();
+      if (!req.ai) {                                   // v3.80: tra cứu nhanh trong văn bản – không gọi AI
+        var tn = botTraNhanh(hoi, tuHoi, qd, vb);
+        if (tn && tn.dat) return luuTL({ daTraLoi: true, dungAI: false, cheDo: 'tracuu', nguon: tn.nguon, nhom: tn.nhom, doKhop: Math.round(tn.phu * 100), traLoi: tn.traLoi });
+        var goiY = tn ? tn.goiY || [] : [];
+        if (cfgB.botAINgoai !== false && cfgB.botAINgoai !== 'false' && env.ai && env.ai.trangThai().coKhoa) {     // ngoài văn bản công ty → AI kiến thức chung (chỉ gửi câu hỏi)
+          try {
+            var tl = String(env.ai.goi({ he: BOT_NGOAI_HE, nd: 'CÂU HỎI: ' + hoi, anh: [], maxTok: 700, nhanh: true, loai: 'botngoai', duLieu: { hoi: hoi } }) || '').replace(/^```\w*|```$/g, '').trim().slice(0, 4000);
+            if (tl) return luuTL({ daTraLoi: true, dungAI: true, cheDo: 'ngoai', nguon: ['Kiến thức chung (AI) – không phải quy định công ty'], nhom: '', thieu: hoi, goiY: goiY,
+              traLoi: tl + (goiY.length ? '\n\nVăn bản công ty có thể liên quan (chưa khớp rõ): ' + goiY.join('; ') + '.' : '') });
+          } catch (e) { }
+        }
+        return { daTraLoi: false, dungAI: false, cheDo: 'khong', nguon: [], nhom: '', thieu: hoi, goiY: goiY, ms: Date.now() - tg0,
+          traLoi: 'Chưa tìm thấy nội dung này trong quy định / văn bản công ty đã đưa vào hệ thống.' + (goiY.length ? ' Văn bản có thể liên quan: ' + goiY.join('; ') + '.' : '') + ' Đề nghị Anh/Chị liên hệ phòng TCHC; câu hỏi đã được ghi nhận để TCHC bổ sung.' };
+      }
 
       /* chọn nguồn liên quan: toàn bộ mục quy định ngắn (xếp theo điểm), và tối đa 3 văn bản gốc liên quan nhất */
       var qdXep = qd.map(function (x) {
@@ -11391,7 +11512,7 @@ var HRCORE = (function () {
         soNguoi: Object.keys(nguoi).length };
     };
 
-    var READ_ONLY = ['ctg.kiem', 'ctg.tai', 'ctg.ds', 'bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
+    var READ_ONLY = ['chat.khoai', 'chat.bcai', 'ctg.kiem', 'ctg.tai', 'ctg.ds', 'bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
       'ping', 'log.list', 'cv.ocr', 'chat.init', 'chat.poll', 'chat.history', 'chat.file', 'chat.files',
       'ai.nhom', 'ai.thu', 'ai.models', 'ai.phantich', 'ai.taifile', 'gps.cuatoi', 'gps.ds', 'gps.anh', 'gps.tonghop', 'gps.ct.ds', 'ai.ds', 'ai.xem', 'ai.tep', 'ai.tepluu', 'ai.doctep', 'chat.nhatky', 'push.cuatoi', 'push.trangthai', 'cckt.ds', 'cckt.ai', 'vitri.ds', 'dgt.ds', 'dgt.xem', 'dgt.ai', 'dgt.cuatoi', 'bot.ds', 'bot.hoi', 'bot.nhatky'];   // phân tích AI chạy lâu: không giữ khóa ghi (chỉ ghi Drive, bộ nhớ đệm)
 
