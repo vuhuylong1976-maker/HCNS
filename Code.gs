@@ -98,7 +98,11 @@ function SheetDB_() {
     var h = heads[name].slice();
     (HRCORE.SCHEMA[name] || []).forEach(function (c) { if (h.indexOf(c) < 0) h.push(c); });
     rows.forEach(function (r) { Object.keys(r).forEach(function (k) { if (h.indexOf(k) < 0 && HRCORE.SCHEMA[name].indexOf(k) >= 0) h.push(k); }); });
-    if (h.length !== heads[name].length) { sh.getRange(1, 1, 1, h.length).setValues([h]); heads[name] = h; }
+    if (h.length !== heads[name].length) {
+      sh.getRange(1, 1, 1, h.length).setValues([h]);
+      for (var jc = heads[name].length; jc < h.length; jc++) if (!HRCORE.isNumCol(name, h[jc])) sh.getRange(2, jc + 1, Math.max(sh.getMaxRows() - 1, 1), 1).setNumberFormat('@');   // v3.95: cột mới dạng văn bản – giữ số 0 đầu (số BHXH, SĐT)
+      heads[name] = h;
+    }
     // so khớp thứ tự: các đối tượng cũ còn lại phải giữ đúng thứ tự, dòng mới chỉ nằm ở cuối
     var viTri = new Map(); g.obj.forEach(function (o, i) { viTri.set(o, i); });
     var con = [], moi = [], truoc = -1, hopLe = true;
@@ -202,7 +206,8 @@ function env_(db) {
         fcCat_(id, d); return { data: d };
       },
       ocr: function (id) { return ocrDrive_(id); },
-      ocrAnh: function (b64, mime) { return ocrAnh_(b64, mime); },   // v3.79: OCR Google Drive cho ảnh gửi kèm (không cần lưu ảnh trước)        // v3.37: đọc chữ ảnh / PDF bằng Google Drive (cần bật dịch vụ nâng cao "Drive API")
+      ocrAnh: function (b64, mime) { return ocrAnh_(b64, mime); },
+      ocrNhieu: function (ds) { return ocrNhieu_(ds); },   // v3.89: OCR nhiều tệp SONG SONG (UrlFetchApp.fetchAll)   // v3.79: OCR Google Drive cho ảnh gửi kèm (không cần lưu ảnh trước)        // v3.37: đọc chữ ảnh / PDF bằng Google Drive (cần bật dịch vụ nâng cao "Drive API")
       thumb: function (id) {                                // v3.32: ảnh cũ chưa có ảnh thu nhỏ riêng → dùng ảnh thu nhỏ của Drive (ảnh lớn)
         var c = fcLay_(id + '#t'); if (c) return { data: c, mime: 'image/png' };
         var f = DriveApp.getFileById(id); if (f.getSize() <= 150000) return null;
@@ -773,6 +778,27 @@ function ocrAnh_(b64, mime) {
     return x.getContentText('UTF-8');
   } finally { try { UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + id, { method: 'delete', headers: { Authorization: 'Bearer ' + tk }, muteHttpExceptions: true }); } catch (e) { } }
 }
+/* v3.89: OCR NHIỀU TỆP SONG SONG – tải tất cả lên Drive dạng Google Docs cùng lúc, xuất chữ cùng lúc, xóa bản tạm cùng lúc.
+   ds: [{data (base64), mime}] → mảng chữ ('' nếu tệp đó lỗi). Nhanh hơn đọc lần lượt khi văn bản có nhiều trang / phụ lục. */
+function ocrNhieu_(ds) {
+  if (!ds || !ds.length) return [];
+  var tk = ScriptApp.getOAuthToken(), H = { Authorization: 'Bearer ' + tk };
+  var up = ds.map(function (f, i) {
+    var bd = 'tapaco' + Date.now() + 'x' + i;
+    var dau = Utilities.newBlob('--' + bd + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify({ name: 'OCR_tam_' + Date.now() + '_' + i, mimeType: 'application/vnd.google-apps.document' })
+      + '\r\n--' + bd + '\r\nContent-Type: ' + f.mime + '\r\n\r\n').getBytes(), cuoi = Utilities.newBlob('\r\n--' + bd + '--').getBytes();
+    return { url: 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&ocrLanguage=vi&fields=id', method: 'post', contentType: 'multipart/related; boundary=' + bd,
+      payload: dau.concat(Utilities.base64Decode(f.data), cuoi), headers: H, muteHttpExceptions: true };
+  });
+  var ids = UrlFetchApp.fetchAll(up).map(function (r) { try { return r.getResponseCode() < 300 ? JSON.parse(r.getContentText()).id : ''; } catch (e) { return ''; } });
+  var co = ids.filter(Boolean), out = ids.map(function () { return ''; });
+  if (co.length) {
+    var ex = UrlFetchApp.fetchAll(co.map(function (id) { return { url: 'https://www.googleapis.com/drive/v3/files/' + id + '/export?mimeType=text/plain', headers: H, muteHttpExceptions: true }; }));
+    var j = 0; ids.forEach(function (id, i) { if (!id) return; var r = ex[j++]; out[i] = r.getResponseCode() < 300 ? r.getContentText('UTF-8') : ''; });
+    try { UrlFetchApp.fetchAll(co.map(function (id) { return { url: 'https://www.googleapis.com/drive/v3/files/' + id, method: 'delete', headers: H, muteHttpExceptions: true }; })); } catch (e) { }
+  }
+  return out;
+}
 function ocrTruoc_(req) {
   if (req.action !== 'tl.ocr' || !req.token || !req.fileId || req.text) return;
   if (!CacheService.getScriptCache().get('s_' + req.token)) return;
@@ -992,7 +1018,7 @@ function pushSau_(ds) {
 var HRCORE = (function () {
   'use strict';
 
-  var VERSION = '3.80';
+  var VERSION = '3.95';
 
   /* Chức danh (vai trò) của tài khoản. Mỗi tài khoản (trừ Quản trị) gắn với 1 hồ sơ CBCNV và 1 bộ phận. */
   var ROLES = {
@@ -1062,6 +1088,7 @@ var HRCORE = (function () {
     xem_bp: ['truongphong', 'cht'],                                  // v3.38: xem nhân sự bộ phận mình (danh sách, quá trình, đơn nghỉ)
     tu_xem: ['giamdoc', 'tchc', 'kttruong', 'ktcongno', 'ktluong', 'truongphong', 'cht', 'nhanvien'],   // hồ sơ, phiếu lương… của chính mình (cố định)
     sua_pq: ['admin', 'giamdoc'],                                    // v3.38: sửa bảng phân quyền
+    nangLuc: ['admin', 'giamdoc', 'tchc'],                           // v3.86: Năng lực & phát triển CBCNV – xem mọi người, AI đề xuất, diện đầu tư phát triển
     khoTH: ['admin', 'giamdoc', 'tchc', 'ktluong', 'ktcongno', 'kttruong']   // v3.73: Tổng hợp nhập – xuất kho mọi nhóm / công trình
   };
   /* ===== BẢNG PHÂN QUYỀN TÍCH CHỌN ĐƯỢC (v3.8) =====
@@ -1072,7 +1099,7 @@ var HRCORE = (function () {
     { ten: 'Hồ sơ & nhân sự', ds: [['view_all', 'Xem toàn bộ hồ sơ, lương, quá trình'], ['edit_nv', 'Hồ sơ, quá trình công tác, phòng ban – công trình, điều động'], ['tailieu', 'Xem tài liệu đính kèm của mọi CBCNV'], ['propose', 'Lập đề xuất nâng lương, khen thưởng – kỷ luật'], ['approve', 'Phê duyệt nâng lương, khen thưởng – kỷ luật'], ['duyetThue', 'Phê duyệt cam kết thu nhập, ủy quyền quyết toán, hồ sơ thuế TNCN']] },
     { ten: 'Văn bản & thông tin', ds: [['bantin', 'Đăng Bảng tin'], ['congvan', 'Xem toàn bộ sổ công văn đến – đi'], ['vanthu', 'Văn thư: vào sổ công văn, tải bản quét, AI đọc văn bản, lưu hồ sơ']] },
  { ten: 'Kho vật tư', ds: [['khoTH', 'Tổng hợp nhập – xuất kho của mọi nhóm / công trình (người khác: chỉ nhóm mình tham gia)']] },
-    { ten: 'Giám sát & AI', ds: [['aiNhom', 'Phân tích nhóm (AI): lưu trữ, phân tích, xem báo cáo mọi nhóm'], ['ccQuanLy', 'Chấm công GPS – quản lý: lượt chấm, ảnh, bản đồ, duyệt, công tác, kiểm tra AI, vị trí ngoài phạm vi'], ['danhgia', 'Đánh giá tổng hợp CBCNV (AI)'], ['botqd', 'Sửa quy định của trợ lý trong Tin nhắn']] },
+    { ten: 'Giám sát & AI', ds: [['aiNhom', 'Phân tích nhóm (AI): lưu trữ, phân tích, xem báo cáo mọi nhóm'], ['ccQuanLy', 'Chấm công GPS – quản lý: lượt chấm, ảnh, bản đồ, duyệt, công tác, kiểm tra AI, vị trí ngoài phạm vi'], ['danhgia', 'Đánh giá tổng hợp CBCNV (AI)'], ['nangLuc', 'Năng lực & phát triển CBCNV: xem checklist, bài test mọi người, AI đề xuất, diện đầu tư phát triển'], ['botqd', 'Sửa quy định của trợ lý trong Tin nhắn']] },
     { ten: 'Hệ thống', ds: [['users', 'Quản lý tài khoản (ngoài Quản trị: chỉ tài khoản Nhân viên)'], ['doimk', 'Đặt lại mật khẩu cho tài khoản khác'], ['log', 'Xem nhật ký thao tác'], ['quytrinh', 'Cài đặt quy trình & người duyệt'], ['config', 'Cài đặt tham số, nhóm – loại đề xuất'], ['congthuc', 'Lập công thức tính lương']] },
     { ten: 'Theo chức danh', ds: [['xem_bp', 'Xem nhân sự bộ phận mình (danh sách, quá trình công tác, đơn nghỉ của bộ phận)'], ['tu_xem', 'Hồ sơ, phiếu lương, đơn nghỉ, ý kiến của chính mình'], ['sua_pq', 'Sửa bảng phân quyền này']] }
   ];
@@ -1122,14 +1149,16 @@ var HRCORE = (function () {
     { id: 'ktkl', ten: 'Khen thưởng – Kỷ luật', v: ['kt'], k: { doc: ['view_all'], sua: ['propose'], duyet: ['approve'] },
       a: { sua: ['kt.save', 'kt.delete'], duyet: ['kt.decide'] } },
     { id: 'nghiphep', ten: 'Nghỉ phép CBCNV (duyệt đơn của người khác)', v: ['np'], k: {}, a: { duyet: ['np.decide'] } },
-    { id: 'dexuat', ten: 'Đề xuất nội bộ', v: ['dx'], k: {}, a: { doc: ['dx.ds', 'dx.tepget'], sua: ['dx.create', 'dx.update', 'dx.upload', 'dx.tepdel', 'dx.huy', 'dx.ketqua', 'dx.nguoi'], duyet: ['dx.decide'] } },
+    { id: 'dexuat', ten: 'Đề xuất nội bộ', v: ['dx'], k: {}, a: { doc: ['dx.ds', 'dx.tepget'], sua: ['dx.create', 'dx.update', 'dx.upload', 'dx.tepdel', 'dx.huy', 'dx.ketqua', 'dx.nguoi', 'dx.link', 'dx.lamrobc'], duyet: ['dx.decide', 'dx.lamro', 'dx.lamrothu'] } },
     { id: 'khoan', ten: 'Khoán việc & thanh toán', v: ['khoan'], k: {}, a: { sua: ['ttk.save', 'ttk.delete'], duyet: ['ttk.move'] } },
     { id: 'congvan', ten: 'Công văn đến – đi', v: ['cv'], k: { doc: ['congvan'], sua: ['vanthu'] },
       a: { doc: ['cv.ds', 'cv.get', 'cv.tn'], sua: ['cv.save', 'cv.upload', 'cv.ocr', 'cv.ai', 'cv.tomtat', 'cv.tepxoa', 'cv.giao', 'cv.chuyen', 'cv.gui', 'cv.chot', 'cv.delete', 'cv.quyen', 'cv.baocao', 'cv.trinhcs'], duyet: ['cv.duyetct', 'cv.duyetcs'] } },
+    { id: 'quy', ten: 'Quỹ tiền mặt – App Quỹ (thu / chi theo tài khoản App Quỹ)', v: ['quy'], k: {}, a: {} },
     { id: 'bantin', ten: 'Đăng Bảng tin', v: [], k: { sua: ['bantin'] }, a: { sua: ['bt.save', 'bt.delete', 'bt.pin', 'bt.upload'] } },
     { id: 'kho', ten: 'Phiếu kho & Tổng hợp kho vật tư', v: ['khoth'], k: { doc: ['khoTH'] }, moi: ['sua'], a: { doc: ['kho.tonghop', 'ctg.ds', 'chat.khods', 'chat.khoxem'], sua: ['chat.kho', 'chat.khosua', 'chat.khoxoa', 'chat.khohuy', 'chat.khoai', 'ctg.upload'] } },
     { id: 'gps', ten: 'Chấm công GPS – quản lý', v: ['gpsql'], k: { doc: ['ccQuanLy'] }, a: { doc: ['gps.ds', 'gps.tonghop', 'gps.anh', 'cckt.ds', 'vitri.ds'], sua: ['gps.caidat', 'gps.xoakm', 'vitri.caidat', 'cckt.chay', 'cckt.nhac', 'cckt.ai', 'cckt.luuai'], duyet: ['gps.duyet', 'cckt.xuly', 'vitri.xacnhan'] } },
     { id: 'danhgia', ten: 'Đánh giá CBCNV (AI)', v: ['dgt'], k: { doc: ['danhgia'] }, a: { doc: ['dgt.ds', 'dgt.xem', 'dgt.baocao'], sua: ['dgt.chay', 'dgt.ai', 'dgt.luuai', 'dgt.xoa'], duyet: ['dgt.chot'] } },
+    { id: 'nangluc', ten: 'Năng lực & phát triển CBCNV', v: ['nl'], k: { doc: ['nangLuc'] }, a: { doc: ['nl.ds', 'nl.xh.nv', 'nl.ky.ds'], sua: ['nl.ky.mo', 'nl.ky.chot', 'nl.cauhoi.nhap', 'nl.xh.luu', 'nl.cham', 'nl.nhom', 'nl.ai', 'nl.luuai', 'nl.dien', 'nl.nhac', 'nl.testxoa', 'nl.cauhoi'] } },
     { id: 'aibc', ten: 'Phân tích nhóm (AI)', v: ['aibc'], k: { doc: ['aiNhom'] }, a: { doc: ['ai.ds', 'ai.xem', 'ai.tep', 'ai.nhom'], sua: ['ai.phantich', 'ai.luutep', 'ai.nap', 'ai.cauhinh', 'ai.tepluu'] } },
     { id: 'botqd', ten: 'Quy định công ty (trợ lý)', v: ['botqd'], k: { sua: ['botqd'] }, a: { sua: ['bot.luu', 'bot.xoa', 'bot.ghi', 'qd.save'] } },
     { id: 'taikhoan', ten: 'Tài khoản & mật khẩu', v: ['users'], k: { sua: ['users', 'doimk'] }, a: { sua: ['user.save', 'user.bulk', 'user.resetpw', 'user.delete'] } },
@@ -1257,7 +1286,7 @@ var HRCORE = (function () {
   var CV_CS = ['Chưa trình', 'Chờ duyệt', 'Đã chia sẻ', 'Không chia sẻ'];   // duyệt chia sẻ văn bản cho người liên quan
   var CV_CS_OK = 'Đã chia sẻ';
   var TM_CV = '_CÔNG VĂN', TM_DX = '_ĐỀ XUẤT NỘI BỘ';
-  var DX_TT = ['Nháp', 'Chờ duyệt', 'Đã duyệt', 'Đang thực hiện', 'Hoàn thành', 'Từ chối', 'Đã hủy'];
+  var DX_TT = ['Nháp', 'Chờ duyệt', 'Đang làm rõ', 'Đã duyệt', 'Đang thực hiện', 'Hoàn thành', 'Từ chối', 'Đã hủy'];
   var DX_MO = ['Nháp', 'Chờ duyệt'];               // người lập còn sửa, còn hủy được
   var DX_XONG = ['Hoàn thành', 'Từ chối', 'Đã hủy'];
   /* Nhóm loại đề xuất – Quản trị tạo, dùng để gom các loại đề xuất trên menu và bộ lọc. */
@@ -1415,12 +1444,12 @@ var HRCORE = (function () {
     NhanVien: ['maNV', 'hoTen', 'gioiTinh', 'ngaySinh', 'cccd', 'ngayCapCCCD', 'noiCapCCCD', 'dienThoai', 'email',
       'diaChi', 'queQuan', 'trinhDo', 'chuyenNganh', 'phongBan', 'chucVu', 'donVi', 'noiLamViec', 'ngayVao', 'loaiHD', 'soHD',
       'ngayKyHD', 'ngayHetHanHD', 'trangThai', 'ngayNghi', 'ngach', 'bac', 'ngayHuongBac', 'ngayPhepNam', 'luongChinh', 'luongBH', 'phuCap', 'anCa',
-      'thamGiaBH', 'doanVien', 'mst', 'soNPT', 'camKet08', 'nganHang', 'soTK', 'ghiChu', 'capNhat', 'loaiLuong', 'lyDoKhongBH', 'congTy', 'thueTT', 'hsThue', 'hoSoHuu', 'lichSuHD'],
+      'thamGiaBH', 'doanVien', 'mst', 'soNPT', 'camKet08', 'nganHang', 'soTK', 'ghiChu', 'capNhat', 'loaiLuong', 'lyDoKhongBH', 'congTy', 'thueTT', 'hsThue', 'hoSoHuu', 'lichSuHD', 'soBHXH', 'soBHYT', 'nguoiNha'],
     QuaTrinh: ['id', 'maNV', 'loai', 'tuNgay', 'denNgay', 'phongBan', 'chucVu', 'donVi', 'soQD', 'nguoiKy',
       'noiDung', 'taoBoi', 'taoLuc'],
     LenLuong: ['id', 'maNV', 'loai', 'hieuLuc', 'ngachCu', 'bacCu', 'luongCu', 'luongBHCu', 'ngachMoi', 'bacMoi',
       'luongMoi', 'luongBHMoi', 'lyDo', 'soQD', 'trangThai', 'apDung', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet',
-      'ngayDuyet', 'ghiChuDuyet', 'luongDuyet', 'capDuyet', 'lichSu'],
+      'ngayDuyet', 'ghiChuDuyet', 'luongDuyet', 'capDuyet', 'lichSu', 'canCu', 'luongDeXuat'],   // v3.83: căn cứ đề xuất; lương đề xuất gốc khi cấp duyệt điều chỉnh mức
     KhenThuong: ['id', 'maNV', 'loai', 'hinhThuc', 'ngay', 'soTien', 'chiuThue', 'kyLuong', 'noiDung', 'soQD',
       'trangThai', 'nguoiDeXuat', 'ngayDeXuat', 'nguoiDuyet', 'ngayDuyet'],
     ChamCong: ['id', 'ky', 'maNV', 'ngayCong', 'nghiHuongLuong', 'nghiKhongLuong', 'nghiOm', 'ot150', 'ot200', 'ot300',
@@ -1453,6 +1482,14 @@ var HRCORE = (function () {
     // v3.3: sheet "Kiểm tra công" – vị trí ngoài phạm vi chấm công phát hiện khi nhắn tin (8 cột đầu theo yêu cầu, sau đó là số liệu chi tiết)
     // v3.4: đánh giá tổng hợp CBCNV (chấm công + vị trí + nhóm công việc + AI) – đợt và từng người
     DanhGiaTH: ['id', 'tieuDe', 'tu', 'den', 'pham', 'taoBoi', 'taoLuc', 'soNguoi', 'thongKe', 'aiTong', 'aiLuc', 'docId', 'docUrl', 'pdfId', 'trangThai'],
+    NangLuc: ['id', 'maNV', 'dot', 'nhom', 'tuCham', 'qlCham', 'tuLuc', 'qlLuc', 'nguoiQL', 'nhanXetQL', 'ghiChu', 'capNhat'],   // v3.86: checklist kỹ năng theo tháng (tự chấm / quản lý chấm, JSON {mục: 1–5})
+    NLTest: ['id', 'maNV', 'dot', 'loai', 'diem', 'chiTiet', 'traLoi', 'batDau', 'nopLuc', 'thoiGian', 'quaGio', 'de'],   // v3.91: de = đề của người đó (lưu máy chủ)   // v3.86: bài test tháng iq/aq/bq, bf 6 tháng/lần
+    NLDeXuat: ['id', 'maNV', 'dot', 'tiemNang', 'noiDung', 'nguon', 'nguoi', 'luc'],   // v3.86: đề xuất phát triển (AI) đã lưu
+    NLDien: ['id', 'maNV', 'tuNgay', 'lyDo', 'keHoach', 'nguoi', 'luc', 'trangThai', 'ketThucLuc', 'ghiChu'],   // v3.86: diện đầu tư phát triển (con người quyết định)
+    NLCauHoi: ['id', 'cau', 'a', 'b', 'c', 'd', 'dapAn', 'trangThai', 'nguoi', 'luc', 'loai', 'nhom', 'dao', 'ghiNho'],   // v3.92: loai cm + ghi nhớ   // v3.91: loai iq/aq/bq, nhom = khía cạnh, dao = câu đảo chiều
+    NLKy: ['dot', 'moLuc', 'han', 'chotLuc', 'nhacHan', 'nguoiMo', 'soNguoi', 'ghiChu'],   // v3.91: kỳ test hằng tháng
+    NLKyNguoi: ['id', 'dot', 'maNV', 'ketQua', 'xongLuc', 'ktId', 'soTien', 'luc'],   // v3.91: kết quả kỳ từng người (dung / tre / khong) + đề xuất KT   // v3.86: ngân hàng câu tư duy logic riêng của Công ty (chỉ trên máy chủ)
+    NLXepHang: ['id', 'dot', 'boPhan', 'tieuChi', 'phuongPhap', 'thuTu', 'nguoi', 'username', 'luc'],   // v3.88: quản lý xếp hạng nhân viên bộ phận (luân phiên / so sánh cặp)
     DanhGiaCN: ['id', 'dotId', 'maNV', 'hoTen', 'boPhan', 'chucDanh', 'username', 'chiSo', 'diemCC', 'diemTT', 'diemTN', 'diemTong', 'xepLoaiHT', 'aiXepLoai', 'aiTongQuan', 'aiTichCuc', 'aiHanChe', 'aiThieuSot', 'aiDeXuat', 'aiLuc',
       'xepLoai', 'ketLuan', 'nguoiChot', 'chotLuc', 'congBo', 'nvPhanHoi', 'phLuc', 'capNhat'],
     KiemTraCong: ['id', 'ngayGhi', 'gioGhi', 'hoTen', 'maNV', 'viTriChamCong', 'viTriNgoaiPhamVi', 'khoangCach', 'gioDo', 'boPhan', 'username', 'diemCC', 'latCC', 'lngCC', 'banKinh', 'lat', 'lng', 'doChinhXac', 'vuotBanKinh', 'banDo', 'hoiThoai', 'baoCao', 'ghiChu'],
@@ -1476,8 +1513,8 @@ var HRCORE = (function () {
     CongVanTN: ['id', 'cvId', 'username', 'hoTen', 'noiDung', 'fileId', 'tenTep', 'mime', 'thoiGian'],
     DeXuat: ['id', 'ma', 'tienTo', 'so', 'loai', 'tenLoai', 'nhom', 'tenNhom', 'tieuDe', 'noiDung', 'soTien', 'donVi', 'maNV', 'hoTen', 'boPhan', 'doKhan',
       'hanCan', 'trangThai', 'capDuyet', 'luongDuyet', 'theoDoi', 'thucHien', 'lichSu', 'noiDungId', 'ketQua', 'hoanThanhLuc',
-      'nguoiDuyet', 'ngayDuyet', 'ghiChuDuyet', 'nguoiTao', 'taoLuc', 'capNhat'],
-    DeXuatTep: ['id', 'dxId', 'loai', 'ten', 'mime', 'kichThuoc', 'fileId', 'nguoiTai', 'taiLuc'],
+      'nguoiDuyet', 'ngayDuyet', 'ghiChuDuyet', 'nguoiTao', 'taoLuc', 'capNhat', 'lamRo', 'soTienDuyet'],   // v3.83: số tiền được duyệt (cấp sau cùng)   // v3.82: lamRo = yêu cầu kiểm tra / làm rõ đang mở + các đợt trước
+    DeXuatTep: ['id', 'dxId', 'loai', 'ten', 'mime', 'kichThuoc', 'fileId', 'nguoiTai', 'taiLuc', 'url'],   // v3.81: loai 'link' + url (Google Sheets / Docs / Drive…)
     CauHinh: ['key', 'value'],
     NhatKy: ['thoiGian', 'user', 'action', 'chiTiet'],
     HopDongKhoan: ['id', 'soHD', 'maNV', 'loaiK', 'congTrinh', 'hangMuc', 'doiTo', 'tuNgay', 'denNgay', 'giaTriHD', 'hinhThuc', 'donGia', 'donViTinh', 'kieuGia', 'danhGia', 'ketLuan', 'trangThai', 'hoSo', 'ghiChu', 'nguoiTao', 'taoLuc', 'capNhat'],
@@ -1492,12 +1529,457 @@ var HRCORE = (function () {
     'thucLinh', 'bhxhDN', 'bhytDN', 'bhtnDN', 'kpcdDN', 'viPham', 'giamThuong', 'boiThuong', 'soNguoi', 'tongThucLinh', 'nghiOm', 'soNgay', 'ngayPhepNam', 'capDuyet', 'kichThuoc', 'ngayLe', 'ktCongThuc', 'anCa', 'daDoc', 'seq', 'w', 'h', 'so', 'soBan', 'soTien', 'soTN', 'tienKhoan', 'giaTriHD', 'donGia', 'khoiLuong', 'giaTriNT', 'thuNhapBS', 'giamTruHD', 'thuHoiTU', 'thuHoiTUThue', 'tienPhaiTra', 'thueSuat', 'thue', 'thucTra', 'buoc', 'dot', 'soBua', 'tienAnThu', 'thuUng', 'tongNo', 'anCaMien', 'otThue', 'otThucLinh', 'anThuTay'];
 
   // Bảng NhanVien.phuCap là JSON nhưng nằm trong NUM_COLS? Không: BangLuong.phuCap là số. Phân biệt theo bảng.
+  /* v3.95: SỐ SỔ BHXH, MÃ THẺ BHYT, NGƯỜI NHÀ (liên hệ khi cần) trong hồ sơ CBCNV */
+  var QUAN_HE = ['Vợ', 'Chồng', 'Bố', 'Mẹ', 'Bố vợ', 'Mẹ vợ', 'Bố chồng', 'Mẹ chồng', 'Con', 'Anh', 'Chị', 'Em', 'Ông', 'Bà', 'Cô', 'Dì', 'Chú', 'Bác', 'Cậu', 'Người giám hộ', 'Khác'];
+  function nguoiNhaDs(v) {                       // JSON | mảng | chữ "Tên - quan hệ - SĐT; …" (nhập Excel) → [{ten, quanHe, dienThoai}]
+    if (Array.isArray(v)) return v;
+    var s = String(v == null ? '' : v).trim(); if (!s) return [];
+    if (/^\[/.test(s)) { var a = parseJSON(s, null); if (Array.isArray(a)) return a; }
+    return s.split(/\s*[;\n]\s*/).filter(Boolean).map(function (x) {
+      var p = x.split(/\s+[-–—|]\s+|\s*[,|]\s*/).map(function (y) { return y.trim(); }).filter(Boolean), o = { ten: '', quanHe: '', dienThoai: '' };
+      p.forEach(function (y) { if (!o.dienThoai && /^[+\d][\d .()-]{7,}$/.test(y)) o.dienThoai = y; else if (!o.quanHe && QUAN_HE.some(function (q) { return q.toLowerCase() === y.toLowerCase().replace(/^\(|\)$/g, ''); })) o.quanHe = y.replace(/^\(|\)$/g, ''); else if (!o.ten) o.ten = y; else o.quanHe = o.quanHe || y; });
+      return o;
+    });
+  }
+  function nguoiNhaChuan(v, err) {
+    var ds = nguoiNhaDs(v).map(function (x) { return { ten: String((x && x.ten) || '').trim().slice(0, 80), quanHe: String((x && x.quanHe) || '').trim().slice(0, 40), dienThoai: String((x && x.dienThoai) || '').trim().slice(0, 20) }; })
+      .filter(function (x) { return x.ten || x.quanHe || x.dienThoai; });
+    if (ds.length > 10) err('Tối đa 10 người nhà.');
+    ds.forEach(function (x, i) {
+      var q = QUAN_HE.filter(function (k) { return k.toLowerCase() === x.quanHe.toLowerCase(); })[0]; if (q) x.quanHe = q;
+      if (!x.ten) err('Người nhà thứ ' + (i + 1) + ': thiếu họ tên.');
+      if (!x.quanHe) err('Người nhà ' + x.ten + ': chọn quan hệ (vợ, chồng, bố, mẹ, anh, chị…).');
+      var so = x.dienThoai.replace(/[\s.()-]/g, '');
+      if (so && !/^(\+?84|0)\d{8,10}$/.test(so)) err('Người nhà ' + x.ten + ': số điện thoại "' + x.dienThoai + '" không hợp lệ.');
+      x.dienThoai = so;
+    });
+    return ds;
+  }
+  function soBHXHChuan(v, err) { var s = String(v == null ? '' : v).replace(/[\s.]/g, ''); if (s && !/^(\d{10}|\d{12})$/.test(s)) err('Số sổ BHXH (mã số BHXH) phải 10 chữ số (hoặc 12 số – số định danh cá nhân).'); return s; }
+  function soBHYTChuan(v, err) { var s = String(v == null ? '' : v).replace(/[\s.-]/g, '').toUpperCase(); if (s && !/^([A-Z]{2}\d{13}|\d{10}|\d{12})$/.test(s)) err('Mã thẻ BHYT phải dạng 2 chữ + 13 số (VD: GD4010123456789) hoặc 10 số mã BHXH.'); return s; }
   function isNumCol(table, col) {
     if (col === 'phuCap') return table === 'BangLuong';
     return NUM_COLS.indexOf(col) >= 0;
   }
 
+  /* ===== v3.86: NĂNG LỰC & PHÁT TRIỂN CBCNV – khung checklist kỹ năng theo nhóm chuyên môn, bài test tháng ===== */
+  var NL_NHOM = { ktxd: 'Kỹ thuật xây dựng', tm: 'Thợ máy – vận hành thiết bị', ktkt: 'Kế toán – kinh tế', kd: 'Kinh doanh', khac: 'Khác (chỉ kỹ năng chung)' };   // v3.92: thêm thợ máy
+  var NL_THANG = ['', 'Chưa biết', 'Cơ bản', 'Thành thạo', 'Giỏi', 'Chuyên gia – hướng dẫn được người khác'];
+  var NL_KHUNG = {
+    ktxd: [
+      { id: 'kt', ten: 'Kỹ năng kỹ thuật', ds: [['kt1', 'Đọc hiểu bản vẽ, hồ sơ thiết kế'], ['kt2', 'Lập và triển khai biện pháp thi công'], ['kt3', 'Giám sát chất lượng (QA/QC), nghiệm thu'], ['kt4', 'An toàn lao động, vệ sinh môi trường'], ['kt5', 'Trắc đạc, định vị, kiểm tra kích thước'], ['kt6', 'Bóc khối lượng, dự toán'], ['kt7', 'Lập và kiểm soát tiến độ'], ['kt8', 'Vật liệu xây dựng, thí nghiệm']] },
+      { id: 'hs', ten: 'Kỹ năng hồ sơ', ds: [['hs1', 'Hồ sơ chất lượng, biên bản nghiệm thu'], ['hs2', 'Nhật ký thi công'], ['hs3', 'Bản vẽ hoàn công'], ['hs4', 'Hồ sơ thanh toán, quyết toán khối lượng'], ['hs5', 'Soạn công văn, báo cáo'], ['hs6', 'Lưu trữ, quản lý hồ sơ']] },
+      { id: 'mt', ten: 'Kỹ năng máy tính', ds: [['mt1', 'AutoCAD'], ['mt2', 'Excel'], ['mt3', 'Word'], ['mt4', 'MS Project / phần mềm tiến độ'], ['mt5', 'Phần mềm dự toán'], ['mt6', 'BIM (Revit, Civil 3D…)'], ['mt7', 'Ứng dụng công ty, công cụ AI']] }
+    ],
+    ktkt: [
+      { id: 'ql', ten: 'Kỹ năng quản lý', ds: [['ql1', 'Lập kế hoạch tài chính, ngân sách'], ['ql2', 'Quản lý dòng tiền'], ['ql3', 'Quản lý công nợ'], ['ql4', 'Kiểm soát chi phí công trình'], ['ql5', 'Tổ chức công tác kế toán']] },
+      { id: 'pt', ten: 'Kỹ năng phân tích', ds: [['pt1', 'Phân tích báo cáo tài chính'], ['pt2', 'Phân tích hiệu quả dự án, giá vốn'], ['pt3', 'Phân tích chi phí, biến động'], ['pt4', 'Lập dự báo']] },
+      { id: 'pl', ten: 'Kỹ năng pháp luật', ds: [['pl1', 'Luật Kế toán, chuẩn mực kế toán'], ['pl2', 'Hợp đồng kinh tế'], ['pl3', 'Pháp luật xây dựng, đấu thầu (thanh quyết toán)'], ['pl4', 'Lao động, BHXH']] },
+      { id: 'th', ten: 'Kỹ năng về thuế', ds: [['th1', 'Thuế GTGT'], ['th2', 'Thuế TNDN'], ['th3', 'Thuế TNCN'], ['th4', 'Hóa đơn điện tử'], ['th5', 'Quyết toán thuế, làm việc với cơ quan thuế']] },
+      { id: 'bc', ten: 'Báo cáo tài chính', ds: [['bc1', 'Lập báo cáo tài chính'], ['bc2', 'Báo cáo quản trị'], ['bc3', 'Đối chiếu số liệu, khóa sổ'], ['bc4', 'Phần mềm kế toán'], ['bc5', 'Excel nâng cao']] }
+    ],
+    kd: [
+      { id: 'gt', ten: 'Khả năng giao tiếp', ds: [['gt1', 'Giao tiếp với khách hàng'], ['gt2', 'Thuyết trình'], ['gt3', 'Viết email, thư chào giá'], ['gt4', 'Lắng nghe, nắm bắt nhu cầu']] },
+      { id: 'km', ten: 'Kỹ năng mềm kinh doanh', ds: [['km1', 'Đàm phán'], ['km2', 'Xử lý phản đối, khiếu nại'], ['km3', 'Xây dựng, duy trì quan hệ'], ['km4', 'Quản lý thời gian, mục tiêu doanh số']] },
+      { id: 'qk', ten: 'Chuyên môn quản lý', ds: [['qk1', 'Tìm kiếm, quản lý khách hàng (CRM)'], ['qk2', 'Lập hồ sơ dự thầu, chào giá'], ['qk3', 'Quản lý hợp đồng'], ['qk4', 'Nghiên cứu thị trường, đối thủ'], ['qk5', 'Hiểu sản phẩm, dịch vụ xây dựng của công ty']] }
+    ],
+    tm: [   // v3.92: thợ máy – vận hành thiết bị
+      { id: 'vh', ten: 'Vận hành', ds: [['vh1', 'Kiểm tra máy trước ca (dầu, nước, nhiên liệu, rò rỉ)'], ['vh2', 'Vận hành đúng quy trình, đúng tải'], ['vh3', 'Tiết kiệm nhiên liệu, ghi sổ nhật ký máy'], ['vh4', 'Xử lý tình huống, sự cố khi vận hành']] },
+      { id: 'bd', ten: 'Bảo trì – bảo dưỡng', ds: [['bd1', 'Thay dầu, lọc đúng chu kỳ'], ['bd2', 'Bôi trơn, tra mỡ, chỉnh căng xích / curoa'], ['bd3', 'Kiểm tra hệ thống thủy lực, điện, ắc quy'], ['bd4', 'Lập và theo dõi kế hoạch bảo dưỡng']] },
+      { id: 'sc', ten: 'Sửa chữa – nguyên lý máy', ds: [['sc1', 'Hiểu nguyên lý động cơ, thủy lực, truyền động'], ['sc2', 'Chẩn đoán hư hỏng (khói, tiếng kêu, đèn báo)'], ['sc3', 'Sửa chữa nhỏ, thay thế phụ tùng'], ['sc4', 'Đọc tài liệu, sổ tay kỹ thuật của máy']] },
+      { id: 'atm', ten: 'An toàn thiết bị', ds: [['at1', 'Khóa – treo thẻ (LOTO) khi sửa chữa'], ['at2', 'An toàn khi làm việc gần người, đường điện, mép hố'], ['at3', 'Giấy tờ, kiểm định, chứng chỉ vận hành'], ['at4', 'Phòng cháy, thu gom dầu thải']] }
+    ],
+    khac: [],
+    chung: [   // v3.87: đánh giá nhân viên theo tiêu chí – mọi CBCNV (id mm1–mm8 giữ nguyên từ 3.86)
+      { id: 'cm', tc: 'cm', ten: 'Chuyên môn', ds: [['cm1', 'Kiến thức chuyên môn đáp ứng yêu cầu vị trí'], ['cm2', 'Chất lượng kết quả công việc (đúng, đủ, ít phải sửa)'], ['cm3', 'Tuân thủ tiêu chuẩn, quy chuẩn, quy định chuyên môn'], ['cm4', 'Cập nhật kiến thức, quy định mới'], ['cm5', 'Bằng cấp, chứng chỉ hành nghề phù hợp']] },
+      { id: 'ns', tc: 'ns', ten: 'Năng suất làm việc', ds: [['ns1', 'Khối lượng công việc hoàn thành'], ['ns2', 'Hoàn thành đúng tiến độ, thời hạn'], ['mm4', 'Quản lý thời gian, sắp xếp thứ tự ưu tiên'], ['ns3', 'Sử dụng hiệu quả vật tư, máy móc, chi phí'], ['ns4', 'Xử lý được khối lượng lớn, việc đột xuất']] },
+      { id: 'cc', tc: 'cc', ten: 'Chuyên cần', goiY: 'cc', ds: [['cc1', 'Đi làm đầy đủ ngày công'], ['cc2', 'Đúng giờ (đi làm, họp, giao ban)'], ['cc3', 'Ít nghỉ đột xuất, xin phép đúng quy định'], ['cc4', 'Sẵn sàng tăng ca, có mặt khi công việc cần']] },
+      { id: 'nlcn', tc: 'nlcn', ten: 'Năng lực cá nhân', ds: [['mm3', 'Tư duy, giải quyết vấn đề'], ['mm5', 'Chủ động, sáng tạo, đề xuất cải tiến'], ['mm6', 'Chịu áp lực'], ['mm7', 'Tự học hỏi, tiếp thu'], ['nc1', 'Trung thực, đáng tin cậy'], ['mm8', 'Ngoại ngữ']] },
+      { id: 'qly', tc: 'qly', ten: 'Khả năng quản lý', tuyChon: 1, ds: [['qy1', 'Lập kế hoạch, mục tiêu'], ['qy2', 'Tổ chức, phân công công việc'], ['qy3', 'Kiểm tra, kiểm soát, đôn đốc'], ['qy4', 'Ra quyết định, chịu trách nhiệm'], ['qy5', 'Kèm cặp, phát triển cấp dưới'], ['qy6', 'Quản lý chi phí, nguồn lực']] },
+      { id: 'gtn', tc: 'gtn', ten: 'Giao tiếp & làm việc nhóm', ds: [['mm2', 'Giao tiếp nội bộ, cấp trên, cấp dưới'], ['gn1', 'Trình bày, báo cáo rõ ràng'], ['gn2', 'Lắng nghe, tiếp nhận ý kiến'], ['mm1', 'Làm việc nhóm, phối hợp'], ['gn3', 'Hỗ trợ đồng nghiệp'], ['gn4', 'Xử lý bất đồng, mâu thuẫn'], ['gn5', 'Giao tiếp với chủ đầu tư, tư vấn, đối tác']] },
+      { id: 'tp', tc: 'tp', ten: 'Tác phong làm việc (quản lý đánh giá)', qlOnly: true, ds: [['tp1', 'Kỷ luật, giờ giấc'], ['tp2', 'Trách nhiệm, cam kết'], ['tp3', 'Tuân thủ an toàn, quy trình'], ['tp4', 'Thái độ, hợp tác']] }
+    ]
+  };
+  /* tiêu chí đánh giá nhân viên: nhóm kỹ năng theo chuyên ngành → kncm; nhóm chung → theo tc */
+  var NL_TC = [['cm', 'Chuyên môn'], ['kncm', 'Kỹ năng chuyên môn'], ['ns', 'Năng suất làm việc'], ['cc', 'Chuyên cần'], ['nlcn', 'Năng lực cá nhân'], ['qly', 'Khả năng quản lý'], ['gtn', 'Giao tiếp & làm việc nhóm'], ['tp', 'Tác phong']];
+  var NL_XL = [[90, 'Xuất sắc'], [75, 'Tốt'], [60, 'Khá'], [45, 'Đạt'], [0, 'Cần cải thiện']];
+  function nlXepLoai(d) { if (d == null) return 'Chưa đánh giá'; for (var i = 0; i < NL_XL.length; i++) if (d >= NL_XL[i][0]) return NL_XL[i][1]; return 'Cần cải thiện'; }
+  function nlKhung(nhom) { return (NL_KHUNG[nhom] || []).concat(NL_KHUNG.chung); }
+  function nlNhomTuDong(n) {
+    var s = String([n && n.chucVu, n && n.phongBan, n && n.chuyenNganh].join(' ')).toLowerCase();
+    if (/thợ máy|tho may|vận hành máy|van hanh may|lái máy|lai may|lái xe|lai xe|tài xế|tai xe|cơ giới|co gioi|thợ cơ khí|tho co khi|thợ sửa|máy thi công/.test(s)) return 'tm';   // v3.92
+    if (/kế toán|ke toan|tài chính|tai chinh|kinh tế|kinh te|thủ quỹ|thu quy|ngân hàng|kiểm toán|tài vụ/.test(s)) return 'ktkt';
+    if (/kinh doanh|bán hàng|ban hang|sales|thị trường|thi truong|marketing|chăm sóc khách|đấu thầu|dau thau/.test(s)) return 'kd';
+    if (/kỹ sư|ky su|kỹ thuật|ky thuat|chỉ huy|chi huy|giám sát|giam sat|qa|qc|xây dựng|xay dung|công trình|cong trinh|trắc đạc|dự toán|du toan|thiết kế|cầu đường|kết cấu|bch/.test(s)) return 'ktxd';
+    return 'khac';
+  }
+  /* bài test: iq = tư duy logic (điểm nội bộ, KHÔNG phải IQ chuẩn hóa); aq = vượt khó (tham khảo khung CORE); bq = tác phong; bf = phong cách làm việc (Big Five rút gọn) */
+  var NL_TEST = {
+    iq: { ten: 'Tư duy logic (IQ nội bộ)', soCau: 12, phut: 15, kieu: 'chon', chuKy: 1,
+      hd: '12 câu, 15 phút. Chọn 1 đáp án mỗi câu. Đây là điểm tư duy logic nội bộ (tỷ lệ câu đúng), không phải chỉ số IQ chuẩn hóa.' },
+    aq: { ten: 'Khả năng vượt khó (AQ)', kieu: 'likert', chuKy: 1, hd: 'Chọn mức đúng với bản thân bạn nhất. Không có đáp án đúng/sai – trả lời trung thực để kết quả có ích.',
+      dim: { K: 'Kiểm soát tình huống', T: 'Nhận trách nhiệm', P: 'Giới hạn ảnh hưởng', B: 'Bền bỉ' } },
+    bq: { ten: 'Tác phong làm việc (BQ)', kieu: 'likert', chuKy: 1, hd: 'Tự đánh giá tác phong trong tháng qua. Điểm BQ tổng hợp = 40% tự đánh giá + 60% quản lý đánh giá (mục Tác phong).',
+      dim: { G: 'Kỷ luật, giờ giấc', R: 'Trách nhiệm, cam kết', A: 'Tuân thủ an toàn, quy trình', H: 'Thái độ, hợp tác' } },
+    bf: { ten: 'Phong cách làm việc', kieu: 'likert', chuKy: 6, hd: 'Làm 6 tháng/lần. Mô tả xu hướng làm việc, không có tốt/xấu – dùng để bố trí việc phù hợp và phát triển bản thân.',
+      dim: { E: 'Hướng ngoại', A: 'Dễ hợp tác', C: 'Tận tâm, kỷ luật', N: 'Ổn định cảm xúc', O: 'Cởi mở, đổi mới' } },
+    cm: { ten: 'Kiến thức chuyên môn', soCau: 10, phut: 15, kieu: 'chon', chuKy: 1, hd: '10 câu theo nhóm chuyên môn của bạn, 15 phút. Nộp xong xem ngay đáp án đúng và phần "Ghi nhớ" để ôn tập – mỗi tháng một bộ câu mới.' },
+    xh: { ten: 'Xu hướng ưu tiên (xếp thứ tự)', kieu: 'xep', chuKy: 3, hd: 'Mỗi câu có 4 cách ứng xử. Bấm lần lượt từ cách GIỐNG BẠN NHẤT (1) đến ÍT GIỐNG NHẤT (4). Làm 3 tháng/lần. Kết quả cho thấy thứ tự ưu tiên của chính bạn giữa 4 chỉ số cơ bản – không dùng để so sánh hơn kém giữa người này với người khác.',
+      dim: { T: 'Tư duy – phân tích (IQ)', V: 'Vượt khó – bền bỉ (AQ)', K: 'Kỷ luật – tác phong (BQ)', H: 'Giao tiếp – hợp tác (EQ)' } }
+  };
+  /* v3.88: bài test xếp thứ tự (ipsative) – mỗi câu 4 phương án ứng với 4 chỉ số T/V/K/H; hạng 1→3 điểm … hạng 4→0 điểm */
+  var NL_XEP = [
+    ['x1', 'Khi nhận một nhiệm vụ mới chưa làm bao giờ, tôi thường:', { T: 'Tìm hiểu tài liệu, phân tích yêu cầu trước khi làm', V: 'Bắt tay làm ngay, vướng đâu gỡ đó đến khi xong', K: 'Hỏi rõ quy trình, biểu mẫu, thời hạn để làm đúng', H: 'Trao đổi với người đã làm để học kinh nghiệm' }],
+    ['x2', 'Khi công trình chậm tiến độ do thời tiết, tôi:', { T: 'Tính toán lại tiến độ, tìm phương án bù', V: 'Tăng ca, quyết tâm kéo lại tiến độ', K: 'Báo cáo cấp trên đúng quy định, ghi nhật ký đầy đủ', H: 'Họp tổ đội, động viên và phân công lại' }],
+    ['x3', 'Điều khiến tôi hài lòng nhất trong công việc:', { T: 'Giải được một bài toán kỹ thuật khó', V: 'Hoàn thành việc tưởng như không thể', K: 'Mọi việc chạy đúng kế hoạch, không sai sót', H: 'Cả nhóm phối hợp ăn ý, mọi người vui vẻ' }],
+    ['x4', 'Khi phát hiện sai sót trong hồ sơ của đồng nghiệp, tôi:', { T: 'Kiểm tra kỹ nguyên nhân, đối chiếu số liệu', V: 'Tự sửa ngay để kịp tiến độ chung', K: 'Đề nghị sửa đúng quy trình, có xác nhận', H: 'Nhẹ nhàng trao đổi riêng để đồng nghiệp tự sửa' }],
+    ['x5', 'Trong cuộc họp, tôi thường là người:', { T: 'Đặt câu hỏi, phân tích ưu nhược điểm', V: 'Nhận phần việc khó nhất', K: 'Ghi biên bản, chốt thời hạn, người phụ trách', H: 'Kết nối ý kiến, giúp mọi người thống nhất' }],
+    ['x6', 'Khi bị cấp trên phê bình, tôi:', { T: 'Xem xét khách quan điều đúng, điều chưa đúng', V: 'Coi đó là động lực để cố gắng hơn', K: 'Rút kinh nghiệm, điều chỉnh cách làm theo yêu cầu', H: 'Trao đổi thẳng thắn để hiểu mong muốn của cấp trên' }],
+    ['x7', 'Tôi muốn được giao loại việc:', { T: 'Nghiên cứu, thiết kế, lập phương án', V: 'Thử thách, áp lực cao, kết quả rõ ràng', K: 'Kiểm soát chất lượng, hồ sơ, quy trình', H: 'Làm việc với con người, khách hàng, đối tác' }],
+    ['x8', 'Khi có nhiều việc cùng lúc, tôi:', { T: 'Phân tích, sắp xếp thứ tự ưu tiên hợp lý', V: 'Làm liên tục đến khi xong hết', K: 'Lập danh sách, theo dõi từng việc theo hạn', H: 'Nhờ đồng nghiệp hỗ trợ, chia sẻ bớt việc' }],
+    ['x9', 'Khi thử một cách làm mới mà thất bại, tôi:', { T: 'Phân tích nguyên nhân thất bại', V: 'Thử lại ngay, không nản', K: 'Quay về cách làm chuẩn đã được duyệt', H: 'Hỏi ý kiến người khác để tìm hướng đi' }],
+    ['x10', 'Người khác thường nhận xét tôi là người:', { T: 'Sắc sảo, logic', V: 'Bền bỉ, không bỏ cuộc', K: 'Nghiêm túc, đúng giờ, đáng tin', H: 'Dễ gần, khéo léo' }],
+    ['x11', 'Khi làm việc với nhà thầu phụ, điều tôi chú trọng nhất:', { T: 'Phương án kỹ thuật và khối lượng chính xác', V: 'Đẩy nhanh tiến độ hoàn thành', K: 'Tuân thủ hợp đồng, an toàn, quy trình nghiệm thu', H: 'Giữ quan hệ hợp tác tốt đẹp' }],
+    ['x12', 'Để phát triển bản thân, tôi ưu tiên:', { T: 'Học thêm kiến thức chuyên sâu, công nghệ mới', V: 'Nhận việc khó hơn để rèn luyện', K: 'Rèn thói quen làm việc khoa học, kỷ luật', H: 'Mở rộng quan hệ, rèn kỹ năng giao tiếp' }]
+  ];
+  var NL_LIKERT = ['', 'Hoàn toàn không đúng', 'Không đúng', 'Phân vân', 'Đúng', 'Hoàn toàn đúng'];
+  var NL_CAU = {
+    aq: [['aq1', 'K', 'Khi công việc gặp sự cố, tôi nhanh chóng tìm ra phần việc mình có thể làm ngay.'], ['aq2', 'K', 'Khi kế hoạch bị đảo lộn, tôi thường thấy mình không làm được gì.', 1], ['aq3', 'K', 'Tôi tin mình có thể tác động để cải thiện tình huống khó khăn nơi làm việc.'],
+      ['aq4', 'T', 'Khi kết quả không đạt, tôi xem lại phần trách nhiệm của mình trước khi nói đến người khác.'], ['aq5', 'T', 'Gặp việc khó ngoài phạm vi được giao, tôi chủ động nhận và tìm cách giải quyết.'], ['aq6', 'T', 'Khi nhóm có sai sót, tôi thường cho rằng đó là lỗi của người khác.', 1],
+      ['aq7', 'P', 'Một khó khăn trong công việc thường làm tôi mất tinh thần cả ngày, ảnh hưởng sang việc khác.', 1], ['aq8', 'P', 'Tôi vẫn giữ được chất lượng các việc khác khi đang xử lý một sự cố.'], ['aq9', 'P', 'Tôi tách bạch được áp lực công việc với quan hệ đồng nghiệp.'],
+      ['aq10', 'B', 'Tôi tin những khó khăn hiện tại rồi sẽ qua và sẽ có cách giải quyết.'], ['aq11', 'B', 'Sau vài lần thất bại, tôi thường bỏ cuộc.', 1], ['aq12', 'B', 'Tôi kiên trì theo đuổi mục tiêu dài hạn dù tiến độ chậm.']],
+    bq: [['bq1', 'G', 'Tôi có mặt đúng giờ làm việc, họp và giao ban.'], ['bq2', 'G', 'Tôi thỉnh thoảng vắng mặt mà không báo trước.', 1], ['bq3', 'G', 'Tôi chấm công, nộp báo cáo định kỳ đúng hạn.'],
+      ['bq4', 'R', 'Tôi hoàn thành công việc được giao đúng thời hạn đã cam kết.'], ['bq5', 'R', 'Khi không kịp tiến độ, tôi báo sớm cho cấp trên kèm phương án xử lý.'], ['bq6', 'R', 'Tôi chỉ làm đủ phần việc tối thiểu được yêu cầu.', 1],
+      ['bq7', 'A', 'Tôi tuân thủ đầy đủ quy định an toàn lao động và trang bị bảo hộ.'], ['bq8', 'A', 'Tôi làm đúng quy trình, biểu mẫu của Công ty kể cả khi gấp.'], ['bq9', 'A', 'Đôi khi tôi bỏ qua bước kiểm tra để làm cho nhanh.', 1],
+      ['bq10', 'H', 'Tôi sẵn sàng hỗ trợ đồng nghiệp khi được nhờ.'], ['bq11', 'H', 'Tôi tiếp nhận góp ý của cấp trên, đồng nghiệp một cách cầu thị.'], ['bq12', 'H', 'Tôi giữ thái độ lịch sự, tôn trọng với khách hàng, đối tác, đồng nghiệp.']],
+    bf: [['bf1', 'E', 'Tôi thấy thoải mái khi bắt chuyện với người lạ.'], ['bf2', 'E', 'Tôi thích là người khởi xướng trong các cuộc họp, buổi gặp.'], ['bf3', 'E', 'Tôi thường giữ im lặng khi ở chỗ đông người.', 1], ['bf4', 'E', 'Tôi thích làm việc một mình hơn là tiếp xúc nhiều người.', 1],
+      ['bf5', 'A', 'Tôi quan tâm đến cảm nhận của người khác.'], ['bf6', 'A', 'Tôi dễ cảm thông khi đồng nghiệp gặp khó khăn.'], ['bf7', 'A', 'Tôi ít khi để ý đến vấn đề của người khác.', 1], ['bf8', 'A', 'Tôi dễ tranh cãi gay gắt khi bất đồng ý kiến.', 1],
+      ['bf9', 'C', 'Tôi luôn chuẩn bị kỹ trước khi bắt tay vào việc.'], ['bf10', 'C', 'Tôi làm việc có kế hoạch, theo danh sách việc cần làm.'], ['bf11', 'C', 'Tôi hay để tài liệu, đồ đạc lộn xộn.', 1], ['bf12', 'C', 'Tôi hay trì hoãn những việc cần làm.', 1],
+      ['bf13', 'N', 'Tôi giữ được bình tĩnh trong tình huống căng thẳng.'], ['bf14', 'N', 'Tôi ít khi lo lắng quá mức.'], ['bf15', 'N', 'Tâm trạng của tôi thay đổi thất thường.', 1], ['bf16', 'N', 'Tôi dễ bực bội khi bị hối thúc.', 1],
+      ['bf17', 'O', 'Tôi thích thử cách làm mới, công nghệ mới.'], ['bf18', 'O', 'Tôi hay nảy ra ý tưởng cải tiến công việc.'], ['bf19', 'O', 'Tôi thích làm theo cách quen thuộc hơn là thay đổi.', 1], ['bf20', 'O', 'Tôi ít hứng thú với các vấn đề trừu tượng, lý thuyết.', 1]]
+  };
+  /* ngân hàng câu tư duy logic có sẵn (mẫu). Đáp án nằm trong mã app; TCHC nhập ≥ 24 câu riêng (bảng NLCauHoi, chỉ lưu trên máy chủ) thì app dùng bộ câu riêng. */
+  var NL_IQ = [
+    ['q1', 'Số tiếp theo của dãy: 2, 4, 8, 16, …', ['24', '30', '32', '64'], 2], ['q2', 'Số tiếp theo của dãy: 3, 6, 11, 18, 27, …', ['36', '38', '39', '40'], 1],
+    ['q3', 'Số tiếp theo của dãy: 1, 1, 2, 3, 5, 8, …', ['11', '12', '13', '15'], 2], ['q4', 'Số tiếp theo của dãy: 81, 27, 9, 3, …', ['0', '1', '2', '6'], 1],
+    ['q5', 'Số tiếp theo của dãy: 2, 6, 12, 20, 30, …', ['40', '42', '44', '48'], 1], ['q6', 'Số tiếp theo của dãy: 5, 10, 8, 16, 14, …', ['26', '28', '30', '32'], 1],
+    ['q7', 'Chữ cái tiếp theo: A, C, E, G, …', ['H', 'I', 'J', 'K'], 1], ['q8', 'Chữ cái tiếp theo: Z, X, U, Q, …', ['M', 'L', 'K', 'N'], 1],
+    ['q9', 'Bút : Viết = Dao : …', ['Bếp', 'Cắt', 'Thép', 'Sắc'], 1], ['q10', 'Bác sĩ : Bệnh viện = Giáo viên : …', ['Học sinh', 'Trường học', 'Bảng đen', 'Sách'], 1],
+    ['q11', 'Từ nào KHÁC loại với các từ còn lại?', ['Thép', 'Đồng', 'Nhôm', 'Gỗ'], 3], ['q12', 'Từ nào KHÁC loại với các từ còn lại?', ['Hình vuông', 'Hình tròn', 'Hình tam giác', 'Khối lập phương'], 3],
+    ['q13', 'Mọi kỹ sư đều biết đọc bản vẽ. An là kỹ sư. Kết luận nào CHẮC CHẮN đúng?', ['An biết đọc bản vẽ', 'An là chỉ huy trưởng', 'Ai biết đọc bản vẽ cũng là kỹ sư', 'Không kết luận được'], 0],
+    ['q14', 'Một số công nhân là thợ hàn. Mọi thợ hàn đều có chứng chỉ an toàn. Kết luận nào CHẮC CHẮN đúng?', ['Mọi công nhân có chứng chỉ an toàn', 'Một số công nhân có chứng chỉ an toàn', 'Không công nhân nào có chứng chỉ', 'Ai có chứng chỉ cũng là thợ hàn'], 1],
+    ['q15', '3 công nhân xây 3 bức tường hết 3 ngày. 6 công nhân (cùng năng suất) xây 6 bức tường như vậy hết mấy ngày?', ['1', '3', '6', '9'], 1],
+    ['q16', 'Một xe chở được 8 tấn. Chở 50 tấn thép cần ít nhất bao nhiêu chuyến?', ['6', '7', '8', '5'], 1],
+    ['q17', 'Giá vật tư tăng 10% rồi giảm 10%. So với giá ban đầu, giá hiện tại:', ['Bằng giá ban đầu', 'Thấp hơn 1%', 'Cao hơn 1%', 'Thấp hơn 10%'], 1],
+    ['q18', 'Hôm nay là thứ Tư. 10 ngày nữa là thứ mấy?', ['Thứ Sáu', 'Thứ Bảy', 'Chủ nhật', 'Thứ Hai'], 1],
+    ['q19', 'Đồng hồ chỉ 3 giờ 15 phút. Góc giữa kim giờ và kim phút là:', ['0°', '7,5°', '15°', '30°'], 1],
+    ['q20', 'Vòi A chảy đầy bể trong 3 giờ, vòi B trong 6 giờ. Mở cả hai vòi thì đầy bể sau:', ['1,5 giờ', '2 giờ', '4,5 giờ', '9 giờ'], 1],
+    ['q21', 'Số tiếp theo của dãy: 1, 4, 9, 16, 25, …', ['30', '35', '36', '49'], 2], ['q22', 'Số tiếp theo của dãy: 2, 3, 5, 7, 11, 13, …', ['15', '17', '19', '16'], 1],
+    ['q23', 'Số tiếp theo của dãy: 100, 95, 85, 70, 50, …', ['20', '25', '30', '35'], 1], ['q24', 'Chữ cái tiếp theo: B, E, H, K, …', ['M', 'N', 'O', 'L'], 1],
+    ['q25', 'Nếu CAT được viết thành DBU thì DOG được viết thành:', ['EPH', 'CNF', 'EOH', 'FQI'], 0],
+    ['q26', 'Trong một hàng, An đứng thứ 7 tính từ trái và thứ 12 tính từ phải. Hàng có bao nhiêu người?', ['17', '18', '19', '20'], 1],
+    ['q27', 'Bản vẽ tỷ lệ 1:100. Đoạn dài 5 cm trên bản vẽ ngoài thực tế dài:', ['0,5 m', '5 m', '50 m', '500 m'], 1],
+    ['q28', 'Lan cao hơn Hoa. Hoa cao hơn Mai. Mai cao hơn Cúc. Ai thấp nhất?', ['Lan', 'Hoa', 'Mai', 'Cúc'], 3],
+    ['q29', 'Số tiếp theo của dãy: 1, 3, 6, 10, …', ['12', '14', '15', '16'], 2],
+    ['q30', '5 người làm xong một việc trong 12 ngày. 6 người (cùng năng suất) làm xong việc đó trong:', ['8 ngày', '10 ngày', '12 ngày', '14 ngày'], 1],
+    ['q31', 'Từ nào KHÁC loại với các từ còn lại?', ['Xi măng', 'Cát', 'Đá', 'Búa'], 3],
+    ['q32', 'Nếu mọi A là B và không B nào là C thì:', ['Không A nào là C', 'Mọi C là A', 'Một số A là C', 'Không kết luận được'], 0]
+  ];
+  /* ===== v3.91: NGÂN HÀNG CÂU HỎI ĐA DẠNG – không trùng trong 12 tháng =====
+     Tư duy logic: 8 câu SINH TỰ ĐỘNG (số liệu ngẫu nhiên, 18 dạng) + 4 câu tĩnh (47 câu có sẵn + câu Công ty nhập), chọn câu chưa dùng 12 tháng.
+     AQ / BQ: ghép TÌNH HUỐNG × HÀNH VI (AQ 20 × 12 = 240 câu, BQ 14 × 12 = 168 câu); mỗi tháng mỗi khía cạnh 3 câu (2 thuận + 1 đảo chiều), không lặp tình huống của cùng hành vi trong 12 tháng. */
+  var NL_IQ_THEM = [
+    ['q33', 'Thầy giáo : Học sinh = Bác sĩ : …', ['Bệnh nhân', 'Bệnh viện', 'Thuốc', 'Y tá'], 0], ['q34', 'Xi măng : Bê tông = Bột mì : …', ['Bánh mì', 'Lúa mì', 'Nước', 'Bếp'], 0],
+    ['q35', 'Trang : Sách = Viên gạch : …', ['Bức tường', 'Xi măng', 'Thợ xây', 'Cát'], 0], ['q36', 'Thước : Đo = Kéo : …', ['Cắt', 'Giấy', 'Sắt', 'Nhọn'], 0],
+    ['q37', 'Từ nào KHÁC loại với các từ còn lại?', ['Cần cẩu', 'Máy xúc', 'Máy lu', 'Bản vẽ'], 3], ['q38', 'Tháng nào KHÁC các tháng còn lại (về số ngày)?', ['Tháng Một', 'Tháng Ba', 'Tháng Năm', 'Tháng Sáu'], 3],
+    ['q39', 'Số nào KHÁC loại với các số còn lại?', ['2', '3', '5', '9'], 3], ['q40', 'Từ nào KHÁC loại với các từ còn lại?', ['Mét', 'Ki-lô-gam', 'Xen-ti-mét', 'Ki-lô-mét'], 1],
+    ['q41', 'Không kỹ sư nào là kế toán. Một số người trong phòng họp là kỹ sư. Kết luận nào CHẮC CHẮN đúng?', ['Một số người trong phòng họp không phải kế toán', 'Mọi người trong phòng họp là kỹ sư', 'Không ai trong phòng họp là kế toán', 'Một số kế toán là kỹ sư'], 0],
+    ['q42', 'Nếu trời mưa thì công trường dừng đổ bê tông. Hôm nay công trường vẫn đổ bê tông. Kết luận nào đúng?', ['Hôm nay trời không mưa', 'Hôm nay trời mưa', 'Ngày mai trời mưa', 'Không kết luận được'], 0],
+    ['q43', 'Mọi xe tải của đội đều đã đăng kiểm. Xe X chưa đăng kiểm. Kết luận:', ['Xe X không phải xe tải của đội', 'Xe X là xe tải của đội', 'Xe X sắp được đăng kiểm', 'Không kết luận được'], 0],
+    ['q44', 'Hình nào có nhiều cạnh nhất?', ['Tam giác', 'Ngũ giác', 'Lục giác', 'Hình vuông'], 2], ['q45', 'Nếu hôm qua là Chủ nhật thì ngày mai là:', ['Thứ Hai', 'Thứ Ba', 'Thứ Bảy', 'Thứ Tư'], 1],
+    ['q46', 'Từ nào có nghĩa GẦN NHẤT với "cẩn trọng"?', ['Thận trọng', 'Nhanh nhẹn', 'Liều lĩnh', 'Vội vàng'], 0], ['q47', 'Từ nào TRÁI NGHĨA với "khan hiếm"?', ['Dồi dào', 'Thiếu thốn', 'Ít ỏi', 'Hạn chế'], 0],
+    ['q48', 'Mẹ của An có 4 người con: Xuân, Hạ, Thu và …', ['Đông', 'An', 'Lan', 'Không xác định được'], 1],
+    ['q49', 'Bút : Viết = Búa : …', ['Đóng đinh', 'Gỗ', 'Sắt', 'Thợ mộc'], 0], ['q50', 'Số nào KHÁC loại với các số còn lại?', ['16', '25', '36', '42'], 3],
+    ['q51', 'Mọi lô thép trong kho đều đã kiểm định. Lô L chưa kiểm định. Kết luận:', ['Lô L không phải thép trong kho', 'Lô L là thép trong kho', 'Lô L sẽ được kiểm định', 'Không kết luận được'], 0],
+    ['q52', 'Từ nào có nghĩa GẦN NHẤT với "bền bỉ"?', ['Kiên trì', 'Mệt mỏi', 'Nhanh chóng', 'Dễ dãi'], 0], ['q53', 'Từ nào TRÁI NGHĨA với "chủ động"?', ['Bị động', 'Tích cực', 'Năng động', 'Sáng tạo'], 0]
+  ];
+  function nlSoVN(v) { var s = String(Math.round(v * 100) / 100).replace('.', ','); return s.replace(/\B(?=(\d{3})+(?!\d))/, function () { return ''; }); }
+  function nlTien(v) { return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function nlBon(dung, sai) {                         // 4 phương án khác nhau: đáp án đúng ở vị trí 0
+    var o = [String(dung)]; sai.forEach(function (x) { x = String(x); if (o.length < 4 && o.indexOf(x) < 0) o.push(x); });
+    var k = 1; while (o.length < 4) { var t = String(dung) + ' (' + (k++) + ')'; if (o.indexOf(t) < 0) o.push(t); }
+    return o;
+  }
+  var NL_TEN = ['An', 'Bình', 'Cường', 'Dũng', 'Hà', 'Lan', 'Mai', 'Nam', 'Phong', 'Quân', 'Sơn', 'Tú', 'Vy', 'Yến', 'Hùng', 'Thảo'];
+  var NL_THU = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  var NL_TU3 = ['CAT', 'DOG', 'SUN', 'BOX', 'CUP', 'PEN', 'MAP', 'KEY', 'CAR', 'BUS', 'HAT', 'NET', 'PIN', 'ROD', 'TOP', 'WAX', 'JAM', 'FIG', 'OWL', 'ANT'];
+  var NL_SINH = {                                     // mỗi dạng: R(a,b) số nguyên ngẫu nhiên → [câu hỏi, [đáp án đúng, …nhiễu]]
+    csc: function (R) { var a = R(2, 40), d = R(3, 17), s = [0, 1, 2, 3, 4].map(function (i) { return a + i * d; }), x = a + 5 * d; return ['Số tiếp theo của dãy: ' + s.join(', ') + ', …', nlBon(x, [x + d, x - 1, x + 2, x - d])]; },
+    csn: function (R) { var a = R(2, 6), k = R(2, 4), s = [0, 1, 2, 3].map(function (i) { return a * Math.pow(k, i); }), x = a * Math.pow(k, 4); return ['Số tiếp theo của dãy: ' + s.join(', ') + ', …', nlBon(x, [x - a, x + k, s[3] * (k + 1), s[3] + s[2]])]; },
+    xenke: function (R) { var a = R(1, 20), p = R(2, 9), q = R(10, 19), s = [a, a + p, a + p + q, a + 2 * p + q, a + 2 * p + 2 * q], x = a + 3 * p + 2 * q; return ['Số tiếp theo của dãy: ' + s.join(', ') + ', …', nlBon(x, [x + q - p, x + 1, s[4] + q, x - 2, x + p, x - 1, x + 3])]; },
+    binhphuong: function (R) { var c = R(-3, 6), n = R(1, 5), s = [0, 1, 2, 3, 4].map(function (i) { return (n + i) * (n + i) + c; }), x = (n + 5) * (n + 5) + c; return ['Số tiếp theo của dãy: ' + s.join(', ') + ', …', nlBon(x, [x + 1, x - (n + 5), (n + 6) * (n + 6) + c, x + 2])]; },
+    chucai: function (R) { var st = R(2, 4), b = R(0, 25 - st * 4), A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', s = [0, 1, 2, 3].map(function (i) { return A[b + i * st]; }), x = A[b + 4 * st]; return ['Chữ cái tiếp theo: ' + s.join(', ') + ', …', nlBon(x, [A[b + 4 * st - 1], A[Math.min(25, b + 4 * st + 1)], A[b + 3 * st + 1], A[Math.max(0, b + 4 * st - 2)], A[b + 4 * st - 3], A[b + 1], A[b + 2 * st + 1]])]; },
+    nhancong: function (R) { var n, m, t, ds = []; for (var g = 0; g < 20 && !ds.length; g++) { n = R(3, 9); m = R(6, 16); t = n * m; for (var p = 2; p <= 24; p++) if (t % p === 0 && p !== n) ds.push(p); } var p2 = ds[R(0, ds.length - 1)], x = t / p2; return [n + ' công nhân làm xong một việc trong ' + m + ' ngày. Nếu có ' + p2 + ' công nhân (cùng năng suất) thì làm xong trong bao nhiêu ngày?', nlBon(x + ' ngày', [m + ' ngày', (x + 1) + ' ngày', Math.max(1, x - 1) + ' ngày', (x + 2) + ' ngày'])]; },
+    phantram: function (R) { var P = R(2, 9) * 100000, L = [5, 10, 20, 25], x = L[R(0, 3)], y = L[R(0, 3)], g = P * (100 + x) / 100 * (100 - y) / 100; return ['Giá một tấn vật tư là ' + nlTien(P) + ' đ, tăng ' + x + '% rồi giảm ' + y + '%. Giá mới là:', nlBon(nlTien(g) + ' đ', [nlTien(P * (100 + x - y) / 100) + ' đ', nlTien(P) + ' đ', nlTien(P * (100 - y) / 100) + ' đ', nlTien(g + 10000) + ' đ', nlTien(P * (100 + x) / 100) + ' đ', nlTien(g - 20000) + ' đ'])]; },
+    tyle: function (R) { var sc = [50, 100, 200, 250, 500, 1000][R(0, 5)], l = R(2, 25), m = l * sc / 100; return ['Bản vẽ tỷ lệ 1:' + sc + '. Đoạn dài ' + l + ' cm trên bản vẽ ngoài thực tế dài:', nlBon(nlSoVN(m) + ' m', [nlSoVN(m * 10) + ' m', nlSoVN(m / 10) + ' m', nlSoVN(m * 100) + ' m', nlSoVN(m + 1) + ' m'])]; },
+    thu: function (R) { var h = R(0, 6), n = R(8, 45), x = (h + n) % 7; return ['Hôm nay là ' + NL_THU[h] + '. ' + n + ' ngày nữa là:', nlBon(NL_THU[x], [NL_THU[(x + 1) % 7], NL_THU[(x + 6) % 7], NL_THU[(x + 2) % 7]])]; },
+    xetai: function (R) { var c = [5, 7, 8, 10, 12, 15][R(0, 5)], t = R(30, 200); if (t % c === 0) t++; var x = Math.ceil(t / c); return ['Một xe chở được ' + c + ' tấn. Cần chở ' + t + ' tấn thép thì ít nhất phải chở bao nhiêu chuyến?', nlBon(x, [x - 1, x + 1, x + 2])]; },
+    xephang: function (R) { var a = R(3, 25), b = R(3, 25), x = a + b - 1; return ['Trong một hàng người, Bình đứng thứ ' + a + ' tính từ trái và thứ ' + b + ' tính từ phải. Hàng có bao nhiêu người?', nlBon(x, [x + 1, x - 1, x + 2])]; },
+    tuoi: function (R) { var b = R(20, 45), d = R(2, 14), s = 2 * b + d; return ['Anh Nam hơn anh Phong ' + d + ' tuổi. Tổng tuổi hai người là ' + s + '. Anh Phong bao nhiêu tuổi?', nlBon(b, [b + d, Math.round(s / 2), b - 1, b + 1])]; },
+    dongho: function (R) { var h = R(1, 11), m = [0, 10, 15, 20, 30, 40, 45, 50][R(0, 7)], g = Math.abs(30 * h - 5.5 * m); if (g > 180) g = 360 - g; return ['Đồng hồ chỉ ' + h + ' giờ ' + (m ? m + ' phút' : 'đúng') + '. Góc nhỏ giữa kim giờ và kim phút là:', nlBon(nlSoVN(g) + '°', [nlSoVN(Math.abs(30 * h - 6 * m) % 360) + '°', nlSoVN(g + 15) + '°', nlSoVN(Math.abs(g - 30)) + '°', nlSoVN(g + 7.5) + '°', nlSoVN(g + 45) + '°', nlSoVN(g + 60) + '°'])]; },
+    voinuoc: function (R) { var L = [[2, 3], [3, 6], [4, 12], [6, 12], [5, 20], [10, 15], [12, 24], [4, 6], [6, 30], [20, 30], [3, 12], [9, 18], [8, 24], [10, 40]], c = L[R(0, L.length - 1)], x = c[0] * c[1] / (c[0] + c[1]); return ['Vòi A chảy đầy bể trong ' + c[0] + ' giờ, vòi B trong ' + c[1] + ' giờ. Mở cả hai vòi thì đầy bể sau:', nlBon(nlSoVN(x) + ' giờ', [nlSoVN((c[0] + c[1]) / 2) + ' giờ', nlSoVN(c[0] + c[1]) + ' giờ', nlSoVN(c[0] / 2) + ' giờ', nlSoVN(x + 1) + ' giờ'])]; },
+    mahoa: function (R) { var i = R(0, NL_TU3.length - 1), j = (i + R(1, NL_TU3.length - 1)) % NL_TU3.length, k = R(1, 3), dich = function (w, n) { return w.split('').map(function (ch) { return String.fromCharCode(65 + ((ch.charCodeAt(0) - 65 + n + 26) % 26)); }).join(''); }; var w1 = NL_TU3[i], w2 = NL_TU3[j]; return ['Nếu ' + w1 + ' được mã hóa thành ' + dich(w1, k) + ' thì ' + w2 + ' được mã hóa thành:', nlBon(dich(w2, k), [dich(w2, k + 1), dich(w2, -k), dich(w2, k).slice(0, 2) + dich(w2.slice(2), k + 1), dich(w2, k - 1 || 4)])]; },
+    lat: function (R) { var l = R(4, 25), w = R(3, 15), x = l * w * 4; return ['Sàn hình chữ nhật dài ' + l + ' m, rộng ' + w + ' m, lát gạch 50 × 50 cm. Cần bao nhiêu viên gạch (không tính hao hụt)?', nlBon(nlTien(x), [nlTien(l * w * 2), nlTien(l * w), nlTien((l + w) * 4), nlTien(x + 4)])]; },
+    trungbinh: function (R) { var a = [R(5, 9), R(5, 9), R(5, 9), R(5, 9)], x = R(4, 10), tb = (a[0] + a[1] + a[2] + a[3] + x) / 5; return ['Điểm trung bình 5 bài kiểm tra là ' + nlSoVN(tb) + '. Bốn bài đầu được ' + a.join(', ') + '. Bài thứ năm được bao nhiêu điểm?', nlBon(x, [x + 1, x - 1, Math.round(tb), x + 2])]; },
+    caothap: function (R) { var t = nlTronR(NL_TEN.slice(), R).slice(0, 4), cao = R(0, 1) === 1, cau = [t[0] + ' cao hơn ' + t[1], t[1] + ' cao hơn ' + t[2], t[2] + ' cao hơn ' + t[3]]; cau = nlTronR(cau, R); return [cau.join('. ') + '. Ai ' + (cao ? 'cao nhất' : 'thấp nhất') + '?', nlBon(cao ? t[0] : t[3], cao ? [t[1], t[2], t[3]] : [t[2], t[1], t[0]])]; }
+  };
+  function nlTronR(a, R) { for (var i = a.length - 1; i > 0; i--) { var j = R(0, i), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  var NL_AQ_TH = ['chủ đầu tư yêu cầu làm lại một hạng mục', 'vật tư về chậm so với kế hoạch', 'máy thi công hỏng giữa ca', 'hồ sơ thanh toán bị trả lại', 'mưa kéo dài làm chậm tiến độ',
+    'đồng nghiệp nghỉ đột xuất', 'phải nhận việc gấp ngoài kế hoạch', 'bị cấp trên phê bình', 'khách hàng phàn nàn về chất lượng', 'chi phí vượt dự toán',
+    'kết quả thí nghiệm vật liệu không đạt', 'phải làm việc với đối tác khó tính', 'tiến độ tuần chậm so với kế hoạch', 'phát hiện bản vẽ có sai sót', 'máy tính, phần mềm gặp sự cố khi đang gấp',
+    'không đạt chỉ tiêu tháng', 'được giao việc mới chưa có kinh nghiệm', 'xảy ra sự cố an toàn nhỏ', 'nhà thầu phụ thiếu nhân lực', 'hồ sơ nghiệm thu bị tư vấn giám sát từ chối'];
+  var NL_AQ_HV = {
+    K: [['tôi xác định ngay những việc mình làm được để cải thiện tình hình', 0], ['tôi thấy mình gần như không làm được gì', 1], ['tôi chủ động đề xuất phương án xử lý', 0]],
+    T: [['tôi nhận phần trách nhiệm của mình và bắt tay khắc phục', 0], ['tôi cho rằng đó là việc của người khác, bộ phận khác', 1], ['tôi theo sát đến khi sự việc được xử lý xong', 0]],
+    P: [['tôi vẫn giữ được chất lượng các việc khác đang làm', 0], ['tâm trạng tôi bị ảnh hưởng sang các việc khác cả ngày', 1], ['tôi khoanh vùng vấn đề để không lan sang việc khác', 0]],
+    B: [['tôi tin tình hình sẽ sớm được cải thiện', 0], ['tôi dễ nản và muốn bỏ dở', 1], ['tôi kiên trì thử nhiều cách cho đến khi có kết quả', 0]]
+  };
+  var NL_BQ_TH = ['Những ngày công việc dồn dập', 'Khi làm việc ở công trường', 'Khi làm việc tại văn phòng', 'Khi không có cấp trên ở bên', 'Cuối tháng khi nhiều việc tồn đọng', 'Khi thời tiết xấu',
+    'Khi phải làm thêm giờ', 'Khi làm việc cùng người mới', 'Trong các buổi họp, giao ban', 'Khi nhận việc được giao gấp', 'Khi làm việc với đối tác, khách hàng', 'Những ngày đầu tuần',
+    'Khi bản thân có việc riêng cần lo', 'Khi được giao việc ngoài chuyên môn'];
+  var NL_BQ_HV = {
+    G: [['tôi vẫn giữ đúng giờ giấc làm việc', 0], ['tôi dễ đi muộn hoặc vắng mặt không báo trước', 1], ['tôi sắp xếp để có mặt đầy đủ khi được yêu cầu', 0]],
+    R: [['tôi hoàn thành việc đúng thời hạn đã cam kết', 0], ['tôi làm qua loa cho xong việc', 1], ['tôi báo cáo tiến độ kịp thời, trung thực', 0]],
+    A: [['tôi làm đúng quy trình, quy định của Công ty', 0], ['tôi đôi khi bỏ qua bước kiểm tra hoặc quy định an toàn cho nhanh', 1], ['tôi giữ gìn tài sản, thiết bị và dùng bảo hộ đúng quy định', 0]],
+    H: [['tôi giữ thái độ hợp tác, tôn trọng mọi người', 0], ['tôi dễ cáu gắt hoặc đổ lỗi cho người khác', 1], ['tôi sẵn sàng hỗ trợ đồng nghiệp', 0]]
+  };
+  function nlCauLK(loai, dim, ti, hi) {             // câu likert ghép: id, nội dung, khía cạnh, đảo chiều
+    var aq = loai === 'aq', hv = (aq ? NL_AQ_HV : NL_BQ_HV)[dim][hi], th = (aq ? NL_AQ_TH : NL_BQ_TH)[ti];
+    return { id: loai + ':' + dim + ':' + ti + ':' + hi, q: aq ? 'Khi ' + th + ', ' + hv[0] + '.' : th + ', ' + hv[0] + '.', d: dim, r: hv[1] };
+  }
+  /* ===== v3.92: KIẾN THỨC CHUYÊN MÔN – câu hỏi đào tạo theo nhóm chuyên môn, mỗi câu có "Ghi nhớ" ngắn để ôn tập =====
+     [id, câu hỏi, [ĐÁP ÁN ĐÚNG, nhiễu 1, nhiễu 2, nhiễu 3], ghi nhớ]  (đáp án đúng viết đầu, khi ra đề app tự xáo) */
+  var NL_CM = {
+    ktxd: [
+      ['x1', 'QA (Quality Assurance) trong thi công chủ yếu là:', ['Hệ thống quy trình phòng ngừa để làm đúng ngay từ đầu', 'Kiểm tra, đo đạc sản phẩm sau khi làm xong', 'Lập dự toán công trình', 'Nghiệm thu thanh toán'], 'QA = phòng ngừa (quy trình, kế hoạch); QC = kiểm tra phát hiện lỗi trên sản phẩm.'],
+      ['x2', 'QC (Quality Control) trong thi công chủ yếu là:', ['Kiểm tra, thí nghiệm, đo đạc để phát hiện sản phẩm không đạt', 'Xây dựng sổ tay chất lượng', 'Đào tạo công nhân', 'Lập hợp đồng'], 'QC = soi sản phẩm: kiểm tra, thí nghiệm, đo đạc, nghiệm thu.'],
+      ['x3', 'ITP là viết tắt của:', ['Kế hoạch kiểm tra và thử nghiệm (Inspection and Test Plan)', 'Tiến độ thi công tổng thể', 'Bảng khối lượng mời thầu', 'Biên bản bàn giao'], 'ITP = ai kiểm tra gì, khi nào, theo tiêu chuẩn nào, hồ sơ gì.'],
+      ['x4', 'Điểm "H" (Hold point) trong ITP nghĩa là:', ['Phải dừng, chờ giám sát kiểm tra chấp thuận mới làm tiếp', 'Chỉ cần thông báo, không phải chờ', 'Nhà thầu tự kiểm tra, không cần giám sát', 'Bỏ qua bước kiểm tra'], 'H = Hold = DỪNG CHỜ; W = Witness = mời chứng kiến (thông báo trước).'],
+      ['x5', 'NCR là:', ['Phiếu báo cáo sự không phù hợp (Non-Conformance Report)', 'Phiếu yêu cầu nghiệm thu', 'Nhật ký công trường', 'Lệnh thay đổi'], 'Phát hiện sai khác so với thiết kế / tiêu chuẩn → lập NCR → khắc phục → đóng NCR.'],
+      ['x6', 'Công việc xây dựng phải được nghiệm thu:', ['Trước khi bị che khuất bởi công việc tiếp theo', 'Sau khi hoàn thành toàn bộ công trình', 'Chỉ khi chủ đầu tư yêu cầu', 'Khi thanh toán cuối cùng'], 'Bị che khuất là phải nghiệm thu trước (cốt thép trước khi đổ bê tông, đường ống trước khi lấp…).'],
+      ['x7', 'Mẫu bê tông kiểm tra cường độ theo thiết kế thường được nén ở tuổi:', ['28 ngày', '3 ngày', '60 ngày', '1 ngày'], 'Cường độ thiết kế bê tông lấy ở tuổi 28 ngày (R28).'],
+      ['x8', 'Độ sụt (slump) của hỗn hợp bê tông dùng để đánh giá:', ['Tính công tác (độ linh động) của hỗn hợp', 'Cường độ chịu nén', 'Khả năng chống thấm', 'Khối lượng riêng'], 'Sụt nhiều = nhão; kiểm tra độ sụt mỗi xe trước khi đổ.'],
+      ['x9', 'Lớp bê tông bảo vệ cốt thép có tác dụng chính là:', ['Chống ăn mòn, chống cháy và bảo đảm bám dính cho cốt thép', 'Tăng thẩm mỹ', 'Giảm khối lượng bê tông', 'Giúp tháo cốp pha dễ'], 'Thiếu lớp bảo vệ → thép gỉ, nứt, giảm tuổi thọ. Dùng con kê đúng chiều dày.'],
+      ['x10', 'Để tránh phân tầng khi đổ bê tông cột cao cần:', ['Hạn chế chiều cao rơi tự do, dùng ống vòi voi / máng dẫn', 'Đổ thật nhanh từ trên xuống', 'Tăng nước để bê tông chảy dễ', 'Đầm thật lâu ở một chỗ'], 'Rơi cao → đá tách khỏi vữa (phân tầng) → rỗ chân cột.'],
+      ['x11', 'Mạch ngừng thi công bê tông nên bố trí:', ['Ở vị trí lực cắt nhỏ, theo chỉ dẫn của thiết kế', 'Ở bất kỳ đâu khi hết ca', 'Ngay giữa gối tựa dầm', 'Tại nút khung chịu lực lớn'], 'Mạch ngừng là điểm yếu – đặt nơi nội lực nhỏ, xử lý bề mặt trước khi đổ tiếp.'],
+      ['x12', 'Bảo dưỡng ẩm bê tông sau khi đổ nhằm:', ['Giữ nước cho xi măng thủy hóa, tránh nứt co ngót', 'Làm bê tông nhanh khô', 'Làm sạch bề mặt', 'Giảm cường độ'], 'Bê tông "khát nước" những ngày đầu – thiếu bảo dưỡng là nứt, giảm cường độ.'],
+      ['x13', 'Tháo cốp pha đáy dầm, sàn chịu lực khi:', ['Bê tông đạt cường độ quy định theo thiết kế / tiêu chuẩn', 'Sau 24 giờ trong mọi trường hợp', 'Khi bề mặt đã khô', 'Khi cần luân chuyển cốp pha gấp'], 'Tháo theo cường độ, không theo cảm tính; dầm sàn nhịp lớn còn phải chống lại.'],
+      ['x14', 'Nối chồng cốt thép (nối buộc) phải bảo đảm:', ['Chiều dài nối theo thiết kế / tiêu chuẩn và mối nối bố trí so le', 'Nối tất cả tại cùng một mặt cắt cho gọn', 'Chỉ cần buộc 1 nút', 'Nối tại vị trí mô men lớn nhất'], 'Nối đủ dài, so le, tránh vùng chịu lực lớn.'],
+      ['x15', 'QS (Quantity Surveyor) chủ yếu làm:', ['Đo bóc khối lượng, quản lý chi phí, hợp đồng, thanh quyết toán', 'Thí nghiệm vật liệu', 'Vận hành máy thi công', 'Thiết kế kết cấu'], 'QS = "người giữ tiền" của dự án: khối lượng – đơn giá – hợp đồng – thanh toán.'],
+      ['x16', 'BOQ là:', ['Bảng khối lượng (Bill of Quantities)', 'Biện pháp thi công', 'Bản vẽ hoàn công', 'Báo cáo an toàn'], 'BOQ = danh mục công việc + đơn vị + khối lượng (+ đơn giá) – xương sống của hợp đồng.'],
+      ['x17', 'Hợp đồng theo đơn giá cố định thanh toán theo:', ['Khối lượng thực tế nghiệm thu × đơn giá cố định trong hợp đồng', 'Giá trọn gói không đổi', 'Chi phí thực tế + phí', 'Dự toán được duyệt'], 'Đơn giá cố định: đơn giá không đổi, khối lượng theo thực tế nghiệm thu.'],
+      ['x18', 'Hợp đồng trọn gói: khối lượng thực tế nhiều hơn BOQ do nhà thầu tự tính thiếu thì:', ['Không được thanh toán thêm (trừ phát sinh ngoài phạm vi được chấp thuận)', 'Được thanh toán theo thực tế', 'Chủ đầu tư phải bù toàn bộ', 'Tự động lập phụ lục'], 'Trọn gói = rủi ro khối lượng thuộc nhà thầu; chỉ thay đổi phạm vi mới làm phát sinh.'],
+      ['x19', 'VO (Variation Order) là:', ['Lệnh / thỏa thuận thay đổi, phát sinh so với hợp đồng', 'Biên bản nghiệm thu vật liệu', 'Phiếu xuất kho', 'Giấy phép xây dựng'], 'Có thay đổi → phải có VO được chấp thuận trước khi làm thì mới chắc được thanh toán.'],
+      ['x20', 'Định mức dự toán xây dựng quy định:', ['Mức hao phí vật liệu, nhân công, máy để hoàn thành 1 đơn vị khối lượng', 'Giá vật liệu theo tháng', 'Thời gian bảo hành', 'Lợi nhuận nhà thầu'], 'Định mức = HAO PHÍ (VL – NC – M) / 1 đơn vị; nhân với đơn giá ra chi phí.'],
+      ['x21', 'Trong hệ thống mã định mức dự toán, nhóm mã AB là công tác:', ['Đào, đắp đất, đá, cát', 'Bê tông', 'Xây gạch', 'Lắp đặt điện'], 'AB = công tác đất; AF = bê tông tại chỗ.'],
+      ['x22', 'Trong hệ thống mã định mức dự toán, nhóm mã AF là công tác:', ['Bê tông tại chỗ', 'Đào đắp đất', 'Đóng cọc', 'Sơn bả'], 'AF = bê tông tại chỗ (kèm cốt thép, ván khuôn ở các mã liên quan).'],
+      ['x23', 'Hao hụt vật liệu trong định mức là:', ['Lượng mất mát cho phép trong thi công, vận chuyển, bảo quản', 'Vật liệu bị mất cắp', 'Vật liệu dư sau công trình', 'Vật liệu trả lại nhà cung cấp'], 'Hao hụt trong định mức là mức cho phép; vượt mức là lãng phí phải tìm nguyên nhân.'],
+      ['x24', 'Đất sau khi đào lên thường:', ['Tăng thể tích do tơi xốp (hệ số tơi xốp > 1)', 'Giảm thể tích', 'Giữ nguyên thể tích', 'Biến thành đá'], 'Tính xe vận chuyển phải nhân hệ số tơi xốp; đắp lại phải tính hệ số đầm nén.'],
+      ['x25', 'Theo cơ cấu dự toán chi phí xây dựng, chi phí trực tiếp gồm:', ['Vật liệu, nhân công, máy thi công', 'Chi phí chung, lán trại', 'Thuế GTGT', 'Lợi nhuận'], 'Trực tiếp = VL + NC + M; gián tiếp = chi phí chung, lán trại, không xác định được khối lượng…'],
+      ['x26', 'Lán trại, nhà tạm để ở và điều hành thi công thuộc nhóm chi phí:', ['Gián tiếp', 'Vật liệu', 'Nhân công', 'Thiết bị công trình'], 'Lán trại – nhà tạm nằm trong chi phí gián tiếp của dự toán xây dựng.'],
+      ['x27', 'Ca máy trong định mức là:', ['Thời gian làm việc của máy trong một ca (8 giờ)', 'Số máy trên công trường', 'Giá thuê máy theo tháng', 'Thời gian bảo dưỡng'], 'Định mức máy tính bằng ca; 1 ca = 8 giờ.'],
+      ['x28', 'Khối lượng riêng gần đúng của thép là:', ['7.850 kg/m³', '2.500 kg/m³', '1.000 kg/m³', '12.000 kg/m³'], 'Thép ≈ 7,85 tấn/m³ → khối lượng 1 m thanh thép = 0,00617 × d² (kg, d tính mm).'],
+      ['x29', 'Khối lượng thể tích gần đúng của bê tông cốt thép:', ['Khoảng 2.500 kg/m³', 'Khoảng 1.500 kg/m³', 'Khoảng 7.850 kg/m³', 'Khoảng 900 kg/m³'], 'BTCT ≈ 2,5 tấn/m³ – dùng tính tải trọng, tải cẩu.'],
+      ['x30', 'HSE là viết tắt của:', ['Sức khỏe – An toàn – Môi trường', 'Hồ sơ – Sổ sách – Ê kíp', 'Hạng mục – Sản lượng – Đơn giá', 'Hỗ trợ – Sửa chữa – Bảo hành'], 'HSE: Health – Safety – Environment.'],
+      ['x31', 'Làm việc trên cao được hiểu là làm việc ở độ cao từ bao nhiêu trở lên so với mặt sàn / mặt đất?', ['2 m', '5 m', '10 m', '0,5 m'], 'Từ 2 m trở lên: bắt buộc có biện pháp chống ngã – lan can, lưới, dây an toàn.'],
+      ['x32', 'PPE là:', ['Phương tiện bảo vệ cá nhân (mũ, giày, kính, găng, dây an toàn…)', 'Kế hoạch tiến độ', 'Phiếu nhập kho', 'Bảng giá vật tư'], 'PPE là lớp bảo vệ CUỐI CÙNG – không thay thế được biện pháp kỹ thuật.'],
+      ['x33', 'Theo thứ bậc kiểm soát rủi ro, biện pháp ưu tiên CAO NHẤT là:', ['Loại bỏ mối nguy', 'Phát phương tiện bảo vệ cá nhân', 'Treo biển báo', 'Đào tạo nhắc nhở'], 'Thứ bậc: Loại bỏ → Thay thế → Kỹ thuật → Hành chính → PPE (thấp nhất).'],
+      ['x34', 'JSA (phân tích an toàn công việc) là:', ['Chia công việc thành các bước, nhận diện mối nguy và biện pháp kiểm soát từng bước', 'Bảng chấm công', 'Báo cáo tai nạn', 'Hợp đồng lao động'], 'Việc rủi ro cao: làm JSA trước, phổ biến cho tổ đội trước khi làm.'],
+      ['x35', 'Họp an toàn đầu ca (toolbox meeting) nhằm:', ['Nhắc mối nguy và biện pháp an toàn của công việc trong ca', 'Chấm công', 'Phân chia lương', 'Nghiệm thu khối lượng'], '5–10 phút đầu ca: việc gì – nguy gì – phòng thế nào – ai phụ trách.'],
+      ['x36', 'Phát hiện dây điện thi công bị hở, việc đầu tiên nên làm:', ['Ngắt nguồn, rào khu vực và báo người có trách nhiệm', 'Lấy tay quấn băng dính ngay', 'Bỏ qua vì chưa ai bị giật', 'Tưới nước cho mát'], 'Điện: NGẮT – RÀO – BÁO, không tự xử lý khi không phải thợ điện.'],
+      ['x37', 'Đám cháy thiết bị điện đang có điện nên dùng:', ['Bình CO₂ hoặc bình bột', 'Nước', 'Cát ướt', 'Quạt thổi'], 'Không dùng nước dập cháy điện đang có điện – nguy cơ giật.'],
+      ['x38', 'Giàn giáo phải được kiểm tra:', ['Trước khi sử dụng, định kỳ và sau mưa bão; có thẻ xác nhận', 'Chỉ khi lắp xong lần đầu', 'Khi có người ngã', 'Không cần kiểm tra'], 'Thẻ xanh (được dùng) / thẻ đỏ (cấm dùng) – kiểm tra lại sau gió bão, mưa lớn.'],
+      ['x39', 'Hố đào sâu, thành hố có nguy cơ sạt, biện pháp đúng:', ['Đào mái dốc hoặc chống vách, rào chắn, biển báo', 'Cho người xuống làm nhanh', 'Tưới nước cho đất chặt', 'Để vật liệu sát mép hố'], 'Không để vật liệu, máy sát mép hố; đất yếu phải chống vách.'],
+      ['x40', 'Đường găng (critical path) của tiến độ là:', ['Chuỗi công việc dài nhất, quyết định tổng thời gian dự án', 'Chuỗi công việc ngắn nhất', 'Các việc làm vào ban đêm', 'Các việc có nhiều người nhất'], 'Trễ một việc GĂNG = trễ cả dự án. Ưu tiên nguồn lực cho việc găng.'],
+      ['x41', 'Công việc có thời gian dự trữ (float) bằng 0 là:', ['Công việc găng', 'Công việc không quan trọng', 'Công việc đã hoàn thành', 'Công việc có thể bỏ'], 'Float = 0 → không được trễ ngày nào.'],
+      ['x42', 'Biểu đồ đường cong S (S-curve) dùng để:', ['So sánh khối lượng / giá trị lũy kế kế hoạch và thực tế theo thời gian', 'Vẽ mặt bằng công trường', 'Tính khối lượng cốt thép', 'Thiết kế cấp phối'], 'Đường thực tế nằm dưới kế hoạch = đang chậm.'],
+      ['x43', 'Rút ngắn tiến độ bằng cách tăng nguồn lực cho việc găng gọi là:', ['Crashing (đẩy nhanh bằng nguồn lực)', 'Fast-tracking', 'Baseline', 'Float'], 'Crashing tốn thêm chi phí; Fast-tracking = làm song song, tăng rủi ro làm lại.'],
+      ['x44', 'Fast-tracking trong quản lý tiến độ là:', ['Làm song song các công việc vốn làm tuần tự', 'Tăng ca cho công nhân', 'Bỏ bớt công việc', 'Thuê thêm máy'], 'Song song hóa để rút ngắn – cần kiểm soát chặt chồng chéo, làm lại.'],
+      ['x45', 'Biểu đồ Gantt thể hiện:', ['Các công việc bằng thanh ngang trên trục thời gian', 'Dòng tiền dự án', 'Sơ đồ tổ chức', 'Mặt cắt kết cấu'], 'Gantt dễ đọc, nhưng cần thêm liên kết (phụ thuộc) để thấy đường găng.'],
+      ['x46', 'Nhật ký thi công xây dựng do ai ghi hằng ngày?', ['Nhà thầu thi công (chỉ huy trưởng / cán bộ kỹ thuật); giám sát ghi ý kiến', 'Chủ đầu tư', 'Cơ quan cấp phép', 'Nhà cung cấp vật liệu'], 'Nhật ký ghi hằng ngày: thời tiết, nhân lực, máy, khối lượng, sự cố, ý kiến giám sát.'],
+      ['x47', 'Bản vẽ hoàn công là:', ['Bản vẽ thể hiện kích thước, vị trí thực tế đã thi công', 'Bản vẽ thiết kế cơ sở', 'Bản vẽ biện pháp', 'Bản vẽ phối cảnh'], 'Hoàn công = "đã làm thế nào" – lập ngay sau khi hoàn thành từng phần, có ký xác nhận.'],
+      ['x48', 'Vật liệu đưa vào công trình phải:', ['Có chứng chỉ chất lượng, được nghiệm thu đầu vào và thí nghiệm theo tần suất', 'Rẻ nhất có thể', 'Do công nhân tự chọn', 'Chỉ cần nhìn bằng mắt'], 'Không nghiệm thu vật liệu đầu vào = rủi ro phải phá làm lại.'],
+      ['x49', 'Thép nhận về công trường cần:', ['Kiểm tra chứng chỉ, nhãn mác, đường kính và lấy mẫu thí nghiệm kéo, uốn', 'Đưa ngay vào gia công', 'Để ngoài trời, không kê', 'Cân tổng là đủ'], 'Thép: chứng chỉ – nhãn – đường kính – mẫu thí nghiệm; kê cao, che mưa.'],
+      ['x50', 'Kết quả nén mẫu bê tông không đạt, cách xử lý đúng:', ['Lập NCR, kiểm tra bổ sung (khoan lõi, siêu âm…), xử lý theo ý kiến thiết kế', 'Giấu kết quả', 'Đổ lớp mới lên trên', 'Đổi mẫu khác'], 'Không đạt → báo ngay, kiểm tra bổ sung, có giải pháp được thiết kế chấp thuận.'],
+      ['x51', 'Kiểm tra độ thẳng đứng của cột thường dùng:', ['Dây dọi hoặc máy toàn đạc / kinh vĩ', 'Thước cuộn', 'Ni vô nước', 'Mắt thường'], 'Cột nghiêng vượt sai số cho phép phải xử lý trước khi làm tầng trên.'],
+      ['x52', 'Khối lượng phát sinh ngoài hợp đồng muốn được thanh toán cần:', ['Được chủ đầu tư chấp thuận và có hồ sơ xác nhận khối lượng', 'Chỉ cần làm xong', 'Ghi vào nhật ký là đủ', 'Có ảnh chụp'], 'Phát sinh: xin chấp thuận TRƯỚC – làm – nghiệm thu – thanh toán.'],
+      ['x53', 'Trước khi đổ bê tông, cốp pha cần kiểm tra:', ['Kích thước, cao độ, độ kín khít, độ ổn định của hệ chống', 'Màu sắc ván', 'Giá thuê cốp pha', 'Số người đứng trên sàn'], 'Cốp pha phình, sập thường do hệ chống yếu – kiểm tra kỹ trước khi đổ.'],
+      ['x54', 'Biện pháp thi công các công việc rủi ro cao (cẩu lắp, đào sâu, làm việc trên cao) phải:', ['Được lập và phê duyệt trước khi thi công', 'Lập sau khi làm xong', 'Không cần lập', 'Chỉ cần nói miệng'], 'Có biện pháp được duyệt mới làm – đặc biệt cẩu lắp, đào sâu, trên cao.'],
+      ['x55', 'Mốc cao độ chuẩn trên công trường cần:', ['Bảo vệ, kiểm tra định kỳ, dẫn từ mốc gốc', 'Di chuyển cho tiện', 'Đánh dấu bằng phấn', 'Dùng mép đường làm mốc'], 'Mất mốc = sai cao độ cả công trình. Bảo vệ và kiểm tra mốc định kỳ.'],
+      ['x56', 'Đầm dùi bê tông đúng cách:', ['Cắm thẳng, đều, đến khi vữa xi măng nổi và hết bọt khí', 'Kéo dùi ngang qua bê tông', 'Đầm thật lâu một chỗ', 'Dùng dùi gạt bê tông'], 'Đầm thiếu → rỗ; đầm quá lâu → phân tầng. Cắm thẳng, rút từ từ.'],
+      ['x57', 'Sai số cho phép về kích thước cấu kiện lấy theo:', ['Tiêu chuẩn thi công – nghiệm thu và chỉ dẫn kỹ thuật dự án', 'Ý kiến tổ trưởng', 'Thói quen công trường', 'Không có quy định'], 'Luôn đối chiếu chỉ dẫn kỹ thuật dự án trước, rồi đến tiêu chuẩn áp dụng.'],
+      ['x58', 'Hồ sơ thanh toán khối lượng hoàn thành thường gồm:', ['Biên bản nghiệm thu khối lượng, bảng tính giá trị, đề nghị thanh toán, hóa đơn', 'Chỉ cần hóa đơn', 'Ảnh chụp công trình', 'Nhật ký thi công'], 'Không có nghiệm thu khối lượng thì không có cơ sở thanh toán.'],
+      ['x59', 'Mái dốc hố đào ghi "1:1" nghĩa là:', ['Cao 1 m thì mở rộng ngang 1 m', 'Cao 1 m mở rộng 0,5 m', 'Đào thẳng đứng', 'Cao 2 m mở rộng 1 m'], 'Mái dốc 1:m → mỗi 1 m sâu mở rộng m mét mỗi bên.'],
+      ['x60', 'Cốt thép bị gỉ vảy, bám bùn đất trước khi đổ bê tông cần:', ['Làm sạch (cạo gỉ, rửa) trước khi đổ', 'Để nguyên vì bê tông sẽ bao', 'Sơn lên trên', 'Đổ thêm xi măng'], 'Gỉ vảy, dầu, bùn làm giảm bám dính – phải làm sạch.']
+    ],
+    tm: [
+      ['m1', 'Trước khi khởi động máy đầu ca, cần kiểm tra:', ['Mức dầu, nước làm mát, nhiên liệu, rò rỉ và các bộ phận an toàn', 'Chỉ cần nổ máy chạy luôn', 'Chỉ xem lốp', 'Đợi máy hỏng mới kiểm tra'], 'Đi một vòng quanh máy 5 phút đầu ca tránh hỏng nặng cả ngày.'],
+      ['m2', 'Kiểm tra mức dầu động cơ đúng cách:', ['Máy đỗ bằng phẳng, tắt máy chờ vài phút rồi rút que thăm', 'Kiểm tra khi máy đang chạy', 'Kiểm tra khi máy đang nghiêng', 'Chỉ nhìn đèn báo'], 'Bằng phẳng – tắt máy – chờ dầu về các-te – lau que – thăm lại.'],
+      ['m3', 'Mức dầu đạt yêu cầu trên que thăm là:', ['Nằm giữa vạch MIN và MAX', 'Dưới vạch MIN', 'Trên vạch MAX', 'Không có dầu trên que'], 'Giữa MIN – MAX là chuẩn; thiếu thì bổ sung đúng loại dầu.'],
+      ['m4', 'Đổ dầu động cơ quá vạch MAX có thể gây:', ['Sủi bọt dầu, tăng áp, rò rỉ phớt, hao dầu', 'Máy mạnh hơn', 'Tiết kiệm nhiên liệu', 'Không ảnh hưởng gì'], 'Nhiều dầu không tốt – trục khuỷu đánh dầu tạo bọt, giảm bôi trơn.'],
+      ['m5', 'Chu kỳ thay dầu động cơ được xác định theo:', ['Khuyến cáo nhà sản xuất (giờ máy / km) và điều kiện làm việc', 'Khi dầu cạn hết', 'Mỗi năm một lần cho mọi máy', 'Theo cảm giác'], 'Theo sổ tay máy; môi trường bụi, tải nặng → rút ngắn chu kỳ.'],
+      ['m6', 'Khi thay dầu động cơ nên thay kèm:', ['Lọc dầu (lọc nhớt)', 'Lốp xe', 'Ắc quy', 'Gương chiếu hậu'], 'Thay dầu mà không thay lọc = dầu mới lẫn cặn cũ.'],
+      ['m7', 'Máy làm việc ở môi trường nhiều bụi thì lọc gió cần:', ['Vệ sinh, thay thường xuyên hơn', 'Tháo bỏ cho máy thở dễ', 'Không cần quan tâm', 'Bôi dầu lên lọc'], 'Lọc gió tắc → thiếu gió → khói đen, yếu máy, tốn dầu.'],
+      ['m8', 'Nhiên liệu diesel lẫn nước có thể gây:', ['Hỏng bơm cao áp, kim phun; cần xả nước ở cốc lọc tách nước', 'Máy chạy êm hơn', 'Tăng công suất', 'Không ảnh hưởng'], 'Xả nước cốc lọc tách nước hằng ngày, nhất là mùa mưa.'],
+      ['m9', 'Đồng hồ nhiệt độ nước làm mát báo quá nóng, xử lý đúng:', ['Giảm tải, cho chạy không tải hạ nhiệt rồi tắt; không mở nắp két khi nóng', 'Mở ngay nắp két đổ nước lạnh', 'Tăng ga chạy tiếp', 'Tắt máy ngay rồi dội nước vào máy'], 'Quá nhiệt: giảm tải – chạy chậm hạ nhiệt – kiểm tra két, quạt, dây curoa.'],
+      ['m10', 'Không mở nắp két nước khi máy đang nóng vì:', ['Nước và hơi áp suất cao phun ra gây bỏng', 'Sẽ làm hỏng nắp', 'Nước sẽ đông lại', 'Máy sẽ chết máy'], 'Chờ nguội, mở từ từ qua giẻ dày.'],
+      ['m11', 'Đèn báo áp suất dầu động cơ sáng khi đang chạy, phải:', ['Dừng máy ngay, kiểm tra dầu và hệ thống bôi trơn', 'Chạy tiếp hết ca', 'Tăng ga', 'Tắt đèn báo'], 'Mất áp dầu vài phút có thể bó máy, hỏng trục khuỷu.'],
+      ['m12', 'Động cơ diesel 4 kỳ làm việc theo thứ tự:', ['Nạp – Nén – Nổ (cháy giãn nở) – Xả', 'Nén – Nạp – Xả – Nổ', 'Nổ – Nạp – Nén – Xả', 'Xả – Nổ – Nạp – Nén'], 'Nạp – Nén – Nổ – Xả: 2 vòng quay trục khuỷu cho 1 chu trình.'],
+      ['m13', 'Động cơ diesel đốt cháy nhiên liệu nhờ:', ['Không khí bị nén nóng làm nhiên liệu tự cháy', 'Bugi đánh lửa', 'Ngọn lửa mồi', 'Điện từ ắc quy'], 'Diesel: tự cháy do nén (không bugi); xăng: bugi đánh lửa.'],
+      ['m14', 'Tuabin tăng áp (turbo) có tác dụng:', ['Nén thêm không khí vào xi lanh để tăng công suất', 'Làm mát dầu', 'Lọc nhiên liệu', 'Giảm tiếng ồn'], 'Turbo quay rất nhanh, cần dầu bôi trơn sạch và đủ.'],
+      ['m15', 'Máy có turbo sau khi chạy tải nặng, trước khi tắt máy nên:', ['Chạy không tải vài phút cho turbo nguội', 'Tắt ngay', 'Rồ ga mạnh rồi tắt', 'Dội nước vào turbo'], 'Tắt nóng → dầu cháy kẹt trong turbo → hỏng bạc trục.'],
+      ['m16', 'Hệ thống thủy lực truyền lực nhờ:', ['Dầu chịu áp suất (nguyên lý Pascal)', 'Khí nén', 'Dây xích', 'Lò xo'], 'Dầu thủy lực sạch = máy khỏe; bẩn = bơm, van mòn nhanh.'],
+      ['m17', 'Dầu thủy lực bẩn, nhiễm nước gây:', ['Bơm, van mòn, máy yếu, dầu nóng', 'Máy mạnh hơn', 'Tiết kiệm nhiên liệu', 'Không ảnh hưởng'], 'Giữ sạch khi châm dầu; thay lọc thủy lực đúng chu kỳ.'],
+      ['m18', 'Xi lanh thủy lực rò dầu ở phớt thì:', ['Báo sửa, thay phớt; không vận hành kéo dài', 'Lau sạch rồi chạy tiếp mãi', 'Châm thêm dầu mỗi ngày là được', 'Quấn băng dính'], 'Rò nhỏ hôm nay là hỏng xi lanh ngày mai; còn gây ô nhiễm, trơn trượt.'],
+      ['m19', 'Ly hợp (côn) có tác dụng:', ['Nối / ngắt truyền động từ động cơ đến hộp số', 'Làm mát động cơ', 'Tăng áp suất dầu', 'Lọc không khí'], 'Không "nửa côn" lâu – mòn lá côn nhanh.'],
+      ['m20', 'Khói xả màu ĐEN nhiều thường do:', ['Thừa nhiên liệu / thiếu gió (lọc gió tắc, kim phun kém, quá tải)', 'Dầu nhớt lọt buồng đốt', 'Nước lọt buồng đốt', 'Máy quá mới'], 'Đen = nhiên liệu cháy không hết; kiểm tra lọc gió, kim phun, tải.'],
+      ['m21', 'Khói xả màu XANH (lam) thường do:', ['Dầu nhớt lọt vào buồng đốt (mòn xéc măng, phớt xu páp)', 'Thừa nhiên liệu', 'Lọc gió sạch', 'Máy chạy không tải'], 'Xanh lam = cháy dầu nhớt; kèm hao nhớt → cần kiểm tra động cơ.'],
+      ['m22', 'Khói TRẮNG kéo dài khi máy đã nóng thường do:', ['Nước lọt vào buồng đốt (thủng gioăng mặt máy) hoặc nhiên liệu lẫn nước', 'Thiếu nhiên liệu', 'Lọc gió bẩn', 'Lốp non'], 'Khói trắng + hao nước làm mát → nghi gioăng mặt máy.'],
+      ['m23', 'Trước khi rời cabin máy đào, phải:', ['Hạ gầu xuống đất, khóa cần điều khiển, tắt máy, rút chìa khóa', 'Để gầu trên cao', 'Để máy nổ chờ', 'Để chìa khóa trong máy'], 'Hạ gầu – khóa cần – tắt máy – rút chìa.'],
+      ['m24', 'Sửa chữa dưới cần / gầu đang nâng, nguyên tắc đúng:', ['Hạ xuống hoặc chèn chống chắc chắn; không chỉ dựa vào thủy lực', 'Chui vào làm nhanh', 'Để người khác giữ cần điều khiển', 'Chỉ cần tắt máy'], 'Thủy lực có thể tụt bất ngờ – luôn chèn chống cơ khí.'],
+      ['m25', 'LOTO (khóa – treo thẻ) dùng khi:', ['Sửa chữa, bảo dưỡng để ngăn người khác vô tình khởi động / cấp điện', 'Chấm công thợ máy', 'Giao ca', 'Nhập kho phụ tùng'], 'Khóa nguồn + treo thẻ tên người đang sửa; chỉ người treo mới được gỡ.'],
+      ['m26', 'Vận hành máy gần đường dây điện trên không, phải:', ['Giữ khoảng cách an toàn theo quy định, có người cảnh giới', 'Nâng cần sát dây cho nhanh', 'Làm vào ban đêm', 'Không cần lưu ý'], 'Điện cao thế có thể phóng điện qua không khí khi đến gần.'],
+      ['m27', 'Người vận hành máy thi công, cẩu cần:', ['Được đào tạo, có chứng chỉ phù hợp; máy được kiểm định khi thuộc danh mục bắt buộc', 'Biết lái là được', 'Chỉ cần quen việc', 'Có bằng lái xe máy'], 'Đúng người – đúng máy – máy đủ giấy tờ kiểm định.'],
+      ['m28', 'Máy đào làm việc trên nền dốc, nên:', ['Đặt máy ổn định, hạn chế xoay toa ngang dốc khi gầu nặng, giữ gầu thấp', 'Xoay nhanh cho kịp', 'Nâng gầu thật cao khi di chuyển', 'Đỗ sát mép taluy'], 'Lật máy thường do xoay ngang dốc với tải nặng.'],
+      ['m29', 'Nghe tiếng gõ lạ trong động cơ, xử lý đúng:', ['Dừng máy kiểm tra, báo kỹ thuật; không cố chạy', 'Tăng ga cho hết tiếng', 'Bật nhạc to', 'Chạy tiếp hết ca'], 'Tiếng gõ là dấu hiệu sớm – dừng sớm, sửa rẻ.'],
+      ['m30', 'Bảo dưỡng định kỳ khác sửa chữa ở chỗ:', ['Bảo dưỡng là phòng ngừa theo kế hoạch trước khi hỏng', 'Bảo dưỡng chỉ làm khi máy hỏng', 'Hai việc giống nhau', 'Bảo dưỡng do chủ đầu tư làm'], 'Bảo dưỡng đúng hạn rẻ hơn nhiều so với sửa hỏng lớn.'],
+      ['m31', 'Sổ nhật ký / lý lịch máy dùng để:', ['Ghi giờ máy, nhiên liệu, bảo dưỡng, hỏng hóc → lập kế hoạch bảo dưỡng', 'Chấm công cả đội', 'Ghi chép cá nhân', 'Không cần thiết'], 'Không ghi giờ máy thì không biết khi nào đến hạn bảo dưỡng.'],
+      ['m32', 'Dây curoa quá chùng gây:', ['Trượt, kêu rít, bơm nước / máy phát hoạt động kém', 'Máy mát hơn', 'Tiết kiệm nhiên liệu', 'Không ảnh hưởng'], 'Chùng: trượt, nóng máy; căng quá: hại vòng bi. Chỉnh theo hướng dẫn.'],
+      ['m33', 'Máy phát điện công trường phải nối đất (tiếp địa) để:', ['Chống điện giật khi rò điện ra vỏ', 'Tăng công suất', 'Giảm tiếng ồn', 'Tiết kiệm dầu'], 'Vỏ máy rò điện + không tiếp địa = người chạm vào bị giật.'],
+      ['m34', 'Vệ sinh thùng máy trộn bê tông, nguyên tắc an toàn:', ['Tắt máy, ngắt điện / khóa nguồn rồi mới làm', 'Cho tay vào khi thùng quay chậm', 'Để máy chạy cho sạch nhanh', 'Không cần tắt máy'], 'Tuyệt đối không đưa tay, xẻng vào thùng đang quay.'],
+      ['m35', 'Đầm dùi bê tông, không nên:', ['Để đầu dùi chạy lâu ngoài không khí và tì vào cốt thép', 'Cắm thẳng vào bê tông', 'Vệ sinh sau ca', 'Kiểm tra dây dẫn'], 'Đầu dùi tự làm mát bằng bê tông – chạy khô lâu sẽ nóng hỏng.'],
+      ['m36', 'Đổ nhiên liệu cho máy, an toàn đúng:', ['Tắt máy, không hút thuốc, không có lửa gần', 'Vừa đổ vừa hút thuốc', 'Để máy nổ cho nhanh', 'Đổ dưới trời mưa không che'], 'Hơi nhiên liệu dễ cháy – tắt máy, tránh lửa, lau sạch dầu tràn.'],
+      ['m37', 'Lọc nhiên liệu bị tắc gây:', ['Máy yếu, hụt ga, khó nổ', 'Máy mạnh hơn', 'Khói trắng', 'Tăng áp dầu'], 'Thay lọc nhiên liệu đúng chu kỳ; xả e (gió) sau khi thay.'],
+      ['m38', 'Áp suất lốp nên kiểm tra khi:', ['Lốp còn nguội', 'Vừa chạy đường dài', 'Giữa trưa nắng', 'Khi lốp đã xẹp hẳn'], 'Lốp nóng áp suất cao hơn thực tế; đo lúc nguội.'],
+      ['m39', 'Lốp bơm quá non gây:', ['Mòn nhanh, nóng lốp, tốn nhiên liệu, mất ổn định', 'Êm hơn, bền hơn', 'Tiết kiệm nhiên liệu', 'Không ảnh hưởng'], 'Giữ đúng áp suất ghi trên sổ tay / thành lốp.'],
+      ['m40', 'Xích máy đào quá chùng gây:', ['Dễ tuột xích, mòn nhanh bánh dẫn; cần chỉnh độ căng', 'Máy chạy êm hơn', 'Không ảnh hưởng', 'Tăng tốc độ'], 'Chỉnh căng xích theo hướng dẫn, nhất là khi làm đất nhão.'],
+      ['m41', 'Răng gầu mòn quá giới hạn cần:', ['Thay răng để bảo vệ bản gầu và tăng hiệu quả đào', 'Hàn đắp tạm mãi', 'Để mòn hết', 'Đào bằng mép gầu'], 'Răng rẻ, gầu đắt – thay răng đúng lúc.'],
+      ['m42', 'Dầu nhớt thải, giẻ dính dầu phải:', ['Thu gom, chứa đúng nơi quy định như chất thải nguy hại', 'Đổ ra đất', 'Đốt tại chỗ', 'Đổ xuống cống'], 'Dầu thải là chất thải nguy hại – không đổ ra môi trường.'],
+      ['m43', 'Tiếng rít kim loại khi phanh thường do:', ['Má phanh mòn hết, cần kiểm tra thay', 'Phanh quá tốt', 'Lốp non', 'Thiếu nhiên liệu'], 'Phanh kêu rít – kiểm tra ngay, đừng chờ mất phanh.'],
+      ['m44', 'Câu bình (kích nổ) ắc quy, kẹp dây âm (–) cuối cùng vào:', ['Mát máy (khung kim loại) xa ắc quy', 'Cực dương ắc quy', 'Ống nhiên liệu', 'Tay người'], 'Tránh tia lửa sát ắc quy (khí hydro dễ nổ).'],
+      ['m45', 'Ắc quy cần kiểm tra định kỳ:', ['Cọc bình sạch, chặt; điện áp; mức dung dịch (nếu loại nước)', 'Màu vỏ', 'Hãng sản xuất', 'Không cần kiểm tra'], 'Cọc bình oxy hóa, lỏng → khó đề, chập chờn điện.'],
+      ['m46', 'Tra mỡ các khớp, chốt gầu máy đào nhằm:', ['Giảm mài mòn, chống rơ, chống bụi nước lọt vào', 'Cho đẹp', 'Tăng trọng lượng', 'Làm mát động cơ'], 'Khớp gầu làm việc nặng – tra mỡ theo chu kỳ (thường hằng ngày / mỗi ca).'],
+      ['m47', 'Đổ nhầm xăng vào máy diesel, xử lý đúng:', ['Không khởi động; xả bỏ, súc sạch hệ thống nhiên liệu', 'Nổ máy chạy cho hết xăng', 'Đổ thêm diesel pha loãng', 'Không sao cả'], 'Phát hiện ngay thì KHÔNG nổ máy – tránh hỏng bơm cao áp, kim phun.'],
+      ['m48', 'Đèn cảnh báo, còi lùi khi máy di chuyển lùi để:', ['Cảnh báo người xung quanh', 'Trang trí', 'Báo hết nhiên liệu', 'Báo giờ nghỉ'], 'Điểm mù phía sau là nơi hay xảy ra tai nạn – còi lùi phải hoạt động.'],
+      ['m49', 'Máy bị sa lầy, xử lý đúng:', ['Dùng thiết bị hỗ trợ đúng cách, không dùng gầu đẩy quá sức', 'Rồ ga tối đa', 'Dùng gầu chống nâng cả máy liên tục', 'Bỏ máy lại'], 'Cứu máy sai cách dễ gãy cần, lật máy.'],
+      ['m50', 'Kiểm định an toàn thiết bị nâng (cẩu, vận thăng) nhằm:', ['Xác nhận thiết bị đủ điều kiện an toàn trước khi đưa vào sử dụng và định kỳ', 'Tính giá thuê', 'Đăng ký biển số', 'Để nhập kho'], 'Hết hạn kiểm định = không được vận hành.']
+    ],
+    ktkt: [
+      ['k1', 'Phương trình kế toán cơ bản:', ['Tài sản = Nợ phải trả + Vốn chủ sở hữu', 'Tài sản = Doanh thu – Chi phí', 'Nợ = Tài sản + Vốn', 'Vốn = Doanh thu + Nợ'], 'Mọi nghiệp vụ đều giữ cân bằng: TS = NPT + VCSH.'],
+      ['k2', 'Nguyên tắc phù hợp (matching) yêu cầu:', ['Doanh thu và chi phí tạo ra doanh thu đó được ghi nhận cùng kỳ', 'Ghi chi phí khi trả tiền', 'Ghi doanh thu khi thu tiền', 'Chi phí ghi vào năm sau'], 'Công trình nghiệm thu kỳ nào thì giá vốn tương ứng ghi kỳ đó.'],
+      ['k3', 'Nguyên tắc thận trọng nghĩa là:', ['Không đánh giá cao tài sản, thu nhập; không đánh giá thấp nợ, chi phí', 'Ghi nhận doanh thu sớm', 'Bỏ qua dự phòng', 'Ước tính lãi cao'], 'Thận trọng: có dấu hiệu lỗ / mất mát → ghi nhận, lập dự phòng.'],
+      ['k4', 'Chi phí trả trước (ví dụ thuê văn phòng 12 tháng trả 1 lần) được:', ['Phân bổ dần vào chi phí theo thời gian sử dụng', 'Ghi hết vào chi phí tháng trả tiền', 'Ghi tăng tài sản cố định', 'Không ghi sổ'], 'Trả 1 lần – dùng nhiều kỳ → phân bổ đều theo kỳ hưởng lợi.'],
+      ['k5', 'Tài sản cố định hữu hình theo quy định hiện hành phải có nguyên giá từ:', ['30 triệu đồng trở lên (và thời gian sử dụng trên 1 năm)', '10 triệu đồng', '5 triệu đồng', '100 triệu đồng'], 'Dưới 30 triệu → công cụ dụng cụ, phân bổ dần.'],
+      ['k6', 'Khấu hao theo phương pháp đường thẳng: mức khấu hao năm bằng:', ['Nguyên giá chia số năm sử dụng', 'Nguyên giá nhân 2', 'Giá trị còn lại chia 2', 'Giá thị trường hiện tại'], 'Đường thẳng: chia đều – mỗi năm như nhau.'],
+      ['k7', 'Chi phí sửa chữa làm tăng năng lực, kéo dài thời gian sử dụng TSCĐ được:', ['Ghi tăng nguyên giá tài sản', 'Ghi hết vào chi phí kỳ', 'Ghi giảm doanh thu', 'Không hạch toán'], 'Nâng cấp → tăng nguyên giá; sửa chữa thường xuyên → chi phí kỳ.'],
+      ['k8', 'Giá xuất kho theo bình quân gia quyền:', ['(Giá trị tồn đầu + nhập) / (Số lượng tồn đầu + nhập)', 'Giá lần nhập cuối', 'Giá lần nhập đầu', 'Giá bán dự kiến'], 'Bình quân gia quyền làm "mượt" giá khi giá nhập biến động.'],
+      ['k9', 'Mua vật tư nhập kho, chưa trả tiền, có thuế GTGT được khấu trừ (TT200) ghi:', ['Nợ 152, Nợ 1331 / Có 331', 'Nợ 331 / Có 152', 'Nợ 621 / Có 111', 'Nợ 152 / Có 511'], 'Nhập kho: Nợ 152 + Nợ 1331; chưa trả tiền: Có 331.'],
+      ['k10', 'Xuất vật tư trực tiếp cho công trình (TT200) ghi:', ['Nợ 621 / Có 152', 'Nợ 152 / Có 621', 'Nợ 642 / Có 152', 'Nợ 331 / Có 152'], 'TK 621 – chi phí nguyên vật liệu trực tiếp, cuối kỳ kết chuyển 154.'],
+      ['k11', 'Tiền lương phải trả công nhân trực tiếp thi công (TT200) ghi:', ['Nợ 622 / Có 334', 'Nợ 334 / Có 622', 'Nợ 642 / Có 111', 'Nợ 627 / Có 338'], '622 – nhân công trực tiếp; 334 – phải trả người lao động.'],
+      ['k12', 'Chi phí sử dụng máy thi công (TT200) tập hợp vào tài khoản:', ['623', '621', '641', '811'], '621 VL – 622 NC – 623 Máy – 627 SX chung → 154 giá thành công trình.'],
+      ['k13', 'Chi phí sản xuất kinh doanh dở dang của công trình xây lắp theo dõi ở TK:', ['154', '511', '632', '911'], '154 = công trình đang làm / chưa nghiệm thu bàn giao.'],
+      ['k14', 'Nhận tiền ứng trước của chủ đầu tư qua ngân hàng ghi:', ['Nợ 112 / Có 131', 'Nợ 131 / Có 112', 'Nợ 112 / Có 511', 'Nợ 331 / Có 112'], 'Khách hàng trả trước → dư Có TK 131 (không ghi doanh thu ngay).'],
+      ['k15', 'Thời điểm lập hóa đơn GTGT với hoạt động xây dựng, lắp đặt:', ['Khi nghiệm thu, bàn giao khối lượng / hạng mục hoàn thành, dù đã thu tiền hay chưa', 'Chỉ khi thu đủ tiền', 'Cuối năm', 'Khi ký hợp đồng'], 'Xây lắp: nghiệm thu bàn giao là lập hóa đơn – không chờ thu tiền.'],
+      ['k16', 'Doanh thu hợp đồng xây dựng được ghi nhận khi:', ['Kết quả hợp đồng ước tính đáng tin cậy, theo phần công việc hoàn thành được xác nhận', 'Khi ký hợp đồng', 'Khi nhận tạm ứng', 'Khi kết thúc bảo hành'], 'Theo VAS 15: doanh thu theo khối lượng hoàn thành được xác nhận.'],
+      ['k17', 'Tỷ lệ người lao động đóng BHXH, BHYT, BHTN (bắt buộc) tổng cộng là:', ['10,5% (8% + 1,5% + 1%)', '21,5%', '32%', '5%'], 'NLĐ: BHXH 8%, BHYT 1,5%, BHTN 1% = 10,5%.'],
+      ['k18', 'Tỷ lệ doanh nghiệp đóng BHXH, BHYT, BHTN cho người lao động tổng cộng là:', ['21,5%', '10,5%', '17%', '30%'], 'DN: BHXH 17,5% (gồm TNLĐ–BNN) + BHYT 3% + BHTN 1% = 21,5% (chưa kể KPCĐ 2%).'],
+      ['k19', 'Thuế GTGT đầu vào được khấu trừ cần:', ['Hóa đơn hợp pháp, chứng từ thanh toán không dùng tiền mặt theo ngưỡng quy định, dùng cho hoạt động chịu thuế', 'Chỉ cần phiếu chi', 'Hóa đơn bán lẻ', 'Lời xác nhận của người bán'], 'Thiếu chứng từ thanh toán qua ngân hàng theo ngưỡng → mất khấu trừ.'],
+      ['k20', 'Chi phí được trừ khi tính thuế TNDN, nguyên tắc chung:', ['Thực tế phát sinh, phục vụ sản xuất kinh doanh, có hóa đơn chứng từ hợp pháp', 'Mọi khoản đã chi', 'Chi phí cá nhân giám đốc', 'Chi phí không có chứng từ'], 'Ba điều kiện: thực tế – liên quan SXKD – chứng từ hợp pháp (kèm thanh toán không dùng tiền mặt theo ngưỡng).'],
+      ['k21', 'Trước khi giao dịch với nhà cung cấp mới, nên:', ['Tra cứu tình trạng mã số thuế, đăng ký kinh doanh', 'Chỉ hỏi giá', 'Chuyển tiền trước', 'Không cần kiểm tra'], 'Nhà cung cấp ngừng hoạt động / bỏ trốn → hóa đơn có thể bị loại.'],
+      ['k22', 'Lập hóa đơn điện tử sai sau khi đã gửi người mua, xử lý:', ['Lập hóa đơn điều chỉnh hoặc thay thế theo quy định', 'Tự xóa hóa đơn', 'Bỏ qua', 'Lập hóa đơn mới trùng số'], 'Không tự hủy – điều chỉnh / thay thế đúng thủ tục.'],
+      ['k23', 'Chứng từ kế toán dùng trực tiếp để ghi sổ, lập báo cáo tài chính phải lưu trữ tối thiểu:', ['10 năm', '1 năm', '3 năm', '6 tháng'], 'Chứng từ ghi sổ, sổ sách, BCTC năm: lưu tối thiểu 10 năm.'],
+      ['k24', 'Bộ báo cáo tài chính năm theo TT200 gồm:', ['Bảng cân đối kế toán, Kết quả kinh doanh, Lưu chuyển tiền tệ, Thuyết minh', 'Chỉ Bảng cân đối', 'Sổ cái và nhật ký', 'Bảng lương'], '4 báo cáo: CĐKT – KQKD – LCTT – Thuyết minh.'],
+      ['k25', 'Lợi nhuận gộp bằng:', ['Doanh thu thuần – Giá vốn hàng bán', 'Doanh thu – Thuế', 'Lợi nhuận sau thuế + Chi phí', 'Tiền thu – Tiền chi'], 'Lãi gộp cho biết công trình tự thân có lãi không, trước chi phí quản lý.'],
+      ['k26', 'Điểm hòa vốn là mức doanh thu mà tại đó:', ['Tổng doanh thu bằng tổng chi phí (lợi nhuận bằng 0)', 'Lợi nhuận cao nhất', 'Chi phí thấp nhất', 'Doanh thu bằng 0'], 'Hòa vốn = chi phí cố định / tỷ lệ lãi trên biến phí.'],
+      ['k27', 'Vật liệu chính của công trình là loại chi phí:', ['Biến đổi theo khối lượng thi công', 'Cố định', 'Không đổi theo năm', 'Chi phí quản lý'], 'Biến phí tăng theo khối lượng; định phí (văn phòng, khấu hao) ít đổi.'],
+      ['k28', 'Tập hợp chi phí theo từng công trình nhằm:', ['Tính giá thành, lãi lỗ từng công trình để kiểm soát', 'Cho đẹp sổ sách', 'Giảm thuế', 'Để nộp ngân hàng'], 'Không tách chi phí theo công trình → không biết công trình nào lỗ.'],
+      ['k29', 'So sánh chi phí thực tế với dự toán theo hạng mục giúp:', ['Phát hiện sớm hạng mục vượt chi để có biện pháp', 'Tăng doanh thu', 'Tránh lập hóa đơn', 'Giảm lương'], 'Kiểm soát chi phí: so – tìm nguyên nhân – điều chỉnh, hằng tháng.'],
+      ['k30', 'Tạm ứng cho nhân viên đi công trường cần:', ['Hoàn ứng bằng chứng từ hợp lệ đúng hạn; chưa hoàn không tạm ứng tiếp', 'Không cần hoàn ứng', 'Hoàn ứng cuối năm', 'Chỉ cần báo miệng'], 'Tạm ứng treo lâu = rủi ro thất thoát, sai chi phí công trình.'],
+      ['k31', 'Đối chiếu công nợ với nhà cung cấp, chủ đầu tư nhằm:', ['Xác nhận số dư, phát hiện chênh lệch kịp thời', 'Đòi tiền ngay', 'Giảm thuế', 'Thay hợp đồng'], 'Đối chiếu định kỳ, có biên bản ký xác nhận.'],
+      ['k32', 'Kiểm kê quỹ tiền mặt nhằm:', ['Đối chiếu tồn quỹ thực tế với sổ, phát hiện chênh lệch', 'Tăng tiền quỹ', 'Thay thủ quỹ', 'Đếm tiền lẻ'], 'Kiểm kê quỹ định kỳ và đột xuất, lập biên bản.'],
+      ['k33', 'Nguyên tắc bất kiêm nhiệm trong kế toán:', ['Thủ quỹ không kiêm kế toán; người duyệt chi không trực tiếp chi tiền', 'Một người làm hết cho nhanh', 'Kế toán trưởng giữ quỹ', 'Giám đốc tự ghi sổ'], 'Tách người duyệt – người chi – người ghi sổ để hạn chế sai phạm.'],
+      ['k34', 'Kiểm kê kho phát hiện thiếu chưa rõ nguyên nhân (TT200) ghi:', ['Nợ 1381 / Có 152', 'Nợ 152 / Có 3381', 'Nợ 632 / Có 152', 'Nợ 811 / Có 152'], 'Thiếu chờ xử lý → 1381; thừa chờ xử lý → 3381.'],
+      ['k35', 'Chi phí lãi vay để đầu tư xây dựng tài sản dở dang đủ điều kiện được:', ['Vốn hóa vào giá trị tài sản', 'Ghi giảm doanh thu', 'Không được hạch toán', 'Ghi vào lương'], 'Theo VAS 16: lãi vay của tài sản dở dang đủ điều kiện được vốn hóa.'],
+      ['k36', 'Tiền chủ đầu tư giữ lại bảo hành công trình (giữ lại 5%) là:', ['Khoản phải thu, thu khi hết thời hạn bảo hành theo hợp đồng', 'Khoản bị mất', 'Doanh thu năm sau', 'Chi phí của nhà thầu'], 'Theo dõi riêng khoản giữ lại bảo hành để đòi đúng hạn.'],
+      ['k37', 'Dự phòng nợ phải thu khó đòi được lập khi:', ['Nợ quá hạn thanh toán hoặc có bằng chứng khó thu theo quy định', 'Mọi khoản phải thu', 'Khi khách hàng mới', 'Không bao giờ'], 'Thận trọng: nợ quá hạn → trích dự phòng theo mức quy định.'],
+      ['k38', 'Vòng quay khoản phải thu cao cho thấy:', ['Doanh nghiệp thu tiền nhanh', 'Doanh nghiệp thu tiền chậm', 'Lợi nhuận giảm', 'Tồn kho nhiều'], 'Vòng quay = Doanh thu / Phải thu bình quân; càng cao càng tốt.'],
+      ['k39', 'Hồ sơ thanh toán khối lượng với chủ đầu tư thường gồm:', ['Nghiệm thu khối lượng, bảng giá trị đề nghị thanh toán, hóa đơn', 'Chỉ cần hóa đơn', 'Bảng chấm công', 'Ảnh công trường'], 'Thiếu biên bản nghiệm thu = chủ đầu tư không có căn cứ trả tiền.'],
+      ['k40', 'Khóa sổ kế toán được thực hiện:', ['Cuối kỳ kế toán, trước khi lập báo cáo tài chính', 'Bất kỳ lúc nào', 'Khi thay kế toán', 'Khi thanh tra yêu cầu'], 'Khóa sổ: đối chiếu số dư, kết chuyển, rồi mới lập BCTC.'],
+      ['k41', 'Công cụ dụng cụ giá trị lớn dùng nhiều kỳ (dưới ngưỡng TSCĐ) được:', ['Phân bổ dần vào chi phí theo thời gian sử dụng', 'Ghi tăng TSCĐ', 'Ghi hết vào 1 kỳ bắt buộc', 'Không hạch toán'], 'Ván khuôn, giàn giáo… thường phân bổ theo số lần / thời gian sử dụng.'],
+      ['k42', 'Biên lợi nhuận gộp (%) được tính bằng:', ['Lợi nhuận gộp / Doanh thu thuần × 100', 'Doanh thu / Giá vốn × 100', 'Lợi nhuận sau thuế / Vốn', 'Giá vốn / Doanh thu'], 'Theo dõi biên gộp từng công trình để biết công trình nào "ăn" lãi.'],
+      ['k43', 'Chi phí chung của công trường (điện nước lán trại, bảo hộ) theo TT200 tập hợp vào:', ['627', '621', '622', '511'], '627 – chi phí sản xuất chung, phân bổ cho công trình.'],
+      ['k44', 'Chênh lệch giữa số liệu sổ và biên bản đối chiếu công nợ cần:', ['Tìm nguyên nhân, điều chỉnh bút toán sai, có xác nhận hai bên', 'Bỏ qua', 'Xóa số dư', 'Ghi vào chi phí khác'], 'Không để chênh lệch treo – xử lý trước khi khóa sổ.'],
+      ['k45', 'Ngân sách (budget) công trình nên được lập:', ['Trước khi thi công, theo hạng mục và theo tháng', 'Sau khi quyết toán', 'Không cần', 'Chỉ khi lỗ'], 'Có ngân sách mới có cái để so – kiểm soát chi phí từ đầu.']
+    ],
+    kd: [
+      ['d1', 'Thư chào giá cho khách hàng nên ghi rõ:', ['Phạm vi công việc, đơn giá, hiệu lực báo giá, điều kiện thanh toán', 'Chỉ tổng tiền', 'Chỉ tên công ty', 'Lời cảm ơn'], 'Chào giá rõ phạm vi – giá – thời hạn – thanh toán để tránh tranh chấp sau.'],
+      ['d2', 'Câu hỏi mở trong tư vấn khách hàng là:', ['Câu hỏi khuyến khích khách chia sẻ (Anh/chị mong muốn gì…?)', 'Câu chỉ trả lời có / không', 'Câu hỏi về giá', 'Câu hỏi đóng'], 'Hỏi mở để hiểu nhu cầu thật trước khi đề xuất giải pháp.'],
+      ['d3', 'Khi khách hàng phản đối về giá, nên:', ['Tìm hiểu lý do, nhấn mạnh giá trị, đưa phương án phù hợp', 'Giảm giá ngay', 'Tranh cãi', 'Bỏ khách'], 'Phản đối giá thường là chưa thấy giá trị – làm rõ giá trị trước khi bàn giá.'],
+      ['d4', 'CRM giúp người làm kinh doanh:', ['Theo dõi khách hàng, cơ hội, lịch sử giao dịch, chăm sóc', 'Tính lương', 'Chấm công', 'Lập báo cáo thuế'], 'Không ghi lại = quên khách. Cập nhật CRM sau mỗi lần tiếp xúc.'],
+      ['d5', 'Hồ sơ dự thầu không có hoặc sai bảo đảm dự thầu theo yêu cầu thường:', ['Bị loại', 'Vẫn được xét bình thường', 'Được cộng điểm', 'Được bổ sung sau khi trúng thầu'], 'Kiểm tra kỹ bảo lãnh dự thầu: giá trị, hiệu lực, bên thụ hưởng.'],
+      ['d6', 'Hiệu lực của hồ sơ dự thầu cần:', ['Đáp ứng thời gian yêu cầu trong hồ sơ mời thầu', 'Càng ngắn càng tốt', 'Không cần ghi', 'Tùy ý nhà thầu'], 'Hiệu lực thiếu 1 ngày cũng có thể bị loại.'],
+      ['d7', 'Lắng nghe chủ động là:', ['Tập trung, hỏi lại, tóm tắt để xác nhận đã hiểu đúng', 'Vừa nghe vừa làm việc khác', 'Chờ đến lượt mình nói', 'Ngắt lời để tiết kiệm thời gian'], 'Tóm tắt lại ý khách – khách thấy được tôn trọng, mình tránh hiểu sai.'],
+      ['d8', 'Sau buổi gặp khách hàng, nên:', ['Gửi tóm tắt nội dung, việc cần làm, mốc thời gian', 'Chờ khách gọi lại', 'Không cần làm gì', 'Gửi báo giá mới ngay'], 'Biên bản / email tóm tắt sau gặp giúp hai bên thống nhất.'],
+      ['d9', 'Khi khách hàng khiếu nại chất lượng, bước đầu tiên:', ['Lắng nghe, ghi nhận, xin lỗi về sự bất tiện và hẹn thời gian xử lý', 'Phủ nhận ngay', 'Đổ lỗi cho bộ phận khác', 'Im lặng'], 'Tiếp nhận – xác minh – xử lý – phản hồi – theo dõi.'],
+      ['d10', 'Nghiên cứu đối thủ cạnh tranh nhằm:', ['Hiểu điểm mạnh yếu để định vị, chào giá phù hợp', 'Sao chép toàn bộ', 'Nói xấu đối thủ', 'Không cần thiết'], 'Biết người biết ta – định vị lợi thế riêng của Công ty.']
+    ],
+    chung: [
+      ['c1', 'Số điện thoại báo cháy, cứu nạn cứu hộ:', ['114', '113', '115', '116'], '114 cháy – 113 công an – 115 cấp cứu.'],
+      ['c2', 'Số điện thoại cấp cứu y tế:', ['115', '114', '113', '119'], '115 = cấp cứu y tế.'],
+      ['c3', 'Thứ tự dùng bình chữa cháy xách tay:', ['Rút chốt – hướng vòi vào gốc lửa – bóp cò', 'Bóp cò – rút chốt – phun lên ngọn lửa', 'Lắc bình – phun lên khói', 'Mở nắp – đổ ra'], 'Đứng đầu hướng gió, phun vào GỐC lửa, quét qua lại.'],
+      ['c4', 'Thoát nạn khi có khói:', ['Cúi thấp, che mũi miệng bằng khăn ướt, theo lối thoát hiểm, không dùng thang máy', 'Đi thang máy cho nhanh', 'Trốn vào nhà vệ sinh', 'Đứng thẳng chạy thật nhanh'], 'Khói bốc lên cao – cúi thấp; thang máy có thể mất điện, kẹt.'],
+      ['c5', 'Sơ cứu người bị điện giật, việc đầu tiên:', ['Ngắt nguồn điện hoặc tách nạn nhân bằng vật cách điện', 'Kéo tay nạn nhân ngay', 'Dội nước', 'Gọi điện trước rồi mới ngắt điện'], 'Không chạm trực tiếp – ngắt điện trước, rồi sơ cứu, gọi 115.'],
+      ['c6', '5S gồm:', ['Sàng lọc – Sắp xếp – Sạch sẽ – Săn sóc – Sẵn sàng', 'Sạch – Sáng – Sơn – Sửa – Sắp', 'Sớm – Sát – Sâu – Sắc – Sẵn', 'Số – Sổ – Sắp – Sạch – Sang'], '5S: bỏ thứ không cần, để đúng chỗ, giữ sạch, duy trì, thành thói quen.'],
+      ['c7', 'Chu trình PDCA gồm:', ['Lập kế hoạch – Thực hiện – Kiểm tra – Cải tiến', 'Phân công – Duyệt – Chi – Ghi sổ', 'Đọc – Ghi – Chép – Lưu', 'Lên – Xuống – Trái – Phải'], 'Plan – Do – Check – Act: làm – kiểm – cải tiến liên tục.'],
+      ['c8', 'Mục tiêu SMART là mục tiêu:', ['Cụ thể, đo lường được, khả thi, liên quan, có thời hạn', 'Thông minh, nhanh, mạnh', 'Càng cao càng tốt', 'Không cần thời hạn'], 'Ví dụ: "Hoàn thành hồ sơ thanh toán đợt 3 trước ngày 25" thay vì "làm nhanh hồ sơ".'],
+      ['c9', 'Nhận email lạ yêu cầu chuyển tiền gấp, nên:', ['Xác minh qua kênh khác, báo bộ phận liên quan, không làm theo ngay', 'Chuyển ngay cho kịp', 'Trả lời cung cấp thông tin tài khoản', 'Chuyển tiếp cho mọi người'], 'Lừa đảo hay giả danh lãnh đạo / đối tác – luôn gọi xác minh.'],
+      ['c10', 'Mật khẩu tài khoản công ty nên:', ['Đặt mạnh, không chia sẻ, đổi khi nghi bị lộ', 'Dán lên màn hình', 'Dùng chung cho cả phòng', 'Đặt là 123456'], 'Mật khẩu là chìa khóa – không đưa cho ai, kể cả đồng nghiệp.'],
+      ['c11', 'Xảy ra tai nạn lao động, việc cần làm:', ['Sơ cứu, báo ngay người quản lý, giữ hiện trường, khai báo theo quy định', 'Tự giải quyết, không báo', 'Dọn ngay hiện trường', 'Chờ hết ca mới báo'], 'Sơ cứu – báo cáo – giữ hiện trường – điều tra nguyên nhân để phòng ngừa.'],
+      ['c12', 'Được giao việc nhưng chưa rõ yêu cầu, nên:', ['Hỏi lại người giao về yêu cầu, thời hạn, kết quả mong đợi', 'Tự đoán rồi làm', 'Không làm', 'Hỏi đồng nghiệp khác bộ phận'], 'Hỏi rõ 3 điều: làm gì – khi nào xong – thế nào là đạt.'],
+      ['c13', 'Báo cáo công việc tốt nên:', ['Ngắn gọn, đúng hạn, có số liệu, vấn đề và đề xuất', 'Dài và nhiều chữ', 'Chỉ báo khi xong hết', 'Chỉ báo việc tốt'], 'Báo cáo: kết quả – vướng mắc – đề xuất – việc tiếp theo.'],
+      ['c14', 'Tài liệu nội bộ của Công ty:', ['Không chia sẻ ra ngoài khi chưa được phép', 'Được gửi tự do', 'Đăng mạng xã hội', 'Cho nhà cung cấp xem thoải mái'], 'Bảo mật giá, hợp đồng, hồ sơ nhân sự – lộ ra gây thiệt hại lớn.'],
+      ['c15', 'Đi công tác bằng xe máy, quy tắc an toàn:', ['Đội mũ bảo hiểm, không dùng điện thoại, không uống rượu bia', 'Vừa đi vừa nghe điện thoại', 'Chở quá số người', 'Không cần mũ khi đi gần'], 'Đã uống rượu bia – không lái xe.']
+    ]
+  };
+  /* câu tính toán SINH TỰ ĐỘNG theo nhóm (số liệu ngẫu nhiên) – [câu, [đúng, …nhiễu], ghi nhớ] */
+  var NL_CM_SINH = {
+    ktxd: {
+      thep: function (R) { var d = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25][R(0, 9)], L = R(2, 12), m = 0.00617 * d * d * L; return ['Thanh thép Ø' + d + ' dài ' + L + ' m nặng khoảng bao nhiêu kg?', nlBon(nlSoVN(m) + ' kg', [nlSoVN(m * 2) + ' kg', nlSoVN(0.00617 * d * L) + ' kg', nlSoVN(m / 2) + ' kg', nlSoVN(m + 1) + ' kg']), 'Khối lượng 1 m thép = 0,00617 × d² (kg, d tính bằng mm).']; },
+      betong: function (R) { var b = [20, 22, 25, 30][R(0, 3)], h = [30, 35, 40, 45, 50, 60][R(0, 5)], L = R(3, 12), v = b * h * L / 10000; return ['Dầm bê tông tiết diện ' + b + '×' + h + ' cm, dài ' + L + ' m cần bao nhiêu m³ bê tông?', nlBon(nlSoVN(v) + ' m³', [nlSoVN(v * 10) + ' m³', nlSoVN(v / 10) + ' m³', nlSoVN((b + h) * L / 100) + ' m³', nlSoVN(v + 0.5) + ' m³']), 'Thể tích = rộng × cao × dài; đổi cm sang m trước khi nhân.']; },
+      copha: function (R) { var b = [20, 22, 25, 30][R(0, 3)] / 100, h = [30, 40, 45, 50, 60][R(0, 4)] / 100, L = R(3, 10), s = (2 * h + b) * L; return ['Cốp pha dầm ' + nlSoVN(b * 100) + '×' + nlSoVN(h * 100) + ' cm, dài ' + L + ' m (2 thành + đáy, chưa trừ sàn): diện tích cốp pha?', nlBon(nlSoVN(s) + ' m²', [nlSoVN((2 * b + h) * L) + ' m²', nlSoVN((b + h) * L) + ' m²', nlSoVN(2 * (b + h) * L) + ' m²', nlSoVN(b * h * L) + ' m²']), 'Cốp pha dầm = (2 × chiều cao + bề rộng đáy) × chiều dài.']; },
+      haohut: function (R) { var V = R(10, 80), p = [1, 2, 3, 5, 7][R(0, 4)], x = V * (100 + p) / 100; return ['Cần ' + V + ' m³ vữa theo thiết kế, hao hụt cho phép ' + p + '%. Khối lượng cần chuẩn bị:', nlBon(nlSoVN(x) + ' m³', [nlSoVN(V) + ' m³', nlSoVN(V * (100 - p) / 100) + ' m³', nlSoVN(V + p) + ' m³', nlSoVN(x + 1) + ' m³']), 'Khối lượng chuẩn bị = khối lượng × (1 + % hao hụt).']; },
+      tiendo: function (R) { var a = R(2, 8), b = R(3, 9), c = R(4, 16); var t = Math.max(a + b, c); return ['Việc A ' + a + ' ngày, việc B ' + b + ' ngày làm sau A; việc C ' + c + ' ngày làm song song, bắt đầu cùng A. Thời gian tối thiểu hoàn thành cả 3 việc?', nlBon(t + ' ngày', [(a + b + c) + ' ngày', Math.min(a + b, c) + ' ngày', (a + c) + ' ngày', (t + 1) + ' ngày']), 'Tổng thời gian = chuỗi dài nhất (đường găng).']; },
+      nangsuat: function (R) { var ns = [20, 25, 30, 40, 50][R(0, 4)], V = R(60, 400); if (V % ns === 0) V++; var x = Math.ceil(V / ns); return ['Đội đổ bê tông năng suất ' + ns + ' m³/ca, cần đổ ' + V + ' m³. Cần ít nhất bao nhiêu ca?', nlBon(x + ' ca', [(x - 1) + ' ca', (x + 1) + ' ca', (x + 2) + ' ca']), 'Số ca = khối lượng / năng suất, làm tròn LÊN.']; },
+      maidoc: function (R) { var H = R(2, 6), m = [0.5, 0.75, 1, 1.25, 1.5][R(0, 4)], x = H * m; return ['Hố móng sâu ' + H + ' m, mái dốc 1:' + nlSoVN(m) + '. Miệng hố mở rộng thêm mỗi bên so với đáy:', nlBon(nlSoVN(x) + ' m', [nlSoVN(H / m) + ' m', nlSoVN(2 * x) + ' m', nlSoVN(H) + ' m', nlSoVN(x + 0.5) + ' m', nlSoVN(x + 1) + ' m', nlSoVN(H / 2) + ' m']), 'Mái dốc 1:m → mỗi bên mở rộng H × m.']; }
+    },
+    tm: {
+      daudau: function (R) { var C = [250, 500][R(0, 1)], H0 = R(10, 60) * 50, H = H0 + R(1, C / 10 - 1) * 10, x = H0 + C - H; return ['Máy thay dầu lần trước ở ' + nlTien(H0) + ' giờ máy; chu kỳ thay dầu ' + C + ' giờ. Đồng hồ hiện ' + nlTien(H) + ' giờ. Còn bao nhiêu giờ đến lần thay dầu tiếp?', nlBon(x + ' giờ', [(C - x) + ' giờ', C + ' giờ', (x + 50) + ' giờ', Math.max(5, x - 20) + ' giờ']), 'Giờ thay tiếp = giờ thay lần trước + chu kỳ; ghi giờ máy mỗi ca.']; },
+      nhienlieu: function (R) { var q = R(6, 25), t = [7, 8, 9, 10][R(0, 3)], n = R(2, 6), x = q * t * n; return ['Máy tiêu hao ' + q + ' lít dầu/giờ, mỗi ca chạy ' + t + ' giờ, làm ' + n + ' ca. Cần bao nhiêu lít dầu?', nlBon(nlTien(x) + ' lít', [nlTien(q * t) + ' lít', nlTien(q * n) + ' lít', nlTien(x + q) + ' lít', nlTien(x - q * t) + ' lít']), 'Nhiên liệu = định mức giờ × giờ chạy; so với thực tế để phát hiện hao hụt.']; },
+      bonchua: function (R) { var V = [200, 300, 400, 500, 600][R(0, 4)], p = [10, 20, 25, 30, 40, 50][R(0, 5)], x = V * (100 - p) / 100; return ['Bình nhiên liệu ' + V + ' lít, kim báo còn ' + p + '%. Cần đổ thêm bao nhiêu lít để đầy?', nlBon(nlTien(x) + ' lít', [nlTien(V * p / 100) + ' lít', nlTien(V) + ' lít', nlTien(x + 20) + ' lít', nlTien(x - 20) + ' lít']), 'Đổ thêm = dung tích × (100% − % còn lại). Không để cạn bình (hút cặn, lọt gió).']; },
+      hanbd: function (R) { var C = [250, 500][R(0, 1)], h = [6, 7, 8, 9, 10][R(0, 4)], da = R(0, 4) * 20, x = Math.ceil((C - da) / h); return ['Máy chạy ' + h + ' giờ/ngày, đã chạy ' + da + ' giờ kể từ lần bảo dưỡng trước; chu kỳ bảo dưỡng ' + C + ' giờ. Khoảng bao nhiêu ngày nữa đến hạn?', nlBon(x + ' ngày', [Math.ceil(C / h) + ' ngày', (x + 3) + ' ngày', Math.max(1, x - 3) + ' ngày', (x + 7) + ' ngày']), 'Số ngày = (chu kỳ − giờ đã chạy) / giờ chạy mỗi ngày → lên lịch trước.']; }
+    },
+    ktkt: {
+      vat: function (R) { var X = R(2, 90) * 1000000, x = X * 1.1; return ['Giá chưa thuế ' + nlTien(X) + ' đ, thuế suất GTGT 10%. Tổng tiền thanh toán:', nlBon(nlTien(x) + ' đ', [nlTien(X) + ' đ', nlTien(X * 0.1) + ' đ', nlTien(X * 1.08) + ' đ', nlTien(X * 1.2) + ' đ']), 'Tổng thanh toán = giá chưa thuế × (1 + thuế suất).']; },
+      vatnguoc: function (R) { var X = R(2, 90) * 1000000, Y = X * 1.1; return ['Tổng thanh toán đã gồm GTGT 10% là ' + nlTien(Y) + ' đ. Giá chưa thuế:', nlBon(nlTien(X) + ' đ', [nlTien(Y * 0.9) + ' đ', nlTien(Y) + ' đ', nlTien(Y - X * 0.2) + ' đ', nlTien(X * 1.05) + ' đ']), 'Giá chưa thuế = tổng thanh toán / 1,1 (không lấy tổng × 90%).']; },
+      khauhao: function (R) { var NG = R(6, 60) * 60, n = [3, 4, 5, 6, 8, 10][R(0, 5)], x = NG / n / 12; return ['Máy nguyên giá ' + nlTien(NG) + ' triệu đồng, thời gian sử dụng ' + n + ' năm, khấu hao đường thẳng. Mức khấu hao mỗi THÁNG:', nlBon(nlSoVN(x) + ' triệu', [nlSoVN(NG / n) + ' triệu', nlSoVN(NG / 12) + ' triệu', nlSoVN(x * 2) + ' triệu', nlSoVN(NG / n / 10) + ' triệu']), 'Khấu hao tháng = nguyên giá / số năm / 12.']; },
+      binhquan: function (R) { var q1 = R(10, 50) * 10, p1 = R(10, 20) * 1000, q2 = q1 + R(1, 30) * 10, p2 = p1 + R(1, 5) * 1000, x = Math.round((q1 * p1 + q2 * p2) / (q1 + q2)); return ['Tồn đầu ' + q1 + ' bao xi măng giá ' + nlTien(p1) + ' đ; nhập thêm ' + q2 + ' bao giá ' + nlTien(p2) + ' đ. Đơn giá xuất bình quân gia quyền:', nlBon(nlTien(x) + ' đ', [nlTien((p1 + p2) / 2) + ' đ', nlTien(p2) + ' đ', nlTien(p1) + ' đ', nlTien(x + 500) + ' đ']), 'Bình quân gia quyền = tổng giá trị / tổng số lượng (không lấy trung bình 2 đơn giá).']; },
+      bhnld: function (R) { var L = R(5, 30) * 1000000, x = L * 10.5 / 100; return ['Lương đóng bảo hiểm ' + nlTien(L) + ' đ. Người lao động đóng BHXH + BHYT + BHTN (10,5%) là:', nlBon(nlTien(x) + ' đ', [nlTien(L * 0.215) + ' đ', nlTien(L * 0.08) + ' đ', nlTien(L * 0.32) + ' đ', nlTien(L * 0.1) + ' đ']), 'NLĐ 10,5% (8 + 1,5 + 1); DN 21,5%.']; },
+      bienlai: function (R) { var DT = R(20, 90) * 100, GV = DT - R(2, 20) * 50, x = (DT - GV) / DT * 100; return ['Công trình doanh thu ' + nlTien(DT) + ' triệu, giá vốn ' + nlTien(GV) + ' triệu. Biên lợi nhuận gộp:', nlBon(nlSoVN(Math.round(x * 10) / 10) + '%', [nlSoVN(Math.round((DT - GV) / GV * 1000) / 10) + '%', nlSoVN(Math.round(GV / DT * 1000) / 10) + '%', nlSoVN(Math.round(x * 10) / 10 + 5) + '%', nlSoVN(Math.round(x * 10) / 10 - 2) + '%']), 'Biên gộp = (Doanh thu − Giá vốn) / Doanh thu × 100.']; }
+    }
+  };
   var DEFAULT_CFG = {
+    nlKy: { bat: true, ngayMo: 20, ngayHan: 25, thuong: 500000, phatTre: 300000, phatKhong: 500000, nguoiGui: '' },   // v3.91: kỳ test năng lực hằng tháng
+    nlAI: false,                       // v3.86: Ban Giám đốc cho phép gửi điểm năng lực (mã NV, không họ tên) đến AI để đề xuất phát triển
     congTy: 'CÔNG TY CỔ PHẦN TAPACO VIỆT NAM',
     anSinhNhat: false,                 // v3.70: true = ẩn sinh nhật CBCNV trên bảng tin
     botAINgoai: true,                  // v3.80: trợ lý quy định – câu hỏi ngoài văn bản công ty thì AI trả lời theo kiến thức chung (false = không)
@@ -1520,6 +2002,8 @@ var HRCORE = (function () {
     ngayNghiTuan: 'cn',
     mauPhieu: null, mauBangLuong: null,
     hsns: null,   // v3.47: bảng xác định hệ số năng suất tháng (tiêu chí, tỷ trọng, xếp loại → hệ số, biến kỳ nhận hệ số)
+    linkQuy: 'https://vuhuylong1976-maker.github.io/tapaco-quy/',   // v3.94: App Quỹ (giữ nguyên dữ liệu, đăng nhập riêng) – địa chỉ theo cai.txt của kho tapaco-quy
+    quyHien: 'tatca',   // v3.94: menu Quỹ tiền mặt: tatca | quanly (trừ Nhân viên) | tat
     linkWeb: '',   // v3.49: địa chỉ https của app web (GitHub Pages / Netlify…) để iPhone "Thêm vào MH chính"
     linkAPK: '',   // v3.43: link tải app Android (.apk) do Quản trị dán (Drive / web công ty)   // v3.41: mẫu phiếu lương / bảng lương do người dùng sắp xếp (null = mặc định)
     cheDoBangLuong: 'gop',            // v3.32: 'gop' – 1 bảng lương gồm cả tiền làm thêm giờ; 'tach' – 2 bảng độc lập: lương theo công thời gian / lương tăng ca, thêm giờ
@@ -1618,7 +2102,17 @@ var HRCORE = (function () {
   var QT_PHU = ['Đào tạo', 'Khác', 'Theo lý lịch'];          // v3.52: không khép quá trình khác, không đổi vị trí hiện tại ('Theo lý lịch' = quá trình tự khai trong lý lịch, thường trước khi vào Công ty)
   var QT_CHAM_DUT = ['Nghỉ việc', 'Thanh lý hợp đồng'];      // v3.18: chấm dứt HĐLĐ – từ ngày này không còn làm việc, tài khoản tự khóa
   var LOAI_LL = ['Nâng bậc định kỳ', 'Nâng lương trước hạn', 'Điều chỉnh lương', 'Giảm lương'];
-  var LOAI_KT = ['Thưởng tháng', 'Thưởng lễ – Tết', 'Thưởng công trình / dự án', 'Lương tháng 13', 'Thưởng đột xuất', 'Kỷ luật'];
+  var NL_GIAM_QC = 'Giảm thưởng theo quy chế';   // v3.91: không phải phạt tiền (Điều 127 BLLĐ cấm) – giảm khoản thưởng / phụ cấp được phép giảm theo quy chế
+  var LOAI_KT = ['Thưởng tháng', 'Thưởng lễ – Tết', 'Thưởng công trình / dự án', 'Lương tháng 13', 'Thưởng đột xuất', NL_GIAM_QC, 'Kỷ luật'];
+  function laThuongKT(x) { return x.loai !== 'Kỷ luật' && x.loai !== NL_GIAM_QC; }
+  /* v3.91: khoản giảm thưởng theo quy chế đã duyệt của kỳ → thêm vào vi phạm của dòng chấm công khi tính lương (giảm thưởng / phụ cấp, tối đa phần được phép giảm) */
+  function ccKemQC(c, ky, kt) {
+    var them = (kt || []).filter(function (x) { return x.maNV === (c && c.maNV) && x.kyLuong === ky && x.trangThai === 'Đã duyệt' && x.loai === NL_GIAM_QC && num(x.soTien) > 0; });
+    if (!c || !them.length) return c;
+    var a = parseJSON(c.chiTietPhat, []); a = Array.isArray(a) ? a.slice() : [];
+    them.forEach(function (x) { if (!a.some(function (v) { return v.ktId === x.id; })) a.push({ ten: x.noiDung || NL_GIAM_QC, loai: 'Phạt vi phạm / khấu trừ quy chế', soLan: 1, mucTien: num(x.soTien), thanhTien: num(x.soTien), ktId: x.id }); });
+    return Object.assign({}, c, { chiTietPhat: JSON.stringify(a) });
+  }
   var HT_KYLUAT = ['Khiển trách', 'Kéo dài thời hạn nâng lương ≤ 6 tháng', 'Cách chức', 'Sa thải'];
 
   /* ---------------- tiện ích ---------------- */
@@ -1872,7 +2366,7 @@ var HRCORE = (function () {
     (kts || []).forEach(function (k) {
       if (k.trangThai !== 'Đã duyệt' || (nam && String(k.ngay || '').slice(0, 4) !== nam)) return;
       var n = nvMap[k.maNV]; if (!n) return;
-      var c = CT[congTyNV(n, cfg)]; if (k.loai === 'Kỷ luật') c.kyLuat++; else c.khen++;
+      var c = CT[congTyNV(n, cfg)]; if (!laThuongKT(k)) c.kyLuat++; else c.khen++;
     });
     var cong = function (t, b) {
       var bhN = num(b.bhxh) + num(b.bhyt) + num(b.bhtn), bhD = num(b.bhxhDN) + num(b.bhytDN) + num(b.bhtnDN);
@@ -3677,7 +4171,7 @@ var HRCORE = (function () {
     if (segs.length) nv = apHD(nv, segs[segs.length - 1].hd);
     var th = 0, thT = 0;
     (kt || []).forEach(function (x) {
-      if (x.maNV === nv.maNV && x.kyLuong === ky && x.trangThai === 'Đã duyệt' && x.loai !== 'Kỷ luật') { th += num(x.soTien); if (x.chiuThue !== 'Không') thT += num(x.soTien); }
+      if (x.maNV === nv.maNV && x.kyLuong === ky && x.trangThai === 'Đã duyệt' && laThuongKT(x)) { th += num(x.soTien); if (x.chiuThue !== 'Không') thT += num(x.soTien); }
     });
     var lk = nvTaiKy(nv, ll || [], mh || [], ky);
     return { nv: lk.nv, segs: segs, o: { luong: lk.luong, luongBH: lk.luongBH, ncc: ncc, thuong: th, thuongChiuThue: thT, ky: ky, otLuyKe: otLuyKe(nv.maNV, ky, ccAll) } };
@@ -4936,6 +5430,7 @@ var HRCORE = (function () {
       return T('DeXuat').filter(function (o) {
         if (o.trangThai === 'Chờ duyệt') return o.maNV !== s.maNV && laNguoiXuLy(s, (dxCap(o) || {}).nguoi || []);
         if (['Đã duyệt', 'Đang thực hiện'].indexOf(o.trangThai) >= 0) return laNguoiXuLy(s, parseJSON(o.thucHien, []));
+        if (o.trangThai === 'Đang làm rõ') { var lr = parseJSON(o.lamRo, {}) || {}; return (lr.nguoi || []).indexOf(s.username) >= 0 && !(lr.bc || {})[s.username]; }
         return false;
       }).length;
     }
@@ -4958,7 +5453,7 @@ var HRCORE = (function () {
         var nvBP = bpQL ? T('NhanVien').filter(function (n) { return n.phongBan === bpQL && n.trangThai !== 'Đã nghỉ việc'; }).map(function (n) { return n.maNV; }) : [];
         var kyDuyet = T('KyLuong').filter(function (k) { return k.trangThai === 'Đã duyệt'; }).map(function (k) { return k.ky; });
         return {
-          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
+          cfg: pick(cfg, ['mauPhieu', 'linkAPK', 'linkWeb', 'linkQuy', 'quyHien', 'congTy', 'congTyTV', 'diaChiCongTy', 'phuCap', 'noiLamViec', 'boPhan', 'phongBan', 'chuKyNangBac', 'giamTruBanThan', 'giamTruNPT', 'tyLeNLD', 'ngayPhepCoBan', 'thamNienCongPhep', 'ngayLe', 'ngayLeDs', 'loaiTamUng', 'quyTrinhNghi', 'quyTrinhLenLuong', 'quyTrinhYKien', 'nhomDeXuat', 'loaiDeXuat', 'nghiKLToiDaBH', 'truongBoPhan', 'loaiTaiLieu', 'taiLieuBatBuoc', 'loaiNVTuTai', 'dungLuongToiDaMB', 'gps', 'diemCC', 'push', 'viTriTN', 'phanQuyen', 'cheDoBangLuong']),
           nv: T('NhanVien').filter(function (r) { return r.maNV === me; }),
           qt: T('QuaTrinh').filter(function (r) { return r.maNV === me; }),
           ll: T('LenLuong').filter(function (r) { return (r.maNV === me && (r.trangThai === 'Đã duyệt' || r.nguoiDeXuat === s.username)) || (r.maNV !== me && (r.nguoiDeXuat === s.username || giaoLL(r))); }),   // v3.54: đề xuất tự lập / lập cho nhân viên / được giao duyệt
@@ -5157,6 +5652,10 @@ var HRCORE = (function () {
       }
       delete r.lichSuHD;                                                 // v3.33: chỉ thêm / hủy dòng qua hd.save, hd.huy
       if (cur && hdDs(cur).length) ['loaiHD', 'soHD', 'ngayKyHD', 'ngayHetHanHD', 'loaiLuong', 'lyDoKhongBH', 'thamGiaBH'].forEach(function (c) { delete r[c]; });   // theo lịch sử HĐLĐ
+      if (r.soBHXH !== undefined) r.soBHXH = soBHXHChuan(r.soBHXH, function (m) { err(ma + ': ' + m); });   // v3.95
+      if (r.soBHYT !== undefined) r.soBHYT = soBHYTChuan(r.soBHYT, function (m) { err(ma + ': ' + m); });
+      if (r.soBHXH && T('NhanVien').some(function (x) { return x.maNV !== ma && x.soBHXH === r.soBHXH; })) err('Số sổ BHXH ' + r.soBHXH + ' đã có ở CBCNV khác.');
+      if (r.nguoiNha !== undefined) { var nnD = nguoiNhaChuan(r.nguoiNha, function (m) { err(ma + ': ' + m); }); r.nguoiNha = nnD.length ? JSON.stringify(nnD) : ''; }
       if (r.thueTT !== undefined) r.thueTT = JSON.stringify(chuanTT(r.thueTT));   // v3.26
       if (r.hsThue !== undefined) r.hsThue = JSON.stringify(hsThueNV({ hsThue: r.hsThue }));   // v3.27
       var o = cur || {};
@@ -5794,7 +6293,7 @@ var HRCORE = (function () {
           ngachCu: nv.ngach || '', bacCu: nv.bac || '', luongCu: num(nv.luongChinh), luongBHCu: num(nv.luongBH) };
         rows.push(o);
       }
-      ['maNV', 'loai', 'hieuLuc', 'ngachMoi', 'bacMoi', 'lyDo'].forEach(function (c) { o[c] = String(r[c] == null ? '' : r[c]).trim(); });
+      ['maNV', 'loai', 'hieuLuc', 'ngachMoi', 'bacMoi', 'lyDo', 'canCu'].forEach(function (c) { o[c] = String(r[c] == null ? '' : r[c]).trim().slice(0, 3000); });
       if (can(s, 'propose') || can(s, 'approve')) o.soQD = String(r.soQD == null ? '' : r.soQD).trim();
       o.luongMoi = num(r.luongMoi); o.luongBHMoi = num(r.luongBHMoi);
       var moiLap = !o.luongDuyet;
@@ -5816,9 +6315,17 @@ var HRCORE = (function () {
       var vuotCap = !duocGiao && (s.role === 'giamdoc' || s.role === 'admin');
       if (o.maNV === s.maNV && s.role !== 'admin') err('Không tự duyệt đề xuất lương của chính mình.');
       if (!duocGiao && !vuotCap) err('Đề xuất đang chờ "' + cap.ten + '" (' + (cap.nguoiTen || tenNguoi(cap.nguoi)) + ').');
+      if (note.length < 2) err(req.approve ? 'Nhập ý kiến phê duyệt.' : 'Nhập lý do từ chối.');   // v3.83
+      var mucD = num(o.luongMoi), doiMuc = '';
+      if (req.approve && req.luongMoi != null && String(req.luongMoi) !== '' && num(req.luongMoi) !== num(o.luongMoi)) {   // cấp duyệt điều chỉnh mức lương
+        if (num(req.luongMoi) <= 0) err('Mức lương duyệt phải lớn hơn 0.');
+        if (!o.luongDeXuat) o.luongDeXuat = num(o.luongMoi);
+        doiMuc = 'Điều chỉnh mức lương: ' + num(o.luongMoi).toLocaleString('vi-VN') + ' → ' + num(req.luongMoi).toLocaleString('vi-VN') + ' đ. ';
+        o.luongMoi = mucD = num(req.luongMoi);
+      }
       var ls = parseJSON(o.lichSu, []);
-      ls.push({ cap: cap.ten, nguoi: s.hoTen || s.username, luc: env.now(), ketQua: req.approve ? (vuotCap && ci < caps.length - 1 ? 'Duyệt (vượt cấp)' : 'Duyệt') : 'Từ chối', ghiChu: note });
-      if (!req.approve) { if (!note) err('Nhập lý do từ chối.'); o.trangThai = 'Từ chối'; }
+      ls.push({ cap: cap.ten, nguoi: s.hoTen || s.username, luc: env.now(), ketQua: req.approve ? (vuotCap && ci < caps.length - 1 ? 'Duyệt (vượt cấp)' : 'Duyệt') : 'Từ chối', ghiChu: doiMuc + note, soTien: req.approve ? mucD : null });
+      if (!req.approve) { o.trangThai = 'Từ chối'; }
       else if (vuotCap || ci + 1 >= caps.length) o.trangThai = 'Đã duyệt';
       else o.capDuyet = ci + 1;
       if (req.soQD && (can(s, 'propose') || can(s, 'approve'))) o.soQD = String(req.soQD).trim();
@@ -6020,7 +6527,7 @@ var HRCORE = (function () {
       }
       return row;
     }
-    var CHAT_PUSH = { kho: '[Phiếu kho] ', text: '', anh: '[Hình ảnh]', tep: '[Tệp] ', binhchon: '[Bình chọn] ', nhac: '[Nhắc hẹn] ', baocao: '[Yêu cầu báo cáo] ', bcnop: 'đã nộp báo cáo: ', nhactao: 'tạo nhắc hẹn: ', bctao: 'tạo yêu cầu báo cáo: ' };
+    var CHAT_PUSH = { nltest: '[Bài test năng lực] ', kho: '[Phiếu kho] ', text: '', anh: '[Hình ảnh]', tep: '[Tệp] ', binhchon: '[Bình chọn] ', nhac: '[Nhắc hẹn] ', baocao: '[Yêu cầu báo cáo] ', bcnop: 'đã nộp báo cáo: ', nhactao: 'tạo nhắc hẹn: ', bctao: 'tạo yêu cầu báo cáo: ' };
     function chatDay(s, htId, m) {                     // thông báo đẩy tin nhắn: mọi thành viên (trừ người gửi, người tắt thông báo nhóm)
       if (!pushBat()) return;
       var h = chatHT(htId); if (!h || h.trangThai) return;
@@ -6408,7 +6915,8 @@ var HRCORE = (function () {
     function chayLich() {
       var cfL = getCfg();                           // v3.8: áp bảng phân quyền
       var bay = env.now().slice(0, 16), hom = bay.slice(0, 10), n = 0, bao = {};
-      if (cfL.hdNhacNgay !== hom && bay.slice(11) >= '07:00') { try { setCfg({ hdNhacNgay: hom }); hdNhac(); } catch (e) { } }   // v3.33: nhắc HĐLĐ sắp hết hạn, mỗi ngày 1 lần
+      if (cfL.hdNhacNgay !== hom && bay.slice(11) >= '07:00') { try { setCfg({ hdNhacNgay: hom }); hdNhac(); } catch (e) { } }
+      try { nlKyTuDong(); } catch (e) { try { console.log('nlKyTuDong: ' + (e && e.message || e)); } catch (e2) { } }   // v3.91: kỳ test năng lực hằng tháng   // v3.33: nhắc HĐLĐ sắp hết hạn, mỗi ngày 1 lần
       T('ChatMuc').forEach(function (m) {
         if (m.trangThai !== 'mo' || (m.loai !== 'nhac' && m.loai !== 'baocao')) return;
         var h = chatHT(m.hoiThoai); if (!h || h.trangThai) return;
@@ -9671,10 +10179,20 @@ var HRCORE = (function () {
         return x.getResponseCode() < 300 ? x.getContentText('UTF-8') : '';
       } finally { try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { } }
     }
-    function cvChuTep(f) {                           // trả về {chu, anh, nguon} để đưa cho AI
+    /* v3.89: cách đọc công văn – 'nhanh': AI đọc thẳng ảnh (và PDF nếu dùng Gemini), 1 bước; 'drive': OCR Google Drive rồi AI (có chữ để sửa, tra cứu) */
+    function cvAIPdf() { try { return !!(env.ai && env.ai.trangThai().ncc === 'gemini'); } catch (e) { return false; } }
+    function cvChuTep(f, cach, ocrSan) {           // trả về {chu, anh, nguon} để đưa cho AI
       var mime = String(f.mime || ''), anh = /^image\//.test(mime), pdf = /pdf/i.test(mime);
       var anhAI = function () { return { chu: '', anh: [{ nhan: 'Bản quét văn bản cần bóc thông tin:', mime: mime, data: f.data }], nguon: 'anh' }; };
+      if (cach === 'nhanh' && (anh || (pdf && cvAIPdf()))) return anhAI();
       if (typeof UrlFetchApp === 'undefined' && !(env.ocr && (anh || pdf))) return anh ? anhAI() : { chu: '', anh: [], demo: true };   // bản dùng thử trên trình duyệt
+      if ((anh && OCR_IMG.test(mime) || pdf) && (ocrSan !== undefined || env.ocrAnh)) {   // v3.89: OCR Drive 1 bước qua REST (không tạo thư mục, không mở Google Docs)
+        var c1 = ocrSan !== undefined ? ocrSan : ''; if (ocrSan === undefined) { try { c1 = env.ocrAnh(f.data, mime); } catch (e) { c1 = ''; } }
+        c1 = lamSachChu(c1 || '');
+        if (c1.replace(/\s/g, '').length >= OCR_TOI_THIEU) return { chu: c1.slice(0, 40000), anh: [], nguon: 'ocr' };
+        if (anh || cvAIPdf()) return anhAI();
+        err('Không nhận dạng được chữ trong PDF (bản quét quá mờ hoặc tệp có mật khẩu). Thử chụp lại rõ hơn, hoặc tải lên ảnh JPG/PNG.');
+      }
       if (!env.files || !env.files.put) err('Máy chủ chưa bật lưu trữ Drive.');
       if (anh && !OCR_IMG.test(mime)) return anhAI();                 // HEIC, WEBP: Drive không nhận dạng được → AI đọc ảnh
       var id = env.files.put({ name: 'tam-doc-cv-' + Date.now() + '-' + String(f.name || 'vb'), mime: mime, data: f.data, duong: [TM_CV, '_tam-doc'] });
@@ -9694,17 +10212,22 @@ var HRCORE = (function () {
       if (bytes > (num(cfg.dungLuongToiDaMB) || 10) * 1048576) err('Tệp "' + (f.name || '') + '" vượt ' + (num(cfg.dungLuongToiDaMB) || 10) + ' MB.');
     }
     /* v3.65: đọc NHIỀU tệp của cùng một văn bản (tệp 1 = văn bản chính, sau là phụ lục / tài liệu kèm) → ghép chữ (OCR) → AI bóc trường + tóm tắt */
-    function cvDocNhieu(ds) {
-      var chu = [], anh = [], demo = false, nguon = [], loi = [];
-      ds.slice(0, 8).forEach(function (f, i) {
-        var t; try { t = cvChuTep(f); } catch (e) { loi.push((f.name || 'tệp ' + (i + 1)) + ': ' + (e.message || e)); return; }
+    function cvDocNhieu(ds, cach) {
+      var chu = [], anh = [], demo = false, nguon = [], loi = [], san = {}, t0 = Date.now(), soAnh = 0;
+      ds = ds.slice(0, 8);
+      // 'nhanh': tối đa 4 tệp gửi thẳng cho AI, còn lại OCR; 'drive': OCR mọi ảnh/PDF – nhiều tệp thì OCR song song
+      var canOcr = ds.map(function (f) { var m = String(f.mime || ''), a = /^image\//.test(m) && OCR_IMG.test(m), p = /pdf/i.test(m), nh = cach === 'nhanh' && (/^image\//.test(m) || (p && cvAIPdf())) && soAnh < 4; if (nh) soAnh++; return (a || p) && !nh; });
+      var idx = []; canOcr.forEach(function (x, i) { if (x) idx.push(i); });
+      if (idx.length > 1 && env.ocrNhieu) { try { var kq = env.ocrNhieu(idx.map(function (i) { return { data: ds[i].data, mime: ds[i].mime }; })); idx.forEach(function (i, j) { san[i] = String(kq[j] || ''); }); } catch (e) { } }
+      ds.forEach(function (f, i) {
+        var t; try { t = cvChuTep(f, canOcr[i] ? 'drive' : cach, san[i]); } catch (e) { loi.push((f.name || 'tệp ' + (i + 1)) + ': ' + (e.message || e)); return; }
         if (t.demo) demo = true;
         var nhan = ds.length > 1 ? '=== TỆP ' + (i + 1) + (i === 0 ? ' (VĂN BẢN CHÍNH)' : ' (TÀI LIỆU KÈM)') + ': ' + String(f.name || '') + ' ===\n' : '';
         if (t.chu) { chu.push(nhan + t.chu.slice(0, i === 0 ? 30000 : 12000)); nguon.push(t.nguon); }
         else if (t.anh && t.anh.length && anh.length < 4) { anh.push({ nhan: ds.length > 1 ? 'Tệp ' + (i + 1) + ' (' + (i === 0 ? 'văn bản chính' : 'tài liệu kèm') + '): ' + String(f.name || '') : t.anh[0].nhan, mime: t.anh[0].mime, data: t.anh[0].data }); nguon.push('anh'); }
       });
       if (!chu.length && !anh.length && !demo) err(loi.length ? loi.join(' · ') : 'Không đọc được nội dung tệp nào.');
-      return { chu: chu.join('\n\n').slice(0, 60000), anh: anh, demo: demo, nguon: nguon.indexOf('ocr') >= 0 ? 'ocr' : (nguon[0] || ''), loi: loi, soTep: ds.length };
+      return { chu: chu.join('\n\n').slice(0, 60000), anh: anh, demo: demo, nguon: nguon.indexOf('ocr') >= 0 ? 'ocr' : (nguon[0] || (anh.length ? 'anh' : '')), loi: loi, soTep: ds.length, tDoc: Date.now() - t0 };
     }
     function cvGoiAI(t, huong, ten) {
       var nd = '=== VÀO SỔ CÔNG VĂN ===\n'
@@ -9724,8 +10247,9 @@ var HRCORE = (function () {
         if (tong > 40 * 1048576) err('Tổng dung lượng các tệp vượt 40 MB – chọn ít tệp hơn.');
       }
       var huong = req.huong === 'di' ? 'di' : 'den';
-      var t = req.chu ? { chu: lamSachChu(req.chu).slice(0, 60000), anh: [], nguon: 'ocr-sua', soTep: num(req.soTep) || 1 } : cvDocNhieu(ds);   // v3.24: văn thư sửa chữ OCR rồi bấm phân tích lại
-      var o = cvGoiAI(t, huong, f.name);
+      var cach = req.cach === 'drive' ? 'drive' : 'nhanh';   // v3.89
+      var t = req.chu ? { chu: lamSachChu(req.chu).slice(0, 60000), anh: [], nguon: 'ocr-sua', soTep: num(req.soTep) || 1 } : cvDocNhieu(ds, cach);   // v3.24: văn thư sửa chữ OCR rồi bấm phân tích lại
+      var tA = Date.now(), o = cvGoiAI(t, huong, f.name); tA = Date.now() - tA;
       var kq = {
         soHieu: aiS(o.soHieu, 100), ngayVB: cvNgay(o.ngayVB), noiGui: aiS(o.noiGui, 250), noiNhan: aiS(o.noiNhan, 250),
         loai: CV_LOAI.indexOf(aiS(o.loai, 40)) >= 0 ? aiS(o.loai, 40) : '',
@@ -9737,6 +10261,7 @@ var HRCORE = (function () {
       kq.soO = ['soHieu', 'ngayVB', 'noiGui', 'noiNhan', 'loai', 'doKhan', 'trichYeu', 'nguoiKy', 'hanTraLoi'].filter(function (k) { return kq[k]; }).length;
       kq.nguon = t.nguon || ''; if (t.chu && (/^ocr/.test(t.nguon) || t.soTep > 1)) kq.ocr = t.chu.slice(0, 60000);
       kq.soTep = t.soTep || 1; if (t.loi && t.loi.length) kq.loiTep = t.loi;
+      kq.cach = req.chu ? 'sua' : cach; kq.tDoc = t.tDoc || 0; kq.tAi = tA; kq.docAnh = (t.anh || []).length;
       log(s, 'cv.ai', (req.chu ? 'phân tích lại chữ OCR đã sửa' : 'đọc ' + (t.soTep > 1 ? t.soTep + ' tệp, ' : 'bản quét ') + String(f.name || '') + (t.nguon === 'ocr' ? ' (OCR ' + t.chu.length + ' ký tự)' : '')) + ' – bóc được ' + kq.soO + ' trường');
       return kq;
     };
@@ -9951,6 +10476,7 @@ var HRCORE = (function () {
       var ma = 'u:' + s.username, r = 'r:' + s.role;
       var co = function (a) { return (a || []).indexOf(ma) >= 0 || (a || []).indexOf(r) >= 0; };
       if (co(parseJSON(o.theoDoi, [])) || co(parseJSON(o.thucHien, []))) return true;
+      var lr = parseJSON(o.lamRo, null); if (lr && ((lr.tatCa || []).indexOf(s.username) >= 0 || lr.tu === s.username)) return true;   // v3.82: người được giao làm rõ
       return parseJSON(o.luongDuyet, []).some(function (c) { return co(c.nguoi); });
     }
     function dxSuaDuoc(s, o) { return (o.maNV === s.maNV && DX_MO.indexOf(o.trangThai) >= 0 && num(o.capDuyet) === 0) || s.role === 'admin'; }
@@ -10034,7 +10560,8 @@ var HRCORE = (function () {
       var ds = T('DeXuat').filter(function (o) { return dxXem(s, o); }), co = {};
       ds.forEach(function (o) { co[o.id] = 1; });
       var tt = dxThongTin(s);
-      return { ds: ds, tep: T('DeXuatTep').filter(function (t) { return co[t.dxId]; }), loai: tt.loai, nhom: tt.nhom, boPhan: tt.boPhan };
+      return { ds: ds, tep: T('DeXuatTep').filter(function (t) { return co[t.dxId]; }), loai: tt.loai, nhom: tt.nhom, boPhan: tt.boPhan,
+        danhBa: chatDir().map(function (u) { return { username: u.username, hoTen: u.hoTen, phongBan: u.phongBan, chucVu: u.chucVu }; }) };   // v3.82: chọn người làm rõ
     };
     H['dx.create'] = function (req, s) {
       if (!s.maNV) err('Tài khoản chưa gắn với hồ sơ CBCNV. Đề nghị TCHC gắn hồ sơ trước khi lập đề xuất.');
@@ -10110,19 +10637,40 @@ var HRCORE = (function () {
     H['dx.upload'] = function (req, s) {
       var o = dxRow(req.id), cfg = getCfg();
       var duoc = dxSuaDuoc(s, o) || (o.maNV === s.maNV && DX_XONG.indexOf(o.trangThai) < 0)
-        || laNguoiXuLy(s, parseJSON(o.thucHien, [])) || laNguoiXuLy(s, (dxCap(o) || {}).nguoi || []);
+        || laNguoiXuLy(s, parseJSON(o.thucHien, [])) || laNguoiXuLy(s, (dxCap(o) || {}).nguoi || []) || dxLamRoCua(s, o);
       if (!duoc) err('Không có quyền đính kèm vào đề xuất này.');
       var f = req.file || {}, ten = String(f.name || '').trim().replace(/[\\/:*?"<>|]/g, '_').slice(0, 150);
       if (!ten || !f.data) err('Chưa chọn tệp.');
-      if (!MIME_OK.test(f.mime || '')) err('Chỉ nhận PDF, ảnh (JPG, PNG, WEBP, HEIC), Word hoặc Excel.');
+      if (!DX_MIME.test(f.mime || '')) err('Đề xuất nhận: ảnh, PDF, Word, Excel, PowerPoint, CSV / TXT, ZIP. Google Sheets / Docs: dùng "Gắn link".');
       var bytes = Math.floor(String(f.data).length * 3 / 4);
       if (bytes > (num(cfg.dungLuongToiDaMB) || 10) * 1048576) err('Tệp vượt ' + (num(cfg.dungLuongToiDaMB) || 10) + ' MB.');
-      if (T('DeXuatTep').filter(function (t) { return t.dxId === o.id; }).length >= 20) err('Mỗi đề xuất đính kèm tối đa 20 tệp.');
+      if (T('DeXuatTep').filter(function (t) { return t.dxId === o.id; }).length >= 30) err('Mỗi đề xuất đính kèm tối đa 30 tệp / link.');
       var t = { id: newId(), dxId: o.id, loai: /^image\//.test(f.mime || '') ? 'anh' : 'tep', ten: ten, mime: f.mime,
         kichThuoc: bytes, fileId: env.files.put({ name: ten, mime: f.mime, data: f.data, duong: dxDuong(o) }),
         nguoiTai: s.hoTen || s.username, taiLuc: env.now() };
       T('DeXuatTep').push(t); D('DeXuatTep');
       log(s, 'dx.upload', o.ma + ': ' + ten);
+      return t;
+    };
+    /* v3.81: GẮN LINK vào đề xuất – Google Sheets, Docs, Slides, Drive, Forms… (người xem cần được chia sẻ quyền trên Google) */
+    var DX_MIME = /^(image\/[a-z0-9.+-]+|application\/pdf|application\/(msword|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet|presentationml\.presentation))|text\/(plain|csv)|application\/(zip|x-zip-compressed))$/i;
+    function dxLoaiLink(u) {
+      var m = String(u).match(/^https:\/\/(docs|drive|sheets|forms)\.google\.com\/([a-z]+)/i), h = m ? m[2].toLowerCase() : '';
+      if (!m) return 'Liên kết';
+      if (h === 'spreadsheets') return 'Google Sheets'; if (h === 'document') return 'Google Docs'; if (h === 'presentation') return 'Google Slides';
+      if (h === 'forms' || m[1] === 'forms') return 'Google Forms'; return 'Google Drive';
+    }
+    H['dx.link'] = function (req, s) {
+      var o = dxRow(req.id);
+      var duoc = dxSuaDuoc(s, o) || (o.maNV === s.maNV && DX_XONG.indexOf(o.trangThai) < 0)
+        || laNguoiXuLy(s, parseJSON(o.thucHien, [])) || laNguoiXuLy(s, (dxCap(o) || {}).nguoi || []) || dxLamRoCua(s, o);
+      if (!duoc) err('Không có quyền đính kèm vào đề xuất này.');
+      var url = String(req.url || '').trim();
+      if (!/^https:\/\/[^\s<>"']{8,1500}$/.test(url)) err('Link phải bắt đầu bằng https:// (VD link chia sẻ Google Sheets / Docs).');
+      if (T('DeXuatTep').filter(function (t) { return t.dxId === o.id; }).length >= 30) err('Mỗi đề xuất đính kèm tối đa 30 tệp / link.');
+      var loai = dxLoaiLink(url), ten = String(req.ten || '').trim().slice(0, 150) || loai;
+      var t = { id: newId(), dxId: o.id, loai: 'link', ten: ten, mime: loai, kichThuoc: 0, fileId: '', url: url, nguoiTai: s.hoTen || s.username, taiLuc: env.now() };
+      T('DeXuatTep').push(t); D('DeXuatTep'); log(s, 'dx.link', o.ma + ': ' + ten);
       return t;
     };
     H['dx.tepget'] = function (req, s) {
@@ -10137,7 +10685,7 @@ var HRCORE = (function () {
       var a = T('DeXuatTep'), t = a.filter(function (x) { return x.id === req.id; })[0]; if (!t) err('Không tìm thấy tệp.');
       var o = dxRow(t.dxId);
       if (!dxSuaDuoc(s, o) && t.nguoiTai !== (s.hoTen || s.username)) err('Chỉ người tải lên hoặc người lập (khi chưa ai duyệt) xóa được tệp.');
-      try { env.files.del(t.fileId); } catch (e) { }
+      if (t.fileId) { try { env.files.del(t.fileId); } catch (e) { } }
       a.splice(a.indexOf(t), 1); D('DeXuatTep');
       log(s, 'dx.tepdel', o.ma + ': ' + t.ten);
       return true;
@@ -10151,10 +10699,17 @@ var HRCORE = (function () {
       var vuotCap = !duocGiao && (s.role === 'giamdoc' || s.role === 'admin');
       if (o.maNV === s.maNV && s.role !== 'admin') err('Không tự duyệt đề xuất của chính mình.');
       if (!duocGiao && !vuotCap) err('Đề xuất đang chờ "' + cap.ten + '" (' + cap.nguoiTen + ').');
+      if (note.length < 2) err(req.approve ? 'Nhập ý kiến phê duyệt.' : 'Nhập lý do từ chối.');   // v3.83: ý kiến người duyệt bắt buộc
+      var tienDX = num(o.soTien), tienD = null;
+      if (req.approve && (tienDX > 0 || req.soTienDuyet != null && String(req.soTienDuyet) !== '')) {
+        tienD = req.soTienDuyet == null || String(req.soTienDuyet) === '' ? (o.soTienDuyet !== '' && o.soTienDuyet != null ? num(o.soTienDuyet) : tienDX) : num(req.soTienDuyet);
+        if (tienD < 0) err('Số tiền duyệt không hợp lệ.');
+        o.soTienDuyet = tienD;
+      }
       var ls = parseJSON(o.lichSu, []);
       ls.push({ cap: cap.ten, nguoi: s.hoTen || s.username, luc: env.now(),
-        ketQua: req.approve ? (vuotCap ? 'Duyệt (vượt cấp)' : 'Duyệt') : 'Từ chối', ghiChu: note });
-      if (!req.approve) { if (!note) err('Nhập lý do từ chối.'); o.trangThai = 'Từ chối'; }
+        ketQua: req.approve ? (vuotCap ? 'Duyệt (vượt cấp)' : 'Duyệt') : 'Từ chối', ghiChu: note, soTien: tienD });
+      if (!req.approve) { o.trangThai = 'Từ chối'; }
       else if (vuotCap || ci + 1 >= caps.length) o.trangThai = 'Đã duyệt';
       else o.capDuyet = ci + 1;
       if (o.trangThai !== 'Chờ duyệt') { o.nguoiDuyet = s.hoTen || s.username; o.ngayDuyet = env.now(); }
@@ -10166,12 +10721,67 @@ var HRCORE = (function () {
       else {
         bao([userCuaNV(o.maNV)].filter(function (u) { return u && u !== s.username; }), { loai: 'duyet',
           t: 'Đề xuất ' + (o.trangThai === 'Đã duyệt' ? 'đã được duyệt' : 'bị từ chối'),
-          b: o.ma + ': ' + o.tieuDe + (note ? ' · ' + note : ''), tag: 'dx_' + o.id, mo: '#v=mydx' });
+          b: o.ma + ': ' + o.tieuDe + (o.trangThai === 'Đã duyệt' && o.soTienDuyet !== '' && o.soTienDuyet != null ? ' · duyệt ' + dxSo(o.soTienDuyet) + ' đ' : '') + (note ? ' · ' + note : ''), tag: 'dx_' + o.id, mo: '#v=mydx' });
         var th = parseJSON(o.thucHien, []);
         if (o.trangThai === 'Đã duyệt' && th.length) bao(nguoiCo(th, s.username), { loai: 'duyet',
           t: 'Đề xuất đã duyệt – chờ bạn thực hiện', b: o.ma + ': ' + o.tieuDe + (o.hanCan ? ' · cần có trước ' + ngayVN(o.hanCan) : ''),
           tag: 'dx_' + o.id, mo: '#v=dx' });
       }
+      return o;
+    };
+    /* ===== v3.82: CHUYỂN KIỂM TRA / LÀM RÕ =====
+       Lãnh đạo đang ở lượt duyệt chuyển đề xuất cho 1 hoặc nhiều người kiểm tra, làm rõ, báo cáo (kèm yêu cầu, hạn). Trong lúc làm rõ đề xuất
+       "Đang làm rõ" (không ai duyệt được); mỗi người được giao gửi báo cáo (nội dung + tệp / link). Đủ báo cáo → tự trở về "Chờ duyệt" đúng cấp,
+       báo lãnh đạo. Lãnh đạo có thể thu hồi sớm. Có thể làm rõ nhiều đợt; mọi bước ghi vào diễn biến. */
+    function dxLamRoCua(s, o) { var lr = parseJSON(o.lamRo, null); return !!(lr && o.trangThai === 'Đang làm rõ' && (lr.nguoi || []).indexOf(s.username) >= 0); }
+    function dxVeDuyet(o, s, ghi) {
+      var lr = parseJSON(o.lamRo, {}) || {};
+      lr.xongLuc = env.now(); lr.dong = ghi; o.lamRo = JSON.stringify(lr); o.trangThai = 'Chờ duyệt'; o.capNhat = env.now();
+      bao([lr.tu].filter(function (u) { return u && u !== s.username; }), { loai: 'duyet', t: 'Đã có báo cáo làm rõ – đề xuất chờ bạn duyệt',
+        b: o.ma + ': ' + o.tieuDe + ' · ' + ghi, tag: 'dx_' + o.id, mo: '#v=dx' });
+    }
+    H['dx.lamro'] = function (req, s) {
+      var o = dxRow(req.id);
+      if (o.trangThai !== 'Chờ duyệt') err('Chỉ chuyển làm rõ khi đề xuất đang chờ duyệt.');
+      var cap = dxCap(o); if (!cap) err('Đề xuất không còn cấp duyệt.');
+      if (!laNguoiXuLy(s, cap.nguoi) && s.role !== 'giamdoc' && s.role !== 'admin') err('Chỉ người đang ở lượt duyệt ("' + cap.ten + '") mới chuyển làm rõ được.');
+      var yc = String(req.yeuCau || '').trim().slice(0, 2000); if (yc.length < 5) err('Ghi rõ nội dung cần kiểm tra / làm rõ.');
+      var users = {}; T('Users').forEach(function (u) { if (u.active !== 'Không' && u.username !== 'system') users[u.username] = u; });
+      var ng = []; (Array.isArray(req.nguoi) ? req.nguoi : []).forEach(function (x) { x = String(x).replace(/^u:/, ''); if (users[x] && x !== s.username && ng.indexOf(x) < 0) ng.push(x); });
+      if (!ng.length) err('Chọn ít nhất 1 người kiểm tra / làm rõ.'); if (ng.length > 10) err('Tối đa 10 người mỗi lần.');
+      var han = parseD(req.han) ? req.han : '';
+      var cu = parseJSON(o.lamRo, null) || {}, dot = num(cu.dot) + 1, tatCa = (cu.tatCa || []).slice();
+      ng.forEach(function (u) { if (tatCa.indexOf(u) < 0) tatCa.push(u); });
+      var ten = ng.map(function (u) { return users[u].hoTen || u; });
+      var lr = { dot: dot, tu: s.username, tuTen: s.hoTen || s.username, cap: cap.ten, yeuCau: yc, han: han, luc: env.now(), nguoi: ng, nguoiTen: ten, bc: {}, tatCa: tatCa, truoc: (cu.truoc || []).concat(cu.dot ? [{ dot: cu.dot, tuTen: cu.tuTen, yeuCau: cu.yeuCau, luc: cu.luc, nguoiTen: cu.nguoiTen, bc: cu.bc, dong: cu.dong, xongLuc: cu.xongLuc }] : []).slice(-10) };
+      o.lamRo = JSON.stringify(lr); o.trangThai = 'Đang làm rõ'; o.capNhat = env.now();
+      var ls = parseJSON(o.lichSu, []); ls.push({ cap: cap.ten, nguoi: s.hoTen || s.username, luc: env.now(), ketQua: 'Chuyển kiểm tra, làm rõ', ghiChu: yc + ' → ' + ten.join(', ') + (han ? ' (hạn ' + ngayVN(han) + ')' : '') });
+      o.lichSu = JSON.stringify(ls); D('DeXuat'); dxLuuDrive(o);
+      log(s, 'dx.lamro', o.ma + ' → ' + ten.join(', '));
+      bao(ng, { loai: 'duyet', t: 'Đề nghị kiểm tra, làm rõ đề xuất', b: o.ma + ': ' + o.tieuDe + ' · ' + (s.hoTen || s.username) + ': ' + yc.slice(0, 120) + (han ? ' · hạn ' + ngayVN(han) : ''), tag: 'dx_' + o.id, mo: '#v=dx' });
+      return o;
+    };
+    H['dx.lamrobc'] = function (req, s) {
+      var o = dxRow(req.id);
+      if (!dxLamRoCua(s, o)) err('Đề xuất này không giao bạn làm rõ (hoặc đã trở về duyệt).');
+      var nd = String(req.noiDung || '').trim().slice(0, 4000); if (nd.length < 5) err('Nhập nội dung báo cáo làm rõ.');
+      var lr = parseJSON(o.lamRo, {}); lr.bc = lr.bc || {};
+      lr.bc[s.username] = { ten: s.hoTen || s.username, luc: env.now(), noiDung: nd };
+      o.lamRo = JSON.stringify(lr);
+      var ls = parseJSON(o.lichSu, []); ls.push({ cap: 'Làm rõ', nguoi: s.hoTen || s.username, luc: env.now(), ketQua: 'Báo cáo làm rõ', ghiChu: nd });
+      o.lichSu = JSON.stringify(ls);
+      var con = lr.nguoi.filter(function (u) { return !lr.bc[u]; });
+      if (!con.length) dxVeDuyet(o, s, 'đủ ' + lr.nguoi.length + ' báo cáo');
+      else { o.capNhat = env.now(); bao([lr.tu].filter(function (u) { return u !== s.username; }), { loai: 'duyet', t: 'Có báo cáo làm rõ đề xuất', b: o.ma + ' · ' + (s.hoTen || s.username) + ' (còn ' + con.length + ' người)', tag: 'dx_' + o.id, mo: '#v=dx' }); }
+      D('DeXuat'); dxLuuDrive(o); log(s, 'dx.lamrobc', o.ma);
+      return o;
+    };
+    H['dx.lamrothu'] = function (req, s) {
+      var o = dxRow(req.id); if (o.trangThai !== 'Đang làm rõ') err('Đề xuất không ở trạng thái đang làm rõ.');
+      var lr = parseJSON(o.lamRo, {});
+      if (lr.tu !== s.username && s.role !== 'giamdoc' && s.role !== 'admin') err('Chỉ người chuyển làm rõ thu hồi được.');
+      var ls = parseJSON(o.lichSu, []); ls.push({ cap: lr.cap || 'Làm rõ', nguoi: s.hoTen || s.username, luc: env.now(), ketQua: 'Thu hồi về duyệt', ghiChu: String(req.note || '').trim().slice(0, 500) });
+      o.lichSu = JSON.stringify(ls); dxVeDuyet(o, s, 'thu hồi'); D('DeXuat'); dxLuuDrive(o); log(s, 'dx.lamrothu', o.ma);
       return o;
     };
     H['dx.ketqua'] = function (req, s) {
@@ -10296,6 +10906,7 @@ var HRCORE = (function () {
         if (!dangLamTrongKy(nv, ky)) return;
         var c = cc.filter(function (x) { return x.maNV === nv.maNV; })[0];
         if (!c) { thieu.push(nv.maNV + ' ' + nv.hoTen); return; }
+        c = ccKemQC(c, ky, kt);                          // v3.91: giảm thưởng theo quy chế đã duyệt
         var dv = dauVaoTinhLuong(nv, ky, ncc, ll, mh, kt, T('ChamCong'));
         if (cfg.ckBatBuocDuyet !== false) dv.o.ckHopLe = validateTaxCommitmentDocuments(dv.nv, ky.slice(0, 4), T('HoSoThue'), cfg).ok;   // v3.28: cam kết chỉ áp dụng khi đã ký, duyệt, có MST
         var p = dv.segs.length > 1 ? tinhNhieuDoan(nv, c, cfg, dv, dv.segs, ll, mh) : tinhPhieuLuong(dv.nv, c, cfg, dv.o);      // v3.33: đổi HĐ giữa kỳ → chia giai đoạn
@@ -10817,7 +11428,7 @@ var HRCORE = (function () {
       var ncc = num(k && k.ngayCongChuan) || (cfg.cachTinhCongChuan === 'truCN' ? congChuanTruCN(ky) : num(cfg.ngayCongChuan));
       var cc = T('ChamCong').filter(function (x) { return x.ky === ky && x.maNV === nv.maNV; })[0] || { ngayCong: ncc };
       var th = 0, thT = 0;
-      T('KhenThuong').forEach(function (x) { if (x.maNV === nv.maNV && x.kyLuong === ky && x.trangThai === 'Đã duyệt' && x.loai !== 'Kỷ luật') { th += num(x.soTien); if (x.chiuThue !== 'Không') thT += num(x.soTien); } });
+      T('KhenThuong').forEach(function (x) { if (x.maNV === nv.maNV && x.kyLuong === ky && x.trangThai === 'Đã duyệt' && laThuongKT(x)) { th += num(x.soTien); if (x.chiuThue !== 'Không') thT += num(x.soTien); } });
       var lk = nvTaiKy(nv, T('LenLuong'), T('MucHuong'), ky), o = { luong: lk.luong, luongBH: lk.luongBH, ncc: ncc, thuong: th, thuongChiuThue: thT, ky: ky, otLuyKe: otLuyKe(nv.maNV, ky, T('ChamCong')) };
       var bien = {}, p = tinhPhieuLuong(lk.nv, cc, cfg, o, bien);
       return { loi: [], ky: ky, coChamCong: !!cc.id, bien: bien, phieu: p, pcThem: them.map(function (x) { return x.ten; }) };
@@ -11002,10 +11613,11 @@ var HRCORE = (function () {
         req.cfg.anCaMienCT = String(req.cfg.anCaMienCT).trim().slice(0, 500);
         if (req.cfg.anCaMienCT) { var lAC = kiemCTAnCa(Object.assign({}, getCfg(), req.cfg), req.cfg.anCaMienCT); if (lAC.length) err(lAC.join(' ')); }
       }           // bảng phân quyền chỉ sửa qua pq.save
-      ['linkWeb', 'linkAPK'].forEach(function (k) {                    // v3.49: link cài app chỉ nhận https
+      if (req.cfg && req.cfg.quyHien != null && ['tatca', 'quanly', 'tat'].indexOf(req.cfg.quyHien) < 0) req.cfg.quyHien = 'tatca';
+      ['linkWeb', 'linkAPK', 'linkQuy'].forEach(function (k) {                    // v3.49: link cài app chỉ nhận https
         if (!req.cfg || req.cfg[k] == null) return;
         var v = String(req.cfg[k]).trim().slice(0, 500);
-        if (v && !/^https:\/\/[^\s"'<>]+$/i.test(v)) err((k === 'linkWeb' ? 'Link app web' : 'Link tải app Android') + ' phải bắt đầu bằng https:// (điện thoại chỉ cài được qua https).');
+        if (v && !/^https:\/\/[^\s"'<>]+$/i.test(v)) err((k === 'linkWeb' ? 'Link app web' : k === 'linkQuy' ? 'Link App Quỹ' : 'Link tải app Android') + ' phải bắt đầu bằng https:// (điện thoại chỉ cài được qua https).');
         req.cfg[k] = v;
       });
       var cfTruoc = getCfg(), truocK = {}, sauK = {};
@@ -11512,7 +12124,522 @@ var HRCORE = (function () {
         soNguoi: Object.keys(nguoi).length };
     };
 
-    var READ_ONLY = ['chat.khoai', 'chat.bcai', 'ctg.kiem', 'ctg.tai', 'ctg.ds', 'bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
+    /* ===== v3.86: NĂNG LỰC & PHÁT TRIỂN CBCNV =====
+       Checklist kỹ năng theo nhóm chuyên môn: CBCNV tự chấm, quản lý trực tiếp (TP/CHT cùng bộ phận; Giám đốc) chấm; người có quyền nangLuc xem tổng hợp.
+       Bài test hằng tháng: tư duy logic (iq), vượt khó (aq), tác phong (bq); phong cách làm việc (bf) 6 tháng/lần. Chấm điểm trên máy chủ.
+       Chỉ số tiềm năng theo quy tắc (không AI); AI đề xuất chỉ khi Ban Giám đốc bật cfg.nlAI – gửi mã NV + điểm, KHÔNG gửi họ tên, ngày sinh, lương.
+       Không dùng ngày sinh, giới tính, tuổi để suy đoán tính cách hay bố trí công việc. */
+    var NL_QLX = ['giamdoc', 'admin'];
+    function nlDot() { return env.today().slice(0, 7); }
+    function nlCongThang(d, n) { var y = +d.slice(0, 4), m = +d.slice(5, 7) + n; while (m < 1) { m += 12; y--; } while (m > 12) { m -= 12; y++; } return y + '-' + (m < 10 ? '0' : '') + m; }
+    function nlQuyen(s, n) {
+      var tu = !!(s.maNV && s.maNV === n.maNV), hr = can(s, 'nangLuc'), bp = bpXem(s);
+      var ql = !tu && n.trangThai !== 'Đã nghỉ việc' && ((ROLE_QL.indexOf(s.role) >= 0 && bp && n.phongBan === bp) || NL_QLX.indexOf(s.role) >= 0);
+      return { tu: tu, ql: !!ql, hr: hr, xem: tu || !!ql || hr };
+    }
+    function nlNV(s, ma) { var n = findNV(String(ma || s.maNV || '')); if (!n) err('Không tìm thấy CBCNV.'); var q = nlQuyen(s, n); if (!q.xem) err('Bạn không có quyền xem năng lực của CBCNV này.'); return { n: n, q: q }; }
+    function nlBan(ma) { return T('NangLuc').filter(function (r) { return r.maNV === ma; }).sort(function (a, b) { return a.dot < b.dot ? 1 : -1; }); }
+    function nlNhomCua(n, ban) { var r = (ban || nlBan(n.maNV))[0]; return r && NL_NHOM[r.nhom] ? r.nhom : nlNhomTuDong(n); }
+    function nlPct(v) { return v == null ? null : Math.round((v - 1) / 4 * 100); }
+    function nlTB(diem, ids) { var t = 0, c = 0; ids.forEach(function (id) { var v = +diem[id]; if (v >= 1 && v <= 5) { t += v; c++; } }); return c ? t / c : null; }
+    function nlTomTat(r, nhom) {               // điểm trung bình theo nhóm kỹ năng (thang 1–5 và %), tách tự chấm / quản lý
+      var tu = parseJSON(r && r.tuCham, {}), ql = parseJSON(r && r.qlCham, {}), out = { muc: [], tu: null, ql: null, tp: null, tc: {} };
+      var tT = [], tQ = [], tcV = {};
+      nlKhung(nhom).forEach(function (g) { var k = g.tc || 'kncm', o = tcV[k] = tcV[k] || { tu: [], ql: [] }; g.ds.forEach(function (x) { if (!g.qlOnly && +tu[x[0]] >= 1) o.tu.push(+tu[x[0]]); if (+ql[x[0]] >= 1) o.ql.push(+ql[x[0]]); }); });
+      nlKhung(nhom).forEach(function (g) {
+        var ids = g.ds.map(function (x) { return x[0]; }), a = g.qlOnly ? null : nlTB(tu, ids), b = nlTB(ql, ids);
+        out.muc.push({ id: g.id, ten: g.ten, tu: a, ql: b, qlOnly: !!g.qlOnly });
+        if (g.qlOnly) { out.tp = b; return; }
+        ids.forEach(function (id) { if (+tu[id] >= 1) tT.push(+tu[id]); if (+ql[id] >= 1) tQ.push(+ql[id]); });
+      });
+      var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+      out.tu = avg(tT); out.ql = avg(tQ);
+      var dg = [];   // v3.87: đánh giá theo tiêu chí (0–100): ưu tiên điểm quản lý, chưa có thì tự đánh giá; điểm tổng = trung bình các tiêu chí có điểm
+      NL_TC.forEach(function (t) { var o = tcV[t[0]] || { tu: [], ql: [] }, a = nlPct(avg(o.tu)), b = nlPct(avg(o.ql)); out.tc[t[0]] = { ten: t[1], tu: a, ql: b, diem: b != null ? b : a, nguon: b != null ? 'QL' : a != null ? 'tự' : '' }; if (out.tc[t[0]].diem != null) dg.push(out.tc[t[0]].diem); });
+      out.dgTong = dg.length >= 3 ? Math.round(dg.reduce(function (x, y) { return x + y; }, 0) / dg.length) : null; out.xepLoai = nlXepLoai(out.dgTong);
+      return out;
+    }
+    /* chuyên cần theo dữ liệu chấm công: 3 kỳ lương đã duyệt gần nhất (ngày công hưởng lương / ngày công chuẩn) + điểm chuyên cần đợt đánh giá GPS gần nhất */
+    function nlChuyenCan(ma) {
+      var dd = {}; T('KyLuong').forEach(function (k) { if (k.trangThai === 'Đã duyệt') dd[k.ky] = 1; });
+      var bl = T('BangLuong').filter(function (b) { return b.maNV === ma && dd[b.ky] && +b.ngayCongChuan > 0; }).sort(function (a, b) { return a.ky < b.ky ? 1 : -1; }).slice(0, 3);
+      var hl = bl.reduce(function (s, b) { return s + (+b.ngayCongHL || 0); }, 0), cu = bl.reduce(function (s, b) { return s + (+b.ngayCongChuan || 0); }, 0);
+      var tl = cu ? Math.round(hl / cu * 1000) / 10 : null, gps = T('DanhGiaCN').filter(function (x) { return x.maNV === ma && x.diemCC !== '' && x.diemCC != null; }).slice(-1)[0];
+      var goiY = tl == null ? null : tl >= 98 ? 5 : tl >= 95 ? 4 : tl >= 90 ? 3 : tl >= 80 ? 2 : 1;
+      return { tyLe: tl, congHL: hl, congChuan: cu, ky: bl.map(function (b) { return b.ky; }), diemGPS: gps ? +gps.diemCC : null, goiY: goiY };
+    }
+    function nlTests(ma) { return T('NLTest').filter(function (r) { return r.maNV === ma && r.nopLuc; }).sort(function (a, b) { return a.nopLuc < b.nopLuc ? -1 : 1; }); }
+    function nlTestPub(r) { return { id: r.id, dot: r.dot, loai: r.loai, diem: +r.diem, chiTiet: parseJSON(r.chiTiet, {}), nopLuc: r.nopLuc, thoiGian: +r.thoiGian || 0, quaGio: r.quaGio === 'Có' }; }
+    function nlTheoThang(ma, ban) {            // mỗi tháng: iq, aq, bq tự đánh giá, bq tổng hợp (40% tự + 60% quản lý chấm Tác phong), kỹ năng %
+      var th = {}, ts = nlTests(ma), nhomNV = null;
+      ts.forEach(function (r) { if (r.loai === 'bf' || r.loai === 'xh') return; (th[r.dot] = th[r.dot] || { dot: r.dot })[r.loai] = +r.diem; });
+      (ban || nlBan(ma)).forEach(function (r) { var tt = nlTomTat(r, r.nhom), o = (th[r.dot] = th[r.dot] || { dot: r.dot }); o.knTu = nlPct(tt.tu); o.knQL = nlPct(tt.ql); o.tpQL = nlPct(tt.tp); o.dg = tt.dgTong; });
+      var ds = Object.keys(th).sort().map(function (k) { return th[k]; }), tpGan = null;
+      ds.forEach(function (o) { if (o.tpQL != null) tpGan = o.tpQL; if (o.bq != null) o.bqTH = tpGan != null ? Math.round(o.bq * 0.4 + tpGan * 0.6) : o.bq; });
+      return ds;
+    }
+    function nlChiSo(ma, ban) {                // chỉ số tiềm năng theo quy tắc – tham khảo, minh bạch cách tính
+      var th = nlTheoThang(ma, ban), d0 = nlDot(), gan = function (k) { for (var i = th.length - 1; i >= 0; i--) if (th[i][k] != null && th[i].dot >= nlCongThang(d0, -3)) return th[i][k]; return null; };
+      var knG = null; for (var i = th.length - 1; i >= 0; i--) { var o = th[i]; if (o.knQL != null || o.knTu != null) { knG = o.knQL != null ? o.knQL : o.knTu; break; } }
+      var phan = [{ k: 'Kỹ năng chuyên môn', v: knG, w: 0.3 }, { k: 'Kiến thức chuyên môn', v: gan('cm'), w: 0.2 }, { k: 'Tư duy logic', v: gan('iq'), w: 0.15 }, { k: 'Vượt khó', v: gan('aq'), w: 0.15 }, { k: 'Tác phong', v: gan('bqTH'), w: 0.2 }];   // v3.92
+      var co = phan.filter(function (p) { return p.v != null; }), tw = co.reduce(function (s, p) { return s + p.w; }, 0);
+      var diem = co.length >= 2 ? Math.round(co.reduce(function (s, p) { return s + p.v * p.w; }, 0) / tw) : null;
+      var tb = function (o) { var a = ['iq', 'aq', 'bqTH'].map(function (k) { return o[k]; }).filter(function (v) { return v != null; }); return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+      var coT = th.filter(function (o) { return tb(o) != null && o.dot >= nlCongThang(d0, -6); }), xu = null;
+      if (coT.length >= 2) xu = Math.round(tb(coT[coT.length - 1]) - tb(coT[0]));
+      var muc = diem == null ? 'Chưa đủ dữ liệu' : diem >= 75 ? 'Cao' : diem >= 60 ? 'Khá' : diem >= 45 ? 'Trung bình' : 'Cần hỗ trợ';
+      return { diem: diem, muc: muc, xuHuong: xu, dangTienBo: xu != null && xu >= 5, quanTam: diem != null && (diem >= 75 || (diem >= 60 && xu != null && xu >= 5)), phan: phan, theoThang: th.slice(-12), gan: { iq: gan('iq'), aq: gan('aq'), bq: gan('bqTH'), bqTu: gan('bq'), cm: gan('cm') } };
+    }
+    function nlBQCau() {                         // ngân hàng câu tư duy logic: bộ riêng của Công ty (≥ 24 câu đang dùng) hoặc bộ có sẵn
+      var rieng = T('NLCauHoi').filter(function (r) { return r.trangThai !== 'Ngừng' && r.cau && r.a && r.b; });
+      if (rieng.length >= 24) return rieng.map(function (r) { var o = [r.a, r.b, r.c, r.d].filter(function (x) { return String(x || '').trim(); }); return ['r' + r.id, r.cau, o, Math.max(0, 'ABCD'.indexOf(String(r.dapAn || 'A').toUpperCase()))]; });
+      return NL_IQ;
+    }
+    function nlRng(seed) { var h = 2166136261; for (var i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); } return function () { h += 0x6D2B79F5; var t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+    function nlTron(a, seed) { var r = nlRng(seed), b = a.slice(); for (var i = b.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = b[i]; b[i] = b[j]; b[j] = t; } return b; }
+    function nlDeIQ(user, dot) { var bank = nlBQCau(); return nlTron(bank, user + '|' + dot + '|iq').slice(0, NL_TEST.iq.soCau).map(function (q) { return { q: q, thuTu: nlTron(q[2].map(function (x, i) { return i; }), user + '|' + dot + '|' + q[0]) }; }); }
+    function nlCoTheLam(ma, loai, dot) {
+      var ts = T('NLTest').filter(function (r) { return r.maNV === ma && r.loai === loai && r.nopLuc; });
+      if (NL_KY_LOAI.indexOf(loai) >= 0 && ts.some(function (r) { return r.dot === dot; })) return 'Đã làm bài tháng này.';
+      if (NL_KY_LOAI.indexOf(loai) >= 0) { var kc = nlKyCfg(), kr = nlKyRow(dot); if (kc.bat && !(kr && kr.moLuc)) return 'Bài test tháng ' + dot.slice(5, 7) + '/' + dot.slice(0, 4) + ' mở từ ngày ' + nlNgayVN(nlKyNgayMo(dot, kc)) + '.'; if (kc.bat && kr.chotLuc) return 'Kỳ test tháng này đã chốt.'; }
+      var ck = NL_TEST[loai].chuKy || 1;
+      if (ck > 1) { var gan = ts.sort(function (a, b) { return a.dot < b.dot ? 1 : -1; })[0]; return !gan || gan.dot <= nlCongThang(dot, -ck) ? '' : 'Đã làm tháng ' + gan.dot + ' – làm lại từ tháng ' + nlCongThang(gan.dot, ck) + '.'; }
+      return ts.some(function (r) { return r.dot === dot; }) ? 'Đã làm bài tháng này.' : '';
+    }
+    H['nl.xem'] = function (req, s) {
+      var x = nlNV(s, req.maNV), n = x.n, q = x.q, ban = nlBan(n.maNV), dot = nlDot(), nhom = nlNhomCua(n, ban);
+      var cur = ban.filter(function (r) { return r.dot === dot; })[0] || null, truoc = ban.filter(function (r) { return r.dot < dot; })[0] || null;
+      var bfs = nlTests(n.maNV).filter(function (r) { return r.loai === 'bf'; }), bf = bfs.length ? nlTestPub(bfs[bfs.length - 1]) : null;
+      var xhs = nlTests(n.maNV).filter(function (r) { return r.loai === 'xh'; }), xh = xhs.length ? nlTestPub(xhs[xhs.length - 1]) : null;
+      var dx = q.hr ? T('NLDeXuat').filter(function (r) { return r.maNV === n.maNV; }).sort(function (a, b) { return a.luc < b.luc ? 1 : -1; })[0] : null;
+      var dien = q.hr ? T('NLDien').filter(function (r) { return r.maNV === n.maNV && r.trangThai !== 'Kết thúc'; })[0] : null;
+      var pubB = function (r) { return r ? { dot: r.dot, nhom: r.nhom, tuCham: parseJSON(r.tuCham, {}), qlCham: parseJSON(r.qlCham, {}), tuLuc: r.tuLuc, qlLuc: r.qlLuc, nguoiQL: r.nguoiQL, nhanXetQL: r.nhanXetQL || '', ghiChu: r.ghiChu || '' } : null; };
+      return { nv: { maNV: n.maNV, hoTen: n.hoTen, chucVu: n.chucVu, phongBan: n.phongBan, chuyenNganh: n.chuyenNganh || '', trinhDo: n.trinhDo || '', ngayVao: n.ngayVao },
+        nhom: nhom, nhomTuDong: nlNhomTuDong(n), dot: dot, ban: pubB(cur), truoc: pubB(truoc), tomTat: nlTomTat(cur || truoc, nhom),
+        tests: nlTests(n.maNV).slice(-40).map(nlTestPub), bf: bf, xh: xh, chiSo: nlChiSo(n.maNV, ban), chuyenCan: nlChuyenCan(n.maNV),
+        kyTest: (function () { var kc = nlKyCfg(), kr = nlKyRow(dot), g = T('NLKyNguoi').filter(function (x) { return x.dot === dot && x.maNV === n.maNV; })[0]; return kc.bat ? { mo: !!(kr && kr.moLuc), chot: !!(kr && kr.chotLuc), ngayMo: nlKyNgayMo(dot, kc), han: nlKyHan(dot, kc), thuong: kc.thuong, phatTre: kc.phatTre, phatKhong: kc.phatKhong, ketQua: g ? g.ketQua : '', soTien: g ? g.soTien : 0 } : null; })(),
+        lamDuoc: q.tu ? { iq: nlCoTheLam(n.maNV, 'iq', dot), aq: nlCoTheLam(n.maNV, 'aq', dot), bq: nlCoTheLam(n.maNV, 'bq', dot), bf: nlCoTheLam(n.maNV, 'bf', dot), xh: nlCoTheLam(n.maNV, 'xh', dot) } : null,
+        deXuat: dx ? { luc: dx.luc, nguoi: dx.nguoi, nguon: dx.nguon, tiemNang: dx.tiemNang, noiDung: parseJSON(dx.noiDung, {}) } : null,
+        dien: dien ? { tuNgay: dien.tuNgay, lyDo: dien.lyDo, nguoi: dien.nguoi } : null, quyen: q, aiBat: q.hr && nlAIBat() };
+    };
+    function nlLuuDiem(diem, ids) { var o = {}; Object.keys(diem || {}).forEach(function (k) { var v = Math.round(+diem[k]); if (ids[k] && v >= 1 && v <= 5) o[k] = v; }); return o; }
+    function nlBanThang(n, nhom) {
+      var dot = nlDot(), r = T('NangLuc').filter(function (x) { return x.maNV === n.maNV && x.dot === dot; })[0];
+      if (!r) { var tr = nlBan(n.maNV)[0]; r = { id: newId(), maNV: n.maNV, dot: dot, nhom: nhom || (tr && tr.nhom) || nlNhomTuDong(n), tuCham: '', qlCham: '', tuLuc: '', qlLuc: '', nguoiQL: '', nhanXetQL: '', ghiChu: '', capNhat: env.now() }; T('NangLuc').push(r); }
+      if (nhom && NL_NHOM[nhom]) r.nhom = nhom;
+      return r;
+    }
+    function nlIds(nhom, ql) { var o = {}; nlKhung(nhom).forEach(function (g) { if (g.qlOnly && !ql) return; g.ds.forEach(function (x) { o[x[0]] = 1; }); }); return o; }
+    H['nl.tucham'] = function (req, s) {
+      var n = findNV(s.maNV || ''); if (!n) err('Tài khoản chưa gắn hồ sơ CBCNV.');
+      var r = nlBanThang(n, ''), d = nlLuuDiem(req.diem, nlIds(r.nhom, false));
+      if (!Object.keys(d).length) err('Chấm ít nhất 1 kỹ năng (thang 1–5).');
+      r.tuCham = JSON.stringify(d); r.tuLuc = env.now(); r.ghiChu = String(req.ghiChu || '').slice(0, 1000); r.capNhat = env.now(); D('NangLuc');
+      log(s, 'nl.tucham', n.maNV + ' ' + r.dot + ' (' + Object.keys(d).length + ' mục)');
+      var qls = T('Users').filter(function (u) { return u.active !== 'Không' && ROLE_QL.indexOf(normRole(u.role)) >= 0 && boPhanCua(u) === n.phongBan; }).map(function (u) { return u.username; });
+      bao(qls, { loai: 'nl', t: 'Tự đánh giá kỹ năng', b: n.hoTen + ' đã tự đánh giá kỹ năng tháng ' + r.dot + '. Mời anh/chị chấm phần quản lý.', tag: 'nl-' + n.maNV, mo: '#v=nl' });
+      return { ok: 1, dot: r.dot };
+    };
+    H['nl.cham'] = function (req, s) {
+      var x = nlNV(s, req.maNV); if (!x.q.ql) err('Chỉ quản lý trực tiếp (Trưởng phòng / Chỉ huy trưởng cùng bộ phận) hoặc Giám đốc chấm phần quản lý.');
+      var nhom = NL_NHOM[req.nhom] ? req.nhom : '', r = nlBanThang(x.n, nhom), d = nlLuuDiem(req.diem, nlIds(r.nhom, true));
+      if (!Object.keys(d).length) err('Chấm ít nhất 1 kỹ năng (thang 1–5).');
+      r.qlCham = JSON.stringify(d); r.qlLuc = env.now(); r.nguoiQL = s.hoTen || s.username; r.nhanXetQL = String(req.nhanXet || '').slice(0, 2000); r.capNhat = env.now(); D('NangLuc');
+      log(s, 'nl.cham', x.n.maNV + ' ' + r.dot + ' (' + Object.keys(d).length + ' mục)');
+      return { ok: 1, dot: r.dot };
+    };
+    H['nl.nhom'] = function (req, s) {
+      var x = nlNV(s, req.maNV); if (!x.q.ql && !x.q.hr) err('Bạn không có quyền đổi nhóm chuyên môn.');
+      if (!NL_NHOM[req.nhom]) err('Nhóm chuyên môn không hợp lệ.');
+      var r = nlBanThang(x.n, req.nhom); r.capNhat = env.now(); D('NangLuc'); log(s, 'nl.nhom', x.n.maNV + ' → ' + req.nhom); return { ok: 1 };
+    };
+    H['nl.test.bat'] = function (req, s) {
+      var n = findNV(s.maNV || ''); if (!n) err('Tài khoản chưa gắn hồ sơ CBCNV.');
+      var loai = String(req.loai || ''), cf = NL_TEST[loai]; if (!cf) err('Loại bài test không hợp lệ.');
+      var dot = nlDot(), chan = nlCoTheLam(n.maNV, loai, dot); if (chan) err(chan);
+      var r = T('NLTest').filter(function (x) { return x.maNV === n.maNV && x.loai === loai && x.dot === dot && !x.nopLuc; })[0];
+      if (!r) { r = { id: newId(), maNV: n.maNV, dot: dot, loai: loai, diem: '', chiTiet: '', traLoi: '', batDau: env.now(), nopLuc: '', thoiGian: '', quaGio: '', de: '' }; T('NLTest').push(r); }
+      if (!r.de && NL_KY_LOAI.indexOf(loai) >= 0) r.de = JSON.stringify(nlTaoDe(s.username, n.maNV, loai, dot, nlNhomCua(n)));   // v3.91: đề riêng, không trùng 12 tháng
+      D('NLTest');
+      var deL = NL_KY_LOAI.indexOf(loai) >= 0 ? parseJSON(r.de, []) : null;
+      var cau = deL ? deL.map(function (c) { return c.o ? { id: c.id, q: c.q, o: c.o } : { id: c.id, q: c.q }; }) : cf.kieu === 'xep' ? NL_XEP.map(function (c) { var tt = nlTron(['T', 'V', 'K', 'H'], s.username + '|' + dot + '|' + c[0]); return { id: c[0], q: c[1], o: tt.map(function (k) { return c[2][k]; }) }; })
+        : cf.kieu === 'chon' ? nlDeIQ(s.username, dot).map(function (x) { return { id: x.q[0], q: x.q[1], o: x.thuTu.map(function (i) { return x.q[2][i]; }) }; })
+        : NL_CAU[loai].map(function (c) { return { id: c[0], q: c[2] }; });
+      var kc = nlKyCfg(), kr = nlKyRow(dot);
+      return { loai: loai, ten: cf.ten, hd: cf.hd, phut: cf.phut || 0, kieu: cf.kieu, thang: cf.kieu === 'likert' ? NL_LIKERT : null, cau: cau, batDau: r.batDau, dot: dot, han: kc.bat && kr && NL_KY_LOAI.indexOf(loai) >= 0 ? kr.han : '' };
+    };
+    function nlGiay(a, b) { var p = function (x) { return new Date(String(x).replace(' ', 'T')).getTime(); }; var v = (p(b) - p(a)) / 1000; return isFinite(v) && v >= 0 ? Math.round(v) : 0; }
+    H['nl.test.nop'] = function (req, s) {
+      var n = findNV(s.maNV || ''); if (!n) err('Tài khoản chưa gắn hồ sơ CBCNV.');
+      var loai = String(req.loai || ''), cf = NL_TEST[loai]; if (!cf) err('Loại bài test không hợp lệ.');
+      var dot = nlDot(), r = T('NLTest').filter(function (x) { return x.maNV === n.maNV && x.loai === loai && x.dot === dot && !x.nopLuc; })[0];
+      if (!r) err(nlCoTheLam(n.maNV, loai, dot) || 'Chưa bắt đầu bài test này (hoặc đã sang tháng mới) – mở lại bài.');
+      var tl = req.traLoi || {}, ct = {}, diem, kq = {};
+      if (cf.kieu === 'xep') {
+        var cong = { T: 0, V: 0, K: 0, H: 0 };
+        NL_XEP.forEach(function (c) {
+          var x = tl[c[0]], tt = nlTron(['T', 'V', 'K', 'H'], s.username + '|' + dot + '|' + c[0]);
+          if (!Array.isArray(x) || x.length !== 4 || [0, 1, 2, 3].some(function (i) { return x.map(Number).indexOf(i) < 0; })) err('Câu "' + c[1].slice(0, 40) + '…" chưa xếp đủ thứ tự 1–4.');
+          x.forEach(function (j, h) { cong[tt[+j]] += 3 - h; });
+        });
+        Object.keys(cong).forEach(function (k) { ct[k] = Math.round(cong[k] / (3 * NL_XEP.length) * 100); });
+        diem = Math.max.apply(null, Object.keys(ct).map(function (k) { return ct[k]; }));
+        kq = ct; kq.thuTu = Object.keys(cong).sort(function (a, b) { return cong[b] - cong[a]; });
+      } else if (cf.kieu === 'chon') {
+        var de = parseJSON(r.de, null); if (!Array.isArray(de) || !de.length) err('Bài đã được cập nhật – đóng và mở lại bài test.');
+        var dung = 0; de.forEach(function (x) { var c = tl[x.id]; if (c !== undefined && c !== null && c !== '' && +c === x.a) dung++; });
+        diem = Math.round(dung / de.length * 100); ct = { dung: dung, tong: de.length }; kq = ct;
+        if (loai === 'cm') var onTap = de.map(function (x) { var c = tl[x.id]; return { q: x.q, dapAn: x.o[x.a], chon: c === undefined || c === null || c === '' ? '' : x.o[+c], dung: +c === x.a && c !== '' && c != null, ghiNho: x.g || '' }; });   // v3.92: ôn tập sau khi nộp
+      } else {
+        var deLK = parseJSON(r.de, null), cau = Array.isArray(deLK) && deLK.length ? deLK.map(function (c) { return [c.id, c.d, c.q, c.r]; }) : NL_CAU[loai], thieu = cau.filter(function (c) { var v = +tl[c[0]]; return !(v >= 1 && v <= 5); });
+        if (thieu.length) err('Còn ' + thieu.length + ' câu chưa trả lời.');
+        var dim = {}; cau.forEach(function (c) { var v = +tl[c[0]]; if (c[3]) v = 6 - v; (dim[c[1]] = dim[c[1]] || []).push(v); });
+        Object.keys(dim).forEach(function (k) { ct[k] = nlPct(dim[k].reduce(function (a, b) { return a + b; }, 0) / dim[k].length); });
+        diem = Math.round(Object.keys(ct).reduce(function (a, k) { return a + ct[k]; }, 0) / Object.keys(ct).length); kq = ct;
+      }
+      var nop = env.now(), tg = nlGiay(r.batDau, nop);
+      r.traLoi = JSON.stringify(tl).slice(0, 4000); r.diem = diem; r.chiTiet = JSON.stringify(ct); r.nopLuc = nop; r.thoiGian = tg; r.quaGio = cf.phut && tg > cf.phut * 60 + 120 ? 'Có' : ''; D('NLTest');
+      log(s, 'nl.test.nop', n.maNV + ' ' + loai + ' ' + dot + ' = ' + diem);
+      var ky = null, kc = nlKyCfg(), kr = nlKyRow(dot);   // v3.91: đủ 3 bài → ghi nhận kỳ (đúng hạn / chậm), đề xuất thưởng / giảm thưởng, gửi tin nhắn
+      if (NL_KY_LOAI.indexOf(loai) >= 0) {
+        var tt = nlKyTT(n.maNV, dot);
+        if (kc.bat && kr && kr.moLuc && !kr.chotLuc && tt.du) { var g = nlKyGhiNhan(dot, n.maNV, nop.slice(0, 10) <= kr.han ? 'dung' : 'tre', nop, kc); ky = g ? { ketQua: g.ketQua, soTien: g.soTien } : null; }
+        if (!ky) ky = { conLai: NL_KY_LOAI.filter(function (k) { return !tt.xong[k]; }) };
+      }
+      return { loai: loai, diem: diem, chiTiet: kq, thoiGian: tg, quaGio: r.quaGio === 'Có', dim: cf.dim || null, ky: ky, onTap: typeof onTap !== 'undefined' ? onTap : null };
+    };
+    function nlHR(s) { if (!can(s, 'nangLuc')) err('Bạn chưa được phân quyền Năng lực & phát triển CBCNV.'); }
+    function nlAIBat() { var c = getCfg(); return c.nlAI === true || c.nlAI === 'true'; }
+    /* v3.88: QUẢN LÝ XẾP HẠNG NHÂN VIÊN (phương pháp xếp hạng luân phiên / so sánh cặp) – TP/CHT xếp bộ phận mình, Giám đốc / Quản trị chọn bộ phận */
+    var NL_XH_TC = [['tong', 'Tổng thể']].concat(NL_TC);
+    function nlXHBP(s, bp) {
+      if (NL_QLX.indexOf(s.role) >= 0) { if (!bp) err('Chọn bộ phận.'); return bp; }
+      var b = bpXem(s); if (ROLE_QL.indexOf(s.role) >= 0 && b) return b;
+      err('Chỉ Trưởng phòng / Chỉ huy trưởng (bộ phận mình) hoặc Giám đốc xếp hạng nhân viên.');
+    }
+    function nlXHNV(bp) { return T('NhanVien').filter(function (n) { return n.phongBan === bp && n.trangThai !== 'Đã nghỉ việc'; }); }
+    H['nl.xh.nv'] = function (req, s) {
+      var gd = NL_QLX.indexOf(s.role) >= 0, bps = gd ? Object.keys(T('NhanVien').reduce(function (m, n) { if (n.phongBan && n.trangThai !== 'Đã nghỉ việc') m[n.phongBan] = 1; return m; }, {})).sort() : [];
+      var bp = gd ? String(req.boPhan || bps[0] || '') : nlXHBP(s), dot = nlDot(), da = {};
+      if (bp) T('NLXepHang').filter(function (r) { return r.boPhan === bp && r.dot === dot && r.username === s.username; }).forEach(function (r) { da[r.tieuChi] = { thuTu: parseJSON(r.thuTu, []), phuongPhap: r.phuongPhap, luc: r.luc }; });
+      return { boPhan: bp, boPhanDs: bps, dot: dot, tieuChi: NL_XH_TC, da: da,
+        ds: bp ? nlXHNV(bp).filter(function (n) { return n.maNV !== s.maNV; }).map(function (n) { return { maNV: n.maNV, hoTen: n.hoTen, chucVu: n.chucVu || '' }; }) : [] };
+    };
+    H['nl.xh.luu'] = function (req, s) {
+      var bp = nlXHBP(s, String(req.boPhan || '')), tc = String(req.tieuChi || '');
+      if (!NL_XH_TC.some(function (t) { return t[0] === tc; })) err('Tiêu chí xếp hạng không hợp lệ.');
+      var ds = nlXHNV(bp).filter(function (n) { return n.maNV !== s.maNV; }).map(function (n) { return n.maNV; }), tt = (Array.isArray(req.thuTu) ? req.thuTu : []).map(String);
+      if (ds.length < 2) err('Bộ phận cần từ 2 người trở lên để xếp hạng.');
+      if (tt.length !== ds.length || ds.some(function (m) { return tt.indexOf(m) < 0; })) err('Danh sách xếp hạng phải gồm đủ ' + ds.length + ' người của bộ phận, mỗi người một lần.');
+      var dot = nlDot(), pp = req.phuongPhap === 'cap' ? 'cap' : req.phuongPhap === 'tay' ? 'tay' : 'luanphien';
+      var r = T('NLXepHang').filter(function (x) { return x.boPhan === bp && x.dot === dot && x.tieuChi === tc && x.username === s.username; })[0];
+      if (!r) { r = { id: newId(), dot: dot, boPhan: bp, tieuChi: tc, username: s.username }; T('NLXepHang').push(r); }
+      r.phuongPhap = pp; r.thuTu = JSON.stringify(tt); r.nguoi = s.hoTen || s.username; r.luc = env.now(); D('NLXepHang');
+      log(s, 'nl.xh.luu', bp + ' · ' + tc + ' · ' + dot + ' (' + tt.length + ' người, ' + pp + ')'); return { ok: 1 };
+    };
+    function nlXHQL() {                       // điểm xếp hạng của quản lý (0–100 theo vị trí) – đợt mới nhất mỗi bộ phận / tiêu chí, trung bình nếu nhiều người xếp
+      var moi = {}, out = {};
+      T('NLXepHang').forEach(function (r) { var k = r.boPhan + '|' + r.tieuChi; if (!moi[k] || moi[k] < r.dot) moi[k] = r.dot; });
+      T('NLXepHang').forEach(function (r) {
+        if (moi[r.boPhan + '|' + r.tieuChi] !== r.dot) return;
+        var a = parseJSON(r.thuTu, []), n = a.length; if (n < 2) return;
+        a.forEach(function (m, i) { var o = ((out[m] = out[m] || {})[r.tieuChi] = out[m][r.tieuChi] || { t: 0, c: 0, hang: i + 1, n: n, dot: r.dot }); o.t += (n - 1 - i) / (n - 1) * 100; o.c++; });
+      });
+      Object.keys(out).forEach(function (m) { Object.keys(out[m]).forEach(function (k) { var o = out[m][k]; out[m][k] = { diem: Math.round(o.t / o.c), hang: o.hang, n: o.n, dot: o.dot, soNguoiXep: o.c }; }); });
+      return out;
+    }
+    H['nl.ds'] = function (req, s) {
+      var hr = can(s, 'nangLuc'), bp = bpXem(s), ql = ROLE_QL.indexOf(s.role) >= 0 && bp, gd = NL_QLX.indexOf(s.role) >= 0;
+      if (!hr && !ql && !gd) err('Bạn chưa được phân quyền Năng lực & phát triển CBCNV.');
+      var dot = nlDot(), dxM = {}, dienM = {};
+      if (hr) { T('NLDeXuat').forEach(function (r) { if (!dxM[r.maNV] || dxM[r.maNV].luc < r.luc) dxM[r.maNV] = r; }); T('NLDien').forEach(function (r) { if (r.trangThai !== 'Kết thúc') dienM[r.maNV] = r; }); }
+      var tsM = {}; T('NLTest').forEach(function (r) { if (r.nopLuc && r.dot === dot) (tsM[r.maNV] = tsM[r.maNV] || {})[r.loai] = 1; });
+      var xhQL = nlXHQL();
+      var ds = T('NhanVien').filter(function (n) { return n.trangThai !== 'Đã nghỉ việc' && (hr || gd || n.phongBan === bp); }).map(function (n) {
+        var ban = nlBan(n.maNV), nhom = nlNhomCua(n, ban), cur = ban.filter(function (r) { return r.dot === dot; })[0], tt = nlTomTat(ban[0], nhom), cs = nlChiSo(n.maNV, ban), g = cs.theoThang[cs.theoThang.length - 1] || {};
+        return { maNV: n.maNV, hoTen: n.hoTen, chucVu: n.chucVu, phongBan: n.phongBan, nhom: nhom, dotCham: ban[0] ? ban[0].dot : '', tuThang: !!(cur && cur.tuLuc), qlThang: !!(cur && cur.qlLuc),
+          tu: nlPct(tt.tu), ql: nlPct(tt.ql), dg: tt.dgTong, xepLoai: tt.xepLoai, cm: cs.gan.cm, tc: Object.keys(tt.tc).reduce(function (m, k) { m[k] = tt.tc[k].diem; return m; }, {}), xhQL: xhQL[n.maNV] || {}, iq: cs.gan.iq, aq: cs.gan.aq, bq: cs.gan.bq, dotTest: g.dot || '', testThang: Object.keys(tsM[n.maNV] || {}),
+          chiSo: { diem: cs.diem, muc: cs.muc, xuHuong: cs.xuHuong, dangTienBo: cs.dangTienBo, quanTam: cs.quanTam },
+          ai: dxM[n.maNV] ? { tiemNang: dxM[n.maNV].tiemNang, luc: dxM[n.maNV].luc } : null, dien: dienM[n.maNV] ? { tuNgay: dienM[n.maNV].tuNgay, lyDo: dienM[n.maNV].lyDo } : null };
+      });
+      return { ds: ds, dot: dot, hr: hr, ql: !!(ql || gd), aiBat: nlAIBat(), coAI: !!(env.ai && env.ai.trangThai().coKhoa), soCauRieng: hr ? T('NLCauHoi').filter(function (r) { return r.trangThai !== 'Ngừng'; }).length : 0,
+        dien: hr ? T('NLDien').map(function (r) { var n = findNV(r.maNV) || {}; return { id: r.id, maNV: r.maNV, hoTen: n.hoTen || r.maNV, phongBan: n.phongBan || '', tuNgay: r.tuNgay, lyDo: r.lyDo, keHoach: r.keHoach || '', nguoi: r.nguoi, trangThai: r.trangThai, ketThucLuc: r.ketThucLuc || '' }; }) : [] };
+    };
+    var NL_HE = 'Bạn là chuyên gia phát triển nguồn nhân lực của một công ty xây dựng Việt Nam. Bạn nhận điểm năng lực đã ẩn danh (chỉ mã nhân viên) và đưa ra ĐỀ XUẤT THAM KHẢO cho phòng Tổ chức – Hành chính; ' +
+      'quyết định bố trí, đào tạo, đầu tư do con người đưa ra. Chỉ dựa vào dữ liệu được cung cấp; không suy đoán theo tuổi, giới tính, ngày sinh, quê quán hay bất kỳ đặc điểm cá nhân nào khác. ' +
+      'Điểm "tư duy logic" là tỷ lệ câu đúng của bài test nội bộ, KHÔNG phải chỉ số IQ chuẩn hóa. Điểm tự đánh giá thường cao hơn thực tế; ưu tiên điểm quản lý chấm khi có. ' +
+      'Phong cách làm việc (Big Five rút gọn) chỉ là xu hướng, không có tốt/xấu – chỉ dùng để gợi ý môi trường việc phù hợp. Viết tiếng Việt, ngắn gọn, cụ thể, tích cực, tôn trọng. Chỉ trả về JSON.';
+    H['nl.ai'] = function (req, s) {
+      nlHR(s);
+      if (!nlAIBat()) err('Ban Giám đốc chưa cho phép gửi điểm năng lực đến AI (Năng lực & phát triển → Cài đặt). Chỉ số tiềm năng theo quy tắc vẫn dùng được không cần AI.');
+      if (!env.ai || !env.ai.trangThai().coKhoa) err('Chưa cài đặt AI. Quản trị vào "Phân tích nhóm (AI)" → "Cài đặt AI".');
+      var ids = (Array.isArray(req.ids) ? req.ids : []).slice(0, 6); if (!ids.length) err('Chọn 1–6 CBCNV.');
+      var duLieu = ids.map(function (ma) {
+        var n = findNV(ma); if (!n) return null;
+        var ban = nlBan(ma), nhom = nlNhomCua(n, ban), r0 = ban[0], tt = nlTomTat(r0, nhom), cs = nlChiSo(ma, ban), tu = parseJSON(r0 && r0.tuCham, {}), ql = parseJSON(r0 && r0.qlCham, {}), muc = [];
+        nlKhung(nhom).forEach(function (g) { g.ds.forEach(function (x) { var v = ql[x[0]] || tu[x[0]]; if (v) muc.push({ ky: x[1], diem: +v, nguon: ql[x[0]] ? 'QL' : 'tự' }); }); });
+        muc.sort(function (a, b) { return b.diem - a.diem; });
+        var bfs = nlTests(ma).filter(function (x) { return x.loai === 'bf'; }), bf = bfs.length ? parseJSON(bfs[bfs.length - 1].chiTiet, {}) : null, pc = null;
+        if (bf) { pc = {}; Object.keys(NL_TEST.bf.dim).forEach(function (k) { if (bf[k] != null) pc[NL_TEST.bf.dim[k]] = bf[k]; }); }
+        var tn = n.ngayVao ? Math.max(0, Math.round(nlGiay(n.ngayVao + ' 00:00:00', env.today() + ' 00:00:00') / 86400 / 365 * 10) / 10) : null;
+        return { maNV: ma, nhomChuyenMon: NL_NHOM[nhom], chucVu: n.chucVu || '', boPhan: n.phongBan || '', thamNienNam: tn, trinhDo: n.trinhDo || '', chuyenNganh: n.chuyenNganh || '',
+          kyNangTheoNhom: tt.muc.map(function (m) { return { nhom: m.ten, tuDanhGia: nlPct(m.tu), quanLy: nlPct(m.ql) }; }),
+          danhGiaTieuChi: NL_TC.map(function (t) { var o = tt.tc[t[0]]; return { tieuChi: t[1], diem: o.diem, nguon: o.nguon }; }).filter(function (o) { return o.diem != null; }), diemDanhGia: tt.dgTong, xepLoai: tt.xepLoai,
+          chuyenCanChamCong: (function () { var c = nlChuyenCan(ma); return c.tyLe == null && c.diemGPS == null ? null : { tyLeNgayCong3Ky: c.tyLe, diemChuyenCanGPS: c.diemGPS }; })(), manhNhat: muc.slice(0, 4), yeuNhat: muc.slice(-4).reverse(),
+          nhanXetQuanLy: r0 && r0.nhanXetQL ? String(r0.nhanXetQL).slice(0, 400) : '', testTheoThang: cs.theoThang.slice(-6).map(function (o) { return { thang: o.dot, kienThucChuyenMon: o.cm, tuDuyLogic: o.iq, vuotKho: o.aq, tacPhong: o.bqTH }; }),
+          phongCachLamViec: pc, xuHuongUuTien: (function () { var xs = nlTests(ma).filter(function (x) { return x.loai === 'xh'; }); if (!xs.length) return null; var c = parseJSON(xs[xs.length - 1].chiTiet, {}), o = {}; Object.keys(NL_TEST.xh.dim).forEach(function (k) { o[NL_TEST.xh.dim[k]] = c[k]; }); return o; })(), chiSoQuyTac: { diem: cs.diem, muc: cs.muc, xuHuong6Thang: cs.xuHuong } };
+      }).filter(Boolean);
+      var nd = 'THANG ĐIỂM: kỹ năng và bài test quy về 0–100. Chỉ số quy tắc = 30% kỹ năng + 20% kiến thức chuyên môn (bài test) + 15% tư duy logic + 15% vượt khó + 20% tác phong.\nDỮ LIỆU (JSON):\n' + JSON.stringify(duLieu) +
+        '\n\nTrả về đúng JSON: {"caNhan": [{"maNV": "<mã đúng như dữ liệu>", "tiemNang": "Cao|Khá|Trung bình|Cần hỗ trợ|Chưa đủ dữ liệu", "tongQuan": "<2–3 câu>", "diemManh": ["…"], "canPhatTrien": ["…"], ' +
+        '"viTriPhuHop": ["<vị trí / loại việc phù hợp, có lý do ngắn>"], "daoTao": ["<khóa học / kèm cặp / giao việc cụ thể>"], "dauTu": true, "lyDo": "<vì sao nên / chưa nên đưa vào diện đầu tư phát triển>"}]}. Đánh giá đủ mọi người trong dữ liệu.';
+      var o = aiGoi({ he: NL_HE, nd: nd, anh: [], maxTok: 4000, loai: 'nl', duLieu: duLieu }), MUC = ['Cao', 'Khá', 'Trung bình', 'Cần hỗ trợ', 'Chưa đủ dữ liệu'], ok = {};
+      ids.forEach(function (m) { ok[m] = 1; });
+      var A = function (a, n) { return (Array.isArray(a) ? a : []).map(function (x) { return String(x || '').slice(0, 300); }).filter(Boolean).slice(0, n || 6); };
+      return { ds: (o.caNhan || []).filter(function (p) { return p && ok[p.maNV]; }).map(function (p) {
+        return { maNV: p.maNV, hoTen: (findNV(p.maNV) || {}).hoTen || p.maNV, tiemNang: MUC.indexOf(p.tiemNang) >= 0 ? p.tiemNang : 'Chưa đủ dữ liệu', tongQuan: String(p.tongQuan || '').slice(0, 800),
+          diemManh: A(p.diemManh), canPhatTrien: A(p.canPhatTrien), viTriPhuHop: A(p.viTriPhuHop, 4), daoTao: A(p.daoTao), dauTu: p.dauTu === true, lyDo: String(p.lyDo || '').slice(0, 500) }; }), ai: env.ai.trangThai().ncc, luc: env.now() };
+    };
+    H['nl.luuai'] = function (req, s) {
+      nlHR(s); var n = 0;
+      (Array.isArray(req.ds) ? req.ds : []).slice(0, 6).forEach(function (p) {
+        if (!p || !findNV(p.maNV)) return;
+        var nd = { tongQuan: String(p.tongQuan || '').slice(0, 800) }; ['diemManh', 'canPhatTrien', 'viTriPhuHop', 'daoTao'].forEach(function (k) { nd[k] = (Array.isArray(p[k]) ? p[k] : []).slice(0, 6).map(function (x) { return String(x).slice(0, 300); }); });
+        nd.dauTu = p.dauTu === true; nd.lyDo = String(p.lyDo || '').slice(0, 500);
+        T('NLDeXuat').push({ id: newId(), maNV: p.maNV, dot: nlDot(), tiemNang: String(p.tiemNang || '').slice(0, 30), noiDung: JSON.stringify(nd), nguon: 'ai', nguoi: s.hoTen || s.username, luc: env.now() }); n++;
+      });
+      if (n) { D('NLDeXuat'); log(s, 'nl.luuai', n + ' người'); }
+      return { n: n };
+    };
+    H['nl.dien'] = function (req, s) {
+      nlHR(s); var n = findNV(String(req.maNV || '')); if (!n) err('Không tìm thấy CBCNV.');
+      var cu = T('NLDien').filter(function (r) { return r.maNV === n.maNV && r.trangThai !== 'Kết thúc'; })[0];
+      if (req.ketThuc) { if (!cu) err('CBCNV này không ở diện đầu tư phát triển.'); cu.trangThai = 'Kết thúc'; cu.ketThucLuc = env.now(); cu.ghiChu = String(req.ghiChu || '').slice(0, 500); D('NLDien'); log(s, 'nl.dien', n.maNV + ' kết thúc'); return { ok: 1 }; }
+      var ly = String(req.lyDo || '').trim(); if (ly.length < 5) err('Nhập lý do đưa vào diện đầu tư phát triển.');
+      if (cu) { cu.lyDo = ly.slice(0, 1000); cu.keHoach = String(req.keHoach || '').slice(0, 2000); cu.nguoi = s.hoTen || s.username; }
+      else T('NLDien').push({ id: newId(), maNV: n.maNV, tuNgay: env.today(), lyDo: ly.slice(0, 1000), keHoach: String(req.keHoach || '').slice(0, 2000), nguoi: s.hoTen || s.username, luc: env.now(), trangThai: 'Đang theo dõi', ketThucLuc: '', ghiChu: '' });
+      D('NLDien'); log(s, 'nl.dien', n.maNV + ': ' + ly.slice(0, 200)); return { ok: 1 };
+    };
+    H['nl.nhac'] = function (req, s) {
+      nlHR(s); var dot = nlDot(), xong = {};
+      T('NLTest').forEach(function (r) { if (r.nopLuc && r.dot === dot && NL_KY_LOAI.indexOf(r.loai) >= 0) (xong[r.maNV] = xong[r.maNV] || {})[r.loai] = 1; });
+      var ds = userActive().filter(function (u) { if (!u.maNV) return false; var n = findNV(u.maNV); if (!n || n.trangThai === 'Đã nghỉ việc') return false; var x = xong[u.maNV] || {}; return !NL_KY_LOAI.every(function (k) { return x[k]; }); }).map(function (u) { return u.username; });
+      bao(ds, { loai: 'nl', t: 'Bài test năng lực tháng ' + dot.slice(5) + '/' + dot.slice(0, 4), b: 'Mời anh/chị làm bài test tháng (tư duy logic, vượt khó, tác phong) và tự đánh giá kỹ năng trên app.', tag: 'nltest-' + dot, mo: '#v=nlme' });
+      log(s, 'nl.nhac', dot + ': ' + ds.length + ' người'); return { n: ds.length };
+    };
+    H['nl.cauhinh'] = function (req, s) {
+      if (NL_QLX.indexOf(s.role) < 0) err('Chỉ Giám đốc / Quản trị bật tắt việc gửi điểm năng lực đến AI.');
+      setCfg({ nlAI: req.nlAI === true }); log(s, 'nl.cauhinh', 'nlAI=' + (req.nlAI === true)); return { nlAI: req.nlAI === true };
+    };
+    H['nl.testxoa'] = function (req, s) {
+      nlHR(s); var a = T('NLTest'), i = a.findIndex(function (r) { return r.id === String(req.id || ''); }); if (i < 0) err('Không tìm thấy bài test.');
+      var r = a[i]; a.splice(i, 1); D('NLTest'); log(s, 'nl.testxoa', r.maNV + ' ' + r.loai + ' ' + r.dot + ' (' + r.diem + ')'); return { ok: 1 };
+    };
+    H['nl.cauhoi'] = function (req, s) {
+      nlHR(s); var a = T('NLCauHoi');
+      if (req.xoa) { var i = a.findIndex(function (r) { return r.id === String(req.xoa); }); if (i >= 0) { a.splice(i, 1); D('NLCauHoi'); log(s, 'nl.cauhoi', 'xóa ' + req.xoa); } }
+      else if (req.row) {
+        var w = req.row, cau = String(w.cau || '').trim(), op = ['a', 'b', 'c', 'd'].map(function (k) { return String(w[k] || '').trim().slice(0, 200); }), da = String(w.dapAn || '').toUpperCase();
+        if (cau.length < 5 || !op[0] || !op[1]) err('Nhập câu hỏi và ít nhất 2 phương án A, B.');
+        if ('ABCD'.indexOf(da) < 0 || !op['ABCD'.indexOf(da)]) err('Đáp án đúng phải là một phương án đã nhập.');
+        var r = w.id && a.filter(function (x) { return x.id === w.id; })[0];
+        if (!r) { r = { id: newId() }; a.push(r); }
+        r.cau = cau.slice(0, 500); r.a = op[0]; r.b = op[1]; r.c = op[2]; r.d = op[3]; r.dapAn = da; r.trangThai = w.trangThai === 'Ngừng' ? 'Ngừng' : 'Dùng'; r.nguoi = s.hoTen || s.username; r.luc = env.now();
+        D('NLCauHoi'); log(s, 'nl.cauhoi', 'lưu ' + r.id);
+      }
+      var dem = function (l) { return a.filter(function (r) { return r.trangThai !== 'Ngừng' && (r.loai || 'iq') === l; }).length; };
+      var phu = { iq: 'không giới hạn (8 câu sinh số liệu ngẫu nhiên / đề) · câu tĩnh: ' + Math.floor((dem('iq') >= 24 ? dem('iq') : NL_IQ.length + NL_IQ_THEM.length + dem('iq')) / 4) + ' tháng',
+        aq: Math.floor(NL_AQ_TH.length + dem('aq') / 12) + ' tháng', bq: Math.floor(NL_BQ_TH.length + dem('bq') / 12) + ' tháng' };
+      return { ds: a.map(function (r) { return { id: r.id, loai: r.loai || 'iq', nhom: r.nhom || '', dao: r.dao || '', ghiNho: r.ghiNho || '', cau: r.cau, a: r.a, b: r.b, c: r.c, d: r.d, dapAn: r.dapAn, trangThai: r.trangThai }; }), dangDung: dem('iq') >= 24 ? 'rieng' : 'cosan',
+        kho: { iqTinh: NL_IQ.length + NL_IQ_THEM.length, iqDang: Object.keys(NL_SINH).length, aq: NL_AQ_TH.length * 12, bq: NL_BQ_TH.length * 12, rieng: { iq: dem('iq'), aq: dem('aq'), bq: dem('bq'), cm: dem('cm') },
+          cm: Object.keys(NL_NHOM).map(function (k) { var t = (NL_CM[k] || []).length + NL_CM.chung.length + a.filter(function (r) { return r.trangThai !== 'Ngừng' && r.loai === 'cm' && (r.nhom === k || r.nhom === 'chung'); }).length, g = Object.keys(NL_CM_SINH[k] || {}).length, tinh = NL_TEST.cm.soCau - Math.min(4, g); return { nhom: k, ten: NL_NHOM[k], tinh: t, dang: g, thang: Math.floor(t / tinh) }; }) }, phu: phu };
+    };
+
+    /* ===== v3.91: ĐỀ THI THEO NGƯỜI – không trùng câu trong 12 tháng; đề lưu trên máy chủ (cột 'de'), không gửi đáp án ===== */
+    function nlLichSuDe(ma, loai, dot) {           // id / nội dung câu đã gặp trong 12 tháng trước
+      var tu = nlCongThang(dot, -12), id = {}, q = {};
+      T('NLTest').forEach(function (r) { if (r.maNV !== ma || r.loai !== loai || r.dot < tu || r.dot >= dot) return; parseJSON(r.de, []).forEach(function (c) { id[c.id] = r.dot; q[c.q] = r.dot; }); });
+      return { id: id, q: q };
+    }
+    function nlRngInt(seed) { var f = nlRng(seed); return function (a, b) { return a + Math.floor(f() * (b - a + 1)); }; }
+    function nlCauRieng(loai) { return T('NLCauHoi').filter(function (r) { return r.trangThai !== 'Ngừng' && r.cau && (r.loai || 'iq') === loai; }); }
+    function nlTaoDe(user, ma, loai, dot, nhom) {
+      var ls = nlLichSuDe(ma, loai, dot), R = nlRngInt(user + '|' + dot + '|' + loai), de = [];
+      if (loai === 'cm') {                            // v3.92: 4 câu tính toán sinh tự động (nếu nhóm có) + câu kiến thức nhóm + chung, chưa gặp lâu nhất
+        var sinh = NL_CM_SINH[nhom] || {}, dg = nlTronR(Object.keys(sinh), R), dq = {};
+        for (var i2 = 0; i2 < dg.length && de.length < 4; i2++) for (var t2 = 0; t2 < 6; t2++) { var g2 = sinh[dg[i2]](R); if (ls.q[g2[0]] || dq[g2[0]]) continue; dq[g2[0]] = 1; var th2 = nlTronR([0, 1, 2, 3], R); de.push({ id: 'g:' + dg[i2] + ':' + de.length, q: g2[0], o: th2.map(function (k) { return g2[1][k]; }), a: th2.indexOf(0), g: g2[2] }); break; }
+        var nhomCau = (NL_CM[nhom] || []).concat(NL_CM.chung), rieng3 = nlCauRieng('cm').filter(function (r) { return !r.nhom || r.nhom === nhom || r.nhom === 'chung'; }).map(function (r) { var o = [r.a, r.b, r.c, r.d], d = Math.max(0, 'ABCD'.indexOf(String(r.dapAn || 'A').toUpperCase())), oo = [o[d]].concat(o.filter(function (x, k) { return k !== d && String(x || '').trim(); })); return ['r' + r.id, r.cau, oo, r.ghiNho || '']; });
+        var kho = nlTronR(nhomCau.concat(rieng3), R).sort(function (a, b) { var ua = ls.id[a[0]] || '', ub = ls.id[b[0]] || ''; return ua < ub ? -1 : ua > ub ? 1 : 0; });
+        kho.slice(0, NL_TEST.cm.soCau - de.length).forEach(function (c) { var th = nlTronR(c[2].map(function (x, k) { return k; }), R); de.push({ id: c[0], q: c[1], o: th.map(function (k) { return c[2][k]; }), a: th.indexOf(0), g: c[3] || '' }); });
+        return nlTronR(de, R);
+      }
+      if (loai === 'iq') {
+        var dang = nlTronR(Object.keys(NL_SINH), R), dung = {};
+        for (var i = 0; i < dang.length && de.length < 8; i++) {
+          for (var thu = 0; thu < 6; thu++) {
+            var g = NL_SINH[dang[i]](R), q = g[0];
+            if (ls.q[q] || dung[q]) continue;
+            dung[q] = 1; var o = g[1], th = nlTronR([0, 1, 2, 3], R);
+            de.push({ id: 'g:' + dang[i] + ':' + de.length, q: q, o: th.map(function (k) { return o[k]; }), a: th.indexOf(0) }); break;
+          }
+        }
+        var rieng = nlCauRieng('iq').map(function (r) { var o = [r.a, r.b, r.c, r.d].filter(function (x) { return String(x || '').trim(); }); return ['r' + r.id, r.cau, o, Math.max(0, 'ABCD'.indexOf(String(r.dapAn || 'A').toUpperCase()))]; });
+        var tinh = rieng.length >= 24 ? rieng : NL_IQ.concat(NL_IQ_THEM, rieng);
+        tinh = nlTronR(tinh.slice(), R).sort(function (a, b) { return (ls.id[a[0]] || '') < (ls.id[b[0]] || '') ? -1 : (ls.id[a[0]] || '') > (ls.id[b[0]] || '') ? 1 : 0; });   // chưa gặp trước, gặp lâu nhất sau
+        tinh.slice(0, NL_TEST.iq.soCau - de.length).forEach(function (c) { var th = nlTronR(c[2].map(function (x, k) { return k; }), R); de.push({ id: c[0], q: c[1], o: th.map(function (k) { return c[2][k]; }), a: th.indexOf(c[3]) }); });
+        return nlTronR(de, R);
+      }
+      if (loai === 'aq' || loai === 'bq') {
+        var nTH = (loai === 'aq' ? NL_AQ_TH : NL_BQ_TH).length, dimL = Object.keys(loai === 'aq' ? NL_AQ_HV : NL_BQ_HV), dungTH = {}, rieng2 = nlCauRieng(loai);
+        dimL.forEach(function (dm) {
+          [0, 1, 2].forEach(function (hi) {
+            var hvDao = (loai === 'aq' ? NL_AQ_HV : NL_BQ_HV)[dm][hi][1];
+            var cr = rieng2.filter(function (r) { return r.nhom === dm && (r.dao === 'x' ? 1 : 0) === hvDao && !ls.id['r' + r.id] && !de.some(function (c) { return c.id === 'r' + r.id; }); });
+            if (cr.length && R(0, 2) === 0) { var x = cr[R(0, cr.length - 1)]; de.push({ id: 'r' + x.id, q: x.cau, d: dm, r: hvDao }); return; }   // xen câu Công ty nhập
+            var ths = nlTronR(Array.apply(null, Array(nTH)).map(function (v, k) { return k; }), R).sort(function (a, b) {
+              var ua = ls.id[loai + ':' + dm + ':' + a + ':' + hi] || '', ub = ls.id[loai + ':' + dm + ':' + b + ':' + hi] || '';
+              return (ua < ub ? -1 : ua > ub ? 1 : 0) || (dungTH[a] ? 1 : 0) - (dungTH[b] ? 1 : 0);   // ưu tiên chưa gặp 12 tháng, rồi tránh trùng tình huống trong đề
+            });
+            dungTH[ths[0]] = 1; de.push(nlCauLK(loai, dm, ths[0], hi));
+          });
+        });
+        return nlTronR(de, R);
+      }
+      return null;
+    }
+    /* ===== v3.91: KỲ TEST HẰNG THÁNG – mở ngày 20, gửi tin nhắn riêng từng người, hạn ngày 25; thưởng / giảm thưởng tự đề xuất vào Khen thưởng – Kỷ luật =====
+       Đúng hạn: khen + đề xuất thưởng; làm chậm (sau hạn, trong tháng): đề xuất giảm thưởng mức chậm; không làm (hết tháng): đề xuất giảm thưởng mức không làm.
+       BLLĐ 2019 Điều 127 cấm phạt tiền → khoản "phạt" ghi là "Giảm thưởng theo quy chế" (giảm thưởng / phụ cấp được phép giảm theo quy chế thưởng), chờ duyệt như mọi đề xuất. */
+    var NL_KY_LOAI = ['iq', 'aq', 'bq', 'cm'];   // v3.92: thêm kiến thức chuyên môn
+    function nlKyCfg() { return Object.assign({ bat: true, ngayMo: 20, ngayHan: 25, thuong: 500000, phatTre: 300000, phatKhong: 500000, nguoiGui: '' }, getCfg().nlKy || {}); }
+    function nlKyRow(dot) { return T('NLKy').filter(function (r) { return r.dot === dot; })[0]; }
+    function nlKyHan(dot, cf) { var n = new Date(+dot.slice(0, 4), +dot.slice(5, 7), 0).getDate(), d = Math.max(1, Math.min(num(cf.ngayHan) || 25, n)); return dot + '-' + (d < 10 ? '0' : '') + d; }
+    function nlKyNgayMo(dot, cf) { var d = Math.max(1, Math.min(num(cf.ngayMo) || 20, 28)); return dot + '-' + (d < 10 ? '0' : '') + d; }
+    function nlKyGui(cf) {                          // tài khoản gửi tin nhắn kỳ test: cấu hình → TCHC → Quản trị
+      var a = userActive(), u = cf.nguoiGui && a.filter(function (x) { return x.username === cf.nguoiGui; })[0];
+      return u || a.filter(function (x) { return x.role === 'tchc'; })[0] || a.filter(function (x) { return x.role === 'admin'; })[0] || null;
+    }
+    function nlKyThamGia(dot, cf) {                 // CBCNV đang làm, có tài khoản, vào làm trước ngày mở kỳ
+      var mo = nlKyNgayMo(dot, cf);
+      return T('NhanVien').filter(function (n) { return n.trangThai !== 'Đã nghỉ việc' && userCuaNV(n.maNV) && (!n.ngayVao || n.ngayVao <= mo); });
+    }
+    function nlKyTT(ma, dot) {                      // tình trạng hoàn thành 3 bài
+      var xong = {}, cuoi = '';
+      T('NLTest').forEach(function (r) { if (r.maNV === ma && r.dot === dot && r.nopLuc && NL_KY_LOAI.indexOf(r.loai) >= 0) { xong[r.loai] = r.nopLuc; if (r.nopLuc > cuoi) cuoi = r.nopLuc; } });
+      return { xong: xong, du: NL_KY_LOAI.every(function (k) { return xong[k]; }), luc: cuoi };
+    }
+    function nlChatRieng(gui, u) {                  // hội thoại riêng giữa người gửi và u (tạo nếu chưa có)
+      var mine = chatTVs(gui.username).map(function (x) { return x.hoiThoai; });
+      var h = T('HoiThoai').filter(function (x) { return x.loai === 'rieng' && mine.indexOf(x.id) >= 0 && chatMem(x.id).some(function (m) { return m.username === u; }); })[0];
+      if (!h) { h = { id: newId(), loai: 'rieng', ten: '', mau: '', moTa: '', taoBoi: gui.username, taoLuc: env.now(), capNhat: env.now(), tinCuoi: '', trangThai: '' }; T('HoiThoai').push(h); D('HoiThoai'); chatThem(h.id, gui.username, 'thanhvien'); chatThem(h.id, u, 'thanhvien'); }
+      return h;
+    }
+    function nlKyTin(cf, u, kieu, nd, tep) {        // tin nhắn riêng (thẻ "nltest") + thông báo đẩy
+      var g = nlKyGui(cf); if (!u) return;
+      if (g && g.username !== u) { var h = nlChatRieng(g, u); chatGhi({ username: g.username, hoTen: g.hoTen || g.username }, h.id, 'nltest', nd, { tep: JSON.stringify(Object.assign({ kieu: kieu }, tep || {})) }); chatBao([g.username, u]); }
+      else bao([u], { loai: 'tn', t: 'Bài test năng lực', b: nd.slice(0, 200), tag: 'nlky', mo: '#v=nlme' });
+    }
+    function nlTienVN(v) { return String(Math.round(num(v))).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' đ'; }
+    function nlNgayVN(d) { return String(d).slice(8, 10) + '/' + String(d).slice(5, 7) + '/' + String(d).slice(0, 4); }
+    function nlKyKT(dot, ma, kieu, cf, g) {         // đề xuất khen thưởng / giảm thưởng – chờ duyệt ở mục Khen thưởng – Kỷ luật
+      var th = dot.slice(5, 7) + '/' + dot.slice(0, 4), thuong = kieu === 'dung', tien = thuong ? num(cf.thuong) : kieu === 'tre' ? num(cf.phatTre) : num(cf.phatKhong);
+      if (!(tien > 0)) return null;
+      var o = { id: newId(), maNV: ma, loai: thuong ? 'Thưởng đột xuất' : NL_GIAM_QC, hinhThuc: thuong ? 'Tiền thưởng' : 'Giảm thưởng theo quy chế', ngay: env.today(), soTien: tien, chiuThue: thuong ? 'Có' : '', kyLuong: dot,
+        noiDung: thuong ? 'Hoàn thành bài test năng lực tháng ' + th + ' đúng hạn – khen ngợi ý thức thực hiện (app tự đề xuất)' : kieu === 'tre' ? 'Làm bài test năng lực tháng ' + th + ' chậm so với hạn ' + nlNgayVN(nlKyHan(dot, cf)) + ' (app tự đề xuất)' : 'Không làm bài test năng lực tháng ' + th + ' (app tự đề xuất)',
+        soQD: '', trangThai: 'Chờ duyệt', nguoiDeXuat: g ? g.username : 'he-thong', ngayDeXuat: env.now(), nguoiDuyet: '', ngayDuyet: '' };
+      T('KhenThuong').push(o); D('KhenThuong'); return o;
+    }
+    function nlKyGhiNhan(dot, ma, kieu, luc, cf) {   // 1 lần / người / kỳ
+      if (T('NLKyNguoi').some(function (r) { return r.dot === dot && r.maNV === ma; })) return null;
+      var g = nlKyGui(cf), kt = nlKyKT(dot, ma, kieu, cf, g), r = { id: newId(), dot: dot, maNV: ma, ketQua: kieu, xongLuc: luc || '', ktId: kt ? kt.id : '', soTien: kt ? (kieu === 'dung' ? 1 : -1) * num(kt.soTien) : 0, luc: env.now() };
+      T('NLKyNguoi').push(r); D('NLKyNguoi');
+      var n = findNV(ma) || {}, u = userCuaNV(ma), th = dot.slice(5, 7) + '/' + dot.slice(0, 4);
+      if (kieu === 'dung') nlKyTin(cf, u, 'khen', '🎉 Chúc mừng ' + (n.hoTen || '') + ' đã hoàn thành bài test năng lực tháng ' + th + ' ĐÚNG HẠN! Cảm ơn ý thức thực hiện tốt.' + (kt ? ' App đã đề xuất thưởng ' + nlTienVN(kt.soTien) + ' vào kỳ lương ' + th + ' (chờ lãnh đạo duyệt).' : ''), { dot: dot, tien: kt ? kt.soTien : 0 });
+      else if (kieu === 'tre') nlKyTin(cf, u, 'tre', 'Đã ghi nhận bài test năng lực tháng ' + th + ' – hoàn thành CHẬM so với hạn ' + nlNgayVN(nlKyHan(dot, cf)) + '.' + (kt ? ' Theo quy chế, app đề xuất giảm thưởng ' + nlTienVN(kt.soTien) + ' (chờ lãnh đạo duyệt).' : ''), { dot: dot, tien: kt ? kt.soTien : 0 });
+      else nlKyTin(cf, u, 'khong', 'Kỳ test năng lực tháng ' + th + ' đã kết thúc, anh/chị chưa hoàn thành đủ ' + NL_KY_LOAI.length + ' bài.' + (kt ? ' Theo quy chế, app đề xuất giảm thưởng ' + nlTienVN(kt.soTien) + ' (chờ lãnh đạo duyệt).' : ''), { dot: dot, tien: kt ? kt.soTien : 0 });
+      return r;
+    }
+    function nlKyMo(dot, s) {
+      var cf = nlKyCfg(), r = nlKyRow(dot); if (r && r.moLuc) return 0;
+      if (!r) { r = { dot: dot }; T('NLKy').push(r); }
+      var han = nlKyHan(dot, cf), ds = nlKyThamGia(dot, cf), th = dot.slice(5, 7) + '/' + dot.slice(0, 4);
+      Object.assign(r, { moLuc: env.now(), han: han, chotLuc: '', nhacHan: '', nguoiMo: s ? (s.hoTen || s.username) : 'tự động', soNguoi: ds.length, ghiChu: '' }); D('NLKy');
+      var nd = '📋 BÀI TEST NĂNG LỰC THÁNG ' + th + '\nMời anh/chị làm 4 bài: Kiến thức chuyên môn (10 câu, 15 phút – có đáp án và ghi nhớ để ôn tập), Tư duy logic (12 câu, 15 phút), Vượt khó (AQ), Tác phong (BQ) – khoảng 40 phút.\nHạn hoàn thành: hết ngày ' + nlNgayVN(han) + '.'
+        + (num(cf.thuong) ? '\n• Đúng hạn: khen ngợi + đề xuất thưởng ' + nlTienVN(cf.thuong) + '.' : '') + (num(cf.phatTre) ? '\n• Làm chậm: đề xuất giảm thưởng ' + nlTienVN(cf.phatTre) + '.' : '') + (num(cf.phatKhong) ? '\n• Không làm: đề xuất giảm thưởng ' + nlTienVN(cf.phatKhong) + '.' : '');
+      ds.forEach(function (n) { nlKyTin(cf, userCuaNV(n.maNV), 'mo', nd, { dot: dot, han: han }); });
+      return ds.length;
+    }
+    function nlKyChot(dot) {
+      var cf = nlKyCfg(), r = nlKyRow(dot); if (!r || !r.moLuc || r.chotLuc) return 0; var n = 0;
+      nlKyThamGia(dot, cf).forEach(function (nv) {
+        var t = nlKyTT(nv.maNV, dot);
+        if (t.du) nlKyGhiNhan(dot, nv.maNV, t.luc.slice(0, 10) <= r.han ? 'dung' : 'tre', t.luc, cf);
+        else if (nlKyGhiNhan(dot, nv.maNV, 'khong', '', cf)) n++;
+      });
+      r.chotLuc = env.now(); D('NLKy'); return n;
+    }
+    function nlKyTuDong() {                         // gọi trong chayLich (5 phút / lần trên máy chủ)
+      var cf = nlKyCfg(); if (!cf.bat) return;
+      var bay = env.now(), hom = bay.slice(0, 10), dot = hom.slice(0, 7); if (bay.slice(11, 16) < '07:00') return;
+      var truoc = nlCongThang(dot, -1), rt = nlKyRow(truoc); if (rt && rt.moLuc && !rt.chotLuc) nlKyChot(truoc);
+      var r = nlKyRow(dot);
+      if ((!r || !r.moLuc) && hom >= nlKyNgayMo(dot, cf)) { nlKyMo(dot); r = nlKyRow(dot); }
+      if (r && r.moLuc && !r.chotLuc && hom === r.han && r.nhacHan !== hom) {
+        r.nhacHan = hom; D('NLKy');
+        nlKyThamGia(dot, cf).forEach(function (n) { if (!nlKyTT(n.maNV, dot).du) nlKyTin(cf, userCuaNV(n.maNV), 'nhac', '⏰ Hôm nay (' + nlNgayVN(hom) + ') là hạn cuối làm bài test năng lực tháng ' + dot.slice(5, 7) + '/' + dot.slice(0, 4) + '. Anh/chị còn bài chưa làm – hoàn thành ngay để được ghi nhận đúng hạn.', { dot: dot, han: r.han }); });
+      }
+    }
+    H['nl.ky.ds'] = function (req, s) {
+      var hr = can(s, 'nangLuc'), bp = bpXem(s), ql = ROLE_QL.indexOf(s.role) >= 0 && bp, gd = NL_QLX.indexOf(s.role) >= 0;
+      if (!hr && !ql && !gd) err('Bạn chưa được phân quyền xem kỳ test.');
+      var cf = nlKyCfg(), dot = /^\d{4}-\d{2}$/.test(req.dot || '') ? req.dot : nlDot(), r = nlKyRow(dot) || null, kq = {};
+      T('NLKyNguoi').forEach(function (x) { if (x.dot === dot) kq[x.maNV] = x; });
+      var ds = (r && r.moLuc ? nlKyThamGia(dot, cf) : []).filter(function (n) { return hr || gd || n.phongBan === bp; }).map(function (n) {
+        var t = nlKyTT(n.maNV, dot), g = kq[n.maNV], tt = g ? g.ketQua : t.du ? (t.luc.slice(0, 10) <= r.han ? 'dung' : 'tre') : (env.today() > r.han ? 'qua' : 'chua');
+        return { maNV: n.maNV, hoTen: n.hoTen, phongBan: n.phongBan, xong: t.xong, luc: t.luc, tt: tt, ghiNhan: !!g, soTien: g ? g.soTien : 0 };
+      });
+      return { cf: cf, dot: dot, ky: r, ds: ds, hr: hr, gd: gd, ngayMo: nlKyNgayMo(dot, cf), han: nlKyHan(dot, cf),
+        lichSu: T('NLKy').slice().sort(function (a, b) { return a.dot < b.dot ? 1 : -1; }).slice(0, 12).map(function (k) { var g = T('NLKyNguoi').filter(function (x) { return x.dot === k.dot; }); return { dot: k.dot, moLuc: k.moLuc, han: k.han, chotLuc: k.chotLuc, soNguoi: k.soNguoi, dung: g.filter(function (x) { return x.ketQua === 'dung'; }).length, tre: g.filter(function (x) { return x.ketQua === 'tre'; }).length, khong: g.filter(function (x) { return x.ketQua === 'khong'; }).length }; }),
+        nguoiGui: (nlKyGui(cf) || {}).hoTen || '' };
+    };
+    H['nl.ky.mo'] = function (req, s) { nlHR(s); var dot = nlDot(); if (nlKyRow(dot) && nlKyRow(dot).moLuc) err('Kỳ test tháng này đã mở.'); var n = nlKyMo(dot, s); log(s, 'nl.ky.mo', dot + ': ' + n + ' người'); return { n: n }; };
+    H['nl.ky.chot'] = function (req, s) {
+      nlHR(s); var dot = String(req.dot || ''), r = nlKyRow(dot); if (!r || !r.moLuc) err('Kỳ chưa mở.'); if (r.chotLuc) err('Kỳ đã chốt.');
+      if (env.today() <= r.han) err('Chưa qua hạn ' + nlNgayVN(r.han) + ' – chưa chốt được.');
+      var n = nlKyChot(dot); log(s, 'nl.ky.chot', dot + ': ' + n + ' người không làm'); return { n: n };
+    };
+    H['nl.ky.cauhinh'] = function (req, s) {
+      if (NL_QLX.indexOf(s.role) < 0) err('Chỉ Giám đốc / Quản trị đặt quy chế kỳ test.');
+      var c = req.nlKy || {}, o = { bat: c.bat !== false, ngayMo: Math.max(1, Math.min(28, Math.round(num(c.ngayMo)) || 20)), ngayHan: Math.max(1, Math.min(31, Math.round(num(c.ngayHan)) || 25)),
+        thuong: Math.max(0, num(c.thuong)), phatTre: Math.max(0, num(c.phatTre)), phatKhong: Math.max(0, num(c.phatKhong)), nguoiGui: String(c.nguoiGui || '') };
+      if (o.ngayHan < o.ngayMo) err('Ngày hạn phải sau ngày mở.');
+      setCfg({ nlKy: o }); log(s, 'nl.ky.cauhinh', JSON.stringify(o)); return o;
+    };
+    H['nl.cauhoi.nhap'] = function (req, s) {       // nhập file câu hỏi + đáp án đã phân loại
+      nlHR(s); var a = T('NLCauHoi'), them = 0, loi = [];
+      (Array.isArray(req.rows) ? req.rows : []).slice(0, 2000).forEach(function (w, i) {
+        var loai = String(w.loai || '').toLowerCase().replace(/[^a-z]/g, ''), cau = String(w.cau || '').trim(), dong = 'Dòng ' + (i + 2) + ': ';
+        if (['iq', 'aq', 'bq', 'cm'].indexOf(loai) < 0) return loi.push(dong + 'loại bài phải là IQ, AQ, BQ hoặc CM (kiến thức chuyên môn)');
+        if (cau.length < 5) return loi.push(dong + 'thiếu câu hỏi');
+        var r = { id: newId(), loai: loai, cau: cau.slice(0, 500), trangThai: /ngừng|ngung/i.test(w.trangThai || '') ? 'Ngừng' : 'Dùng', nguoi: s.hoTen || s.username, luc: env.now(), a: '', b: '', c: '', d: '', dapAn: '', nhom: '', dao: '' };
+        if (loai === 'iq' || loai === 'cm') {
+          if (loai === 'cm') { var nh = String(w.nhom || '').trim().toLowerCase(), MAP = { ktxd: 'ktxd', 'kỹ thuật': 'ktxd', 'ky thuat': 'ktxd', tm: 'tm', 'thợ máy': 'tm', 'tho may': 'tm', ktkt: 'ktkt', 'kế toán': 'ktkt', 'ke toan': 'ktkt', kd: 'kd', 'kinh doanh': 'kd', chung: 'chung', '': 'chung' }; if (!MAP.hasOwnProperty(nh)) return loi.push(dong + 'nhóm CM phải là KTXD / TM / KTKT / KD / CHUNG'); w.nhom = MAP[nh]; r.ghiNho = String(w.ghiNho || '').trim().slice(0, 300); }
+          var op = ['a', 'b', 'c', 'd'].map(function (k) { return String(w[k] || '').trim().slice(0, 200); }), da = String(w.dapAn || '').trim().toUpperCase();
+          if (!op[0] || !op[1]) return loi.push(dong + 'câu IQ cần ít nhất phương án A, B');
+          if ('ABCD'.indexOf(da) < 0 || !da || !op['ABCD'.indexOf(da)]) return loi.push(dong + 'đáp án đúng phải là A/B/C/D có nội dung');
+          r.a = op[0]; r.b = op[1]; r.c = op[2]; r.d = op[3]; r.dapAn = da; r.nhom = String(w.nhom || '').slice(0, 40); if (loai === 'cm' && !r.ghiNho) r.ghiNho = '';
+        } else {
+          var dm = String(w.nhom || '').trim().toUpperCase().slice(0, 1), hop = loai === 'aq' ? 'KTPB' : 'GRAH';
+          if (hop.indexOf(dm) < 0 || !dm) return loi.push(dong + 'khía cạnh ' + loai.toUpperCase() + ' phải là ' + hop.split('').join('/'));
+          r.nhom = dm; r.dao = /^(x|có|co|1|đảo|dao)$/i.test(String(w.dao || '').trim()) ? 'x' : '';
+        }
+        if (a.some(function (x) { return (x.loai || 'iq') === loai && x.cau === r.cau; })) return loi.push(dong + 'trùng câu đã có');
+        a.push(r); them++;
+      });
+      if (them) { D('NLCauHoi'); log(s, 'nl.cauhoi.nhap', them + ' câu'); }
+      return { them: them, loi: loi.slice(0, 50), soLoi: loi.length };
+    };
+
+    var READ_ONLY = ['nl.xem', 'nl.ds', 'nl.ai', 'nl.xh.nv', 'nl.ky.ds', 'chat.khoai', 'chat.bcai', 'ctg.kiem', 'ctg.tai', 'ctg.ds', 'bl.kiemtra', 'bot.kiem', 'tl.ocrxem', 'chat.anh', 'chat.khods', 'kho.tonghop', 'chat.khoxem', 'login', 'load', 'dl.cu', 'tl.get', 'tl.thumuc', 'nv.cccdai', 'cv.ds', 'cv.get', 'cv.ai', 'cv.tn', 'dx.ds', 'dx.tepget',
       'ping', 'log.list', 'cv.ocr', 'chat.init', 'chat.poll', 'chat.history', 'chat.file', 'chat.files',
       'ai.nhom', 'ai.thu', 'ai.models', 'ai.phantich', 'ai.taifile', 'gps.cuatoi', 'gps.ds', 'gps.anh', 'gps.tonghop', 'gps.ct.ds', 'ai.ds', 'ai.xem', 'ai.tep', 'ai.tepluu', 'ai.doctep', 'chat.nhatky', 'push.cuatoi', 'push.trangthai', 'cckt.ds', 'cckt.ai', 'vitri.ds', 'dgt.ds', 'dgt.xem', 'dgt.ai', 'dgt.cuatoi', 'bot.ds', 'bot.hoi', 'bot.nhatky'];   // phân tích AI chạy lâu: không giữ khóa ghi (chỉ ghi Drive, bộ nhớ đệm)
 
@@ -11540,14 +12667,14 @@ var HRCORE = (function () {
 
   return {
     VERSION: VERSION, ROLES: ROLES, khoangCachM: khoangCachM, kmKhoangCach: kmKhoangCach, aiKhoi: aiKhoi, nkKhoi: nkKhoi, aiLoiNhacNgoai: aiLoiNhacNgoai, HD_DANSU: HD_DANSU, nkO: nkO, AI_TRUONG_NK: AI_TRUONG_NK, AI_KHIA: AI_KHIA, xlAiBaoCao: xlAiBaoCao, xlNhatKy: xlNhatKy, aiJSON: aiJSON, aiSo: aiSo, aiSoTxt: aiSoTxt, AI_HE: AI_HE, ngayVN: ngayVN, THU_VN: THU_VN, otVaCT: otVaCT, anCaVaCT: anCaVaCT, TL_NHOM: TL_NHOM, tlNhom: tlNhom, gioLamThuc: gioLamThuc, nguongDuCong: nguongDuCong, bcBangDoc: HRCORE_bcBangDoc, PERM: PERM, PERM_MD: PERM_MD, PQ_NHOM: PQ_NHOM, PQ_SUA: PQ_SUA, PQ_KHOA: PQ_KHOA, PQ_NGUOI_SUA: PQ_NGUOI_SUA, pqKhoa: pqKhoa, PQ_CAM: PQ_CAM, pqCam: pqCam, apDungPQ: apDungPQ, pqLamSach: pqLamSach, can: can, phanTichCT: phanTichCT, tinhCT: tinhCT, blGiaTri: blGiaTri, BL_THEM: BL_THEM, HSNS_MD: HSNS_MD, hsnsCfg: hsnsCfg, tinhNS: tinhNS, chuyenCan: chuyenCan, boDau: boDau, diemTim: diemTim, locGan: locGan, MAU_PHIEU_MD: MAU_PHIEU_MD, MAU_BL_MD: MAU_BL_MD, mauPhieu: mauPhieu, mauBL: mauBL, mauGon: mauGon, ctMienAnCa: ctMienAnCa, CT_ANCA_MD: CT_ANCA_MD, kiemCTAnCa: kiemCTAnCa, mienAnCa: mienAnCa, bienDung: bienDung, kiemTraCT: kiemTraCT,
-    BIEN_HT: BIEN_HT, matKhauTheoNV: matKhauTheoNV, tenBien: tenBien, xlMauTamUng: xlMauTamUng, docTamUng: docTamUng, docTien: docTien, docNgay: docNgay, nhanLoaiTU: nhanLoaiTU, dauVaoTinhLuong: dauVaoTinhLuong, astExcel: astExcel, ctExcel: ctExcel, cotXL: cotXL, xlBangTinh: xlBangTinh, xlBangLuongThang: xlBangLuongThang, xlNam: xlNam, xlCaNhan: xlCaNhan, xlChiPhi: xlChiPhi, sangXLSX: sangXLSX, khoanCo: khoanCo, amSangDuong: amSangDuong, lichLeTheoLuat: lichLeTheoLuat, cleanLe: cleanLe, LOAI_LE: LOAI_LE, KY_HIEU: KY_HIEU, DON_KH: DON_KH, ngayTheoDon: ngayTheoDon, cleanNgay: cleanNgay, tongHopNgay: tongHopNgay, NHOM_VP: NHOM_VP, thu: thu, ROLE_QL: ROLE_QL, normRole: normRole, tenDangNhap: tenDangNhap, ROLES_MOTA: ROLES_MOTA, BT_LOAI: BT_LOAI, CAM_XUC: CAM_XUC, memChat: memChat, CT_PHANLOAI: CT_PHANLOAI, CT_VAITRO: CT_VAITRO, CT_MAU: CT_MAU, nlvTrongKy: nlvTrongKy, bienNLV: bienNLV, CT_LUONG_MD: CT_LUONG_MD, BIEN_KY_MD: BIEN_KY_MD, CT_DONGBH_MD: CT_DONGBH_MD, BUOC_XONG: BUOC_XONG, LOAI_BUOC: LOAI_BUOC, FIELDS_LOAI: FIELDS_LOAI,
+    BIEN_HT: BIEN_HT, matKhauTheoNV: matKhauTheoNV, tenBien: tenBien, xlMauTamUng: xlMauTamUng, docTamUng: docTamUng, docTien: docTien, docNgay: docNgay, nhanLoaiTU: nhanLoaiTU, dauVaoTinhLuong: dauVaoTinhLuong, astExcel: astExcel, ctExcel: ctExcel, cotXL: cotXL, xlBangTinh: xlBangTinh, xlBangLuongThang: xlBangLuongThang, xlNam: xlNam, xlCaNhan: xlCaNhan, xlChiPhi: xlChiPhi, sangXLSX: sangXLSX, khoanCo: khoanCo, amSangDuong: amSangDuong, lichLeTheoLuat: lichLeTheoLuat, cleanLe: cleanLe, LOAI_LE: LOAI_LE, KY_HIEU: KY_HIEU, DON_KH: DON_KH, ngayTheoDon: ngayTheoDon, cleanNgay: cleanNgay, tongHopNgay: tongHopNgay, NHOM_VP: NHOM_VP, thu: thu, ROLE_QL: ROLE_QL, NL_NHOM: NL_NHOM, NL_THANG: NL_THANG, NL_KHUNG: NL_KHUNG, nlKhung: nlKhung, nlNhomTuDong: nlNhomTuDong, NL_TEST: NL_TEST, NL_LIKERT: NL_LIKERT, NL_TC: NL_TC, NL_XL: NL_XL, NL_XEP_N: NL_XEP.length, NL_GIAM_QC: NL_GIAM_QC, laThuongKT: laThuongKT, ccKemQC: ccKemQC, NL_SINH: NL_SINH, NL_CM: NL_CM, NL_CM_SINH: NL_CM_SINH, nlRngIntPub: function (sd) { var h = 2166136261; for (var i = 0; i < sd.length; i++) { h ^= sd.charCodeAt(i); h = Math.imul(h, 16777619); } return function (a, b) { h += 0x6D2B79F5; var t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return a + Math.floor((((t ^ (t >>> 14)) >>> 0) / 4294967296) * (b - a + 1)); }; }, nlXepLoai: nlXepLoai, normRole: normRole, tenDangNhap: tenDangNhap, ROLES_MOTA: ROLES_MOTA, BT_LOAI: BT_LOAI, CAM_XUC: CAM_XUC, memChat: memChat, CT_PHANLOAI: CT_PHANLOAI, CT_VAITRO: CT_VAITRO, CT_MAU: CT_MAU, nlvTrongKy: nlvTrongKy, bienNLV: bienNLV, CT_LUONG_MD: CT_LUONG_MD, BIEN_KY_MD: BIEN_KY_MD, CT_DONGBH_MD: CT_DONGBH_MD, BUOC_XONG: BUOC_XONG, LOAI_BUOC: LOAI_BUOC, FIELDS_LOAI: FIELDS_LOAI,
     buocLuong: buocLuong, viTriBuoc: viTriBuoc, buocTheoLoai: buocTheoLoai, PQU_PH: PQU_PH, PQU_MUC: PQU_MUC, PQU_VIEW: PQU_VIEW, PQU_BY: PQU_BY, pquLamSach: pquLamSach, pquMacDinh: pquMacDinh, pquChan: pquChan, canNguoi: canNguoi, kiemTraBoSung: kiemTraBoSung, MUC_BS: MUC_BS, laNguoiXuLy: laNguoiXuLy, kiemTraQTLuong: kiemTraQTLuong,
     CV_HUONG: CV_HUONG, CV_LOAI: CV_LOAI, CV_KHAN: CV_KHAN, CV_TT_DEN: CV_TT_DEN, CV_TT_DI: CV_TT_DI, CV_HET: CV_HET,
     CV_CS: CV_CS, CV_CS_OK: CV_CS_OK,
     DX_TT: DX_TT, DX_MO: DX_MO, DX_XONG: DX_XONG, QT_DX_MD: QT_DX_MD, NHOM_DX_MD: NHOM_DX_MD, DX_CACH: DX_CACH,
     kiemTraLoaiDX: kiemTraLoaiDX, kiemTraNhomDX: kiemTraNhomDX, dxBuocDay: dxBuocDay,
     QT_LUONG_MD: QT_LUONG_MD, QT_NGHI_MD: QT_NGHI_MD, QT_LL_MD: QT_LL_MD, QT_YKIEN_MD: QT_YKIEN_MD, LOAI_VP: LOAI_VP, YK_TT: YK_TT, LOAI_NGHI: LOAI_NGHI, NGHI_COT: NGHI_COT, NP_TT: NP_TT,
-    laNgayNghiLe: laNgayNghiLe, soNgayDon: soNgayDon, ngayNghiTheoKy: ngayNghiTheoKy, quyPhepNam: quyPhepNam, phepNamDaDung: phepNamDaDung, normBuoc: normBuoc, SCHEMA: SCHEMA, isNumCol: isNumCol,
+    laNgayNghiLe: laNgayNghiLe, soNgayDon: soNgayDon, ngayNghiTheoKy: ngayNghiTheoKy, quyPhepNam: quyPhepNam, phepNamDaDung: phepNamDaDung, normBuoc: normBuoc, SCHEMA: SCHEMA, isNumCol: isNumCol, QUAN_HE: QUAN_HE, nguoiNhaDs: nguoiNhaDs,
     DEFAULT_CFG: DEFAULT_CFG, LOAI_HD: LOAI_HD, LOAI_LUONG: LOAI_LUONG, LY_DO_KHONG_BH: LY_DO_KHONG_BH, loaiLuongNV: loaiLuongNV, TRANG_THAI_NV: TRANG_THAI_NV, LOAI_QT: LOAI_QT,
     LOAI_LL: LOAI_LL, LOAI_KT: LOAI_KT, HT_KYLUAT: HT_KYLUAT,
     num: num, addMonths: addMonths, addDays: addDays, kyEnd: kyEnd, validKy: validKy, congChuanTruCN: congChuanTruCN,

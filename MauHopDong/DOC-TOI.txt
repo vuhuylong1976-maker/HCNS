@@ -1,0 +1,5 @@
+MẪU HỢP ĐỒNG CHUẨN (v3.67)
+- Tệp VI-DU_… chỉ là VÍ DỤ minh họa cách ghi trường trộn, KHÔNG phải mẫu hợp đồng chính thức.
+- Công ty dùng mẫu hợp đồng chính thức của mình (.docx), thêm trường trộn {{hoTen}}, {{soHD}}, {{luongHD}}… vào chỗ cần điền,
+  rồi tải lên app: Hồ sơ CBCNV -> tab Hợp đồng -> "📑 Mẫu HĐ chuẩn" -> "+ Tải lên mẫu .docx". Danh sách trường trộn xem trong app.
+- Mẫu tải lên ở trạng thái "Chờ duyệt"; Giám đốc / Quản trị bấm "Duyệt dùng" mới in được bản chính thức (chưa duyệt: BẢN NHÁP).
